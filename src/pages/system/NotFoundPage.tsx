@@ -12,6 +12,9 @@ export const NotFoundPage: React.FC = () => {
           <HelpCircle className="w-8 h-8" />
         </div>
         <div className="space-y-1 max-w-md">
+          <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground uppercase tracking-wider inline-block mb-1">
+            404 Error
+          </span>
           <h1 className="text-2xl font-bold text-foreground">Page Not Found</h1>
           <p className="text-sm text-muted-foreground">
             The operational route you requested does not exist or has moved.

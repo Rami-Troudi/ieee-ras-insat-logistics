@@ -1,16 +1,21 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { AppBrand } from "@/components/shared/AppBrand";
+import { UserMenu } from "@/components/shared/UserMenu";
 import { DevPersonaSwitcher } from "@/components/shared/DevPersonaSwitcher";
 import { Bell, Search, ShieldCheck } from "lucide-react";
-import { useDevPersona } from "@/hooks/useDevPersona";
+import { useSession } from "@/hooks/useSession";
 
 interface TopBarProps {
   isBoard?: boolean;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
-  const { currentPersona } = useDevPersona();
+  const { currentPersona } = useSession();
+  const isBoardRole =
+    isBoard || currentPersona.role === "BOARD" || currentPersona.role === "SUPERADMIN";
+
+  const notificationPath = isBoardRole ? "/board/notifications" : "/app/notifications";
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 border-b border-border bg-card/95 backdrop-blur-sm">
@@ -41,13 +46,13 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
         )}
       </div>
 
-      {/* Right Controls: Persona Switcher, Notifications, Role pill */}
+      {/* Right Controls: Dev Persona Switcher, Notifications, Reusable UserMenu */}
       <div className="flex items-center gap-2.5">
         <DevPersonaSwitcher />
 
         {/* In-App Notifications Button */}
         <Link
-          to="/app/notifications"
+          to={notificationPath}
           className="relative flex items-center justify-center w-10 h-10 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-[44px] min-h-[44px]"
           aria-label="View In-App Notifications"
         >
@@ -55,23 +60,8 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
         </Link>
 
-        {/* User Role Indicator / Profile Link */}
-        <Link
-          to="/app/profile"
-          className="hidden sm:flex items-center gap-2 pl-2 border-l border-border hover:opacity-80 transition-opacity"
-        >
-          <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
-            {currentPersona.name.charAt(0)}
-          </div>
-          <div className="flex flex-col text-left">
-            <span className="text-xs font-medium text-foreground leading-tight truncate max-w-[120px]">
-              {currentPersona.name.split(" ")[0]}
-            </span>
-            <span className="text-[10px] text-muted-foreground leading-tight">
-              {currentPersona.affiliation}
-            </span>
-          </div>
-        </Link>
+        {/* Reusable User Menu Component */}
+        <UserMenu isBoard={isBoardRole} />
       </div>
     </header>
   );

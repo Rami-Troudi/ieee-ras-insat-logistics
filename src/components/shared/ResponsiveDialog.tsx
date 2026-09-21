@@ -1,8 +1,21 @@
 import React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { useIsDesktop } from "@/hooks/useMediaQuery";
 
-interface ResponsiveDialogProps {
+export interface ResponsiveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -17,13 +30,7 @@ export const ResponsiveDialog: React.FC<ResponsiveDialogProps> = ({
   description,
   children,
 }) => {
-  const [isDesktop, setIsDesktop] = React.useState(() => window.innerWidth >= 1024);
-
-  React.useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024);
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
+  const isDesktop = useIsDesktop();
 
   if (isDesktop) {
     return (

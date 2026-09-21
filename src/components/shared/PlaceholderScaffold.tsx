@@ -36,8 +36,8 @@ export const PlaceholderScaffold: React.FC<PlaceholderScaffoldProps> = ({
         <div className="space-y-1">
           <h3 className="text-base font-semibold text-foreground">{title} Structural Route</h3>
           <p className="text-sm text-muted-foreground max-w-md">
-            The shell, typography, breadcrumbs, responsive container, and role-based permissions are active.
-            The business logic will be composed into this view in {domainStage}.
+            The shell, typography, breadcrumbs, responsive container, and role-based permissions are
+            active. The business logic will be composed into this view in {domainStage}.
           </p>
         </div>
         {children}

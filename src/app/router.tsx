@@ -1,11 +1,14 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter } from "react-router-dom";
 import { MemberLayout } from "@/layouts/MemberLayout";
 import { BoardLayout } from "@/layouts/BoardLayout";
+import { RootRedirect } from "@/app/RootRedirect";
 import {
   MemberHomePage,
   MemberInventoryPage,
   MemberRequestsPage,
+  MemberRequestDetailPage,
   MemberLoansPage,
+  MemberLoanDetailPage,
   MemberFavoritesPage,
   MemberNotificationsPage,
   MemberProfilePage,
@@ -14,6 +17,7 @@ import {
   BoardActionCenterPage,
   BoardInventoryPage,
   BoardRequestsPage,
+  BoardRequestDetailPage,
   BoardLoansPage,
   BoardProjectsPage,
   BoardUsersPage,
@@ -21,18 +25,14 @@ import {
   BoardIncidentsPage,
   BoardInsightsPage,
   BoardExportsPage,
+  BoardProfilePage,
+  BoardNotificationsPage,
 } from "@/pages/board";
-import { DesignLabPage } from "@/pages/system/DesignLabPage";
+import React from "react";
+const DesignLabPage = React.lazy(() =>
+  import("@/pages/system/DesignLabPage").then((m) => ({ default: m.DesignLabPage }))
+);
 import { NotFoundPage } from "@/pages/system/NotFoundPage";
-import { useDevPersona } from "@/hooks/useDevPersona";
-
-const RootRedirect: React.FC = () => {
-  const { currentPersona } = useDevPersona();
-  if (currentPersona.role === "BOARD" || currentPersona.role === "SUPERADMIN") {
-    return <Navigate to="/board" replace />;
-  }
-  return <Navigate to="/app" replace />;
-};
 
 export const router = createBrowserRouter([
   {
@@ -46,7 +46,9 @@ export const router = createBrowserRouter([
       { index: true, element: <MemberHomePage /> },
       { path: "inventory", element: <MemberInventoryPage /> },
       { path: "requests", element: <MemberRequestsPage /> },
+      { path: "requests/:requestId", element: <MemberRequestDetailPage /> },
       { path: "loans", element: <MemberLoansPage /> },
+      { path: "loans/:loanId", element: <MemberLoanDetailPage /> },
       { path: "favorites", element: <MemberFavoritesPage /> },
       { path: "notifications", element: <MemberNotificationsPage /> },
       { path: "profile", element: <MemberProfilePage /> },
@@ -58,6 +60,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <BoardActionCenterPage /> },
       { path: "requests", element: <BoardRequestsPage /> },
+      { path: "requests/:requestId", element: <BoardRequestDetailPage /> },
       { path: "loans", element: <BoardLoansPage /> },
       { path: "inventory", element: <BoardInventoryPage /> },
       { path: "projects", element: <BoardProjectsPage /> },
@@ -66,11 +69,17 @@ export const router = createBrowserRouter([
       { path: "incidents", element: <BoardIncidentsPage /> },
       { path: "insights", element: <BoardInsightsPage /> },
       { path: "exports", element: <BoardExportsPage /> },
+      { path: "profile", element: <BoardProfilePage /> },
+      { path: "notifications", element: <BoardNotificationsPage /> },
     ],
   },
   {
     path: "/_dev/design",
-    element: <DesignLabPage />,
+    element: (
+      <React.Suspense fallback={null}>
+        <DesignLabPage />
+      </React.Suspense>
+    ),
   },
   {
     path: "*",

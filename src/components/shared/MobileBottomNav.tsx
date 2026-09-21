@@ -1,15 +1,9 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Home, Package, ClipboardList, Clock, User } from "lucide-react";
+import { MOBILE_MEMBER_TABS } from "@/constants/navigation";
 
-export const MOBILE_MEMBER_TABS = [
-  { name: "Home", path: "/app", icon: Home },
-  { name: "Inventory", path: "/app/inventory", icon: Package },
-  { name: "Requests", path: "/app/requests", icon: ClipboardList },
-  { name: "Loans", path: "/app/loans", icon: Clock },
-  { name: "Profile", path: "/app/profile", icon: User },
-];
+export { MOBILE_MEMBER_TABS };
 
 export const MobileBottomNav: React.FC = () => {
   const location = useLocation();

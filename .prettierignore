@@ -1,0 +1,14 @@
+dist
+node_modules
+Context
+*.png
+*.svg
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.FCStd
+*.stl
+package-lock.json
+tsconfig.tsbuildinfo
+docs/design/screenshots

@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Link } from "react-router-dom";
 import { Package, Clock, ClipboardList, ArrowRight } from "lucide-react";
-import { useDevPersona } from "@/hooks/useDevPersona";
+import { useSession } from "@/hooks/useSession";
 
 export const MemberHomePage: React.FC = () => {
-  const { currentPersona } = useDevPersona();
+  const { currentPersona } = useSession();
 
   return (
     <PageContainer>
@@ -36,11 +36,16 @@ export const MemberHomePage: React.FC = () => {
           </div>
           <div>
             <span className="text-2xl font-bold text-foreground">3 Items</span>
-            <p className="text-xs text-muted-foreground mt-0.5">Physically held across active projects</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Physically held across active projects
+            </p>
           </div>
           <div className="pt-2 flex items-center justify-between border-t border-border/60">
             <StatusBadge status="DUE_SOON" label="1 due in 2 days" />
-            <Link to="/app/loans" className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 py-2.5 min-h-[44px]">
+            <Link
+              to="/app/loans"
+              className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 py-2.5 min-h-[44px]"
+            >
               <span>View loans</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
@@ -56,11 +61,16 @@ export const MemberHomePage: React.FC = () => {
           </div>
           <div>
             <span className="text-base font-semibold text-foreground">REQ-2026-0142</span>
-            <p className="text-xs text-muted-foreground mt-0.5">Eurobot 2027 · 3 boards, 2 motors</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Eurobot 2027 · 3 boards, 2 motors
+            </p>
           </div>
           <div className="pt-2 flex items-center justify-between border-t border-border/60">
             <StatusBadge status="PARTIALLY_APPROVED" label="Partially Approved" />
-            <Link to="/app/requests" className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 py-2.5 min-h-[44px]">
+            <Link
+              to="/app/requests"
+              className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 py-2.5 min-h-[44px]"
+            >
               <span>View status</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
@@ -77,14 +87,21 @@ export const MemberHomePage: React.FC = () => {
             </span>
           </div>
           <div>
-            <span className="text-base font-semibold text-foreground">{currentPersona.affiliation}</span>
+            <span className="text-base font-semibold text-foreground">
+              {currentPersona.affiliation}
+            </span>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {currentPersona.isProcessed ? "Verified by Logistics Board" : "Self-declared (Provisional)"}
+              {currentPersona.isProcessed
+                ? "Verified by Logistics Board"
+                : "Self-declared (Provisional)"}
             </p>
           </div>
           <div className="pt-2 flex items-center justify-between border-t border-border/60">
             <StatusBadge status={currentPersona.status === "ACTIVE" ? "ACTIVE" : "RESTRICTED"} />
-            <Link to="/app/profile" className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 py-2.5 min-h-[44px]">
+            <Link
+              to="/app/profile"
+              className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 py-2.5 min-h-[44px]"
+            >
               <span>View details</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
@@ -106,7 +123,9 @@ export const MemberHomePage: React.FC = () => {
             <Package className="w-4 h-4" />
           </div>
           <div>
-            <span className="text-sm font-semibold text-foreground block">Find & Request Equipment</span>
+            <span className="text-sm font-semibold text-foreground block">
+              Find & Request Equipment
+            </span>
             <span className="text-xs text-muted-foreground">Class A, C, E, and F catalog</span>
           </div>
         </Link>
@@ -119,8 +138,12 @@ export const MemberHomePage: React.FC = () => {
             <Clock className="w-4 h-4" />
           </div>
           <div>
-            <span className="text-sm font-semibold text-foreground block">Return or Extend Items</span>
-            <span className="text-xs text-muted-foreground">Initiate return or request new due date</span>
+            <span className="text-sm font-semibold text-foreground block">
+              Return or Extend Items
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Initiate return or request new due date
+            </span>
           </div>
         </Link>
 
@@ -133,7 +156,9 @@ export const MemberHomePage: React.FC = () => {
           </div>
           <div>
             <span className="text-sm font-semibold text-foreground block">My Request Status</span>
-            <span className="text-xs text-muted-foreground">Track approvals & 48h collection window</span>
+            <span className="text-xs text-muted-foreground">
+              Track approvals & 48h collection window
+            </span>
           </div>
         </Link>
       </div>
@@ -145,7 +170,7 @@ export const MemberInventoryPage: React.FC = () => (
   <PlaceholderScaffold
     title="Equipment Inventory"
     description="Search, filter, favorite, and add items to your borrow request cart."
-    domainStage="Stage 2: Inventory & Catalog"
+    domainStage="Stage 2: Equipment Catalog & Filtering"
   />
 );
 
@@ -153,7 +178,15 @@ export const MemberRequestsPage: React.FC = () => (
   <PlaceholderScaffold
     title="My Borrow Requests"
     description="Track submitted requests, partial approvals, and the 48-hour pickup window."
-    domainStage="Stage 3: Borrowing & Requests"
+    domainStage="Stage 2: Borrow Requests & Cart"
+  />
+);
+
+export const MemberRequestDetailPage: React.FC = () => (
+  <PlaceholderScaffold
+    title="Request Details"
+    description="Review submitted line items, approval status, pickup deadline, and custodian notes."
+    domainStage="Stage 2: Request Detail"
   />
 );
 
@@ -161,7 +194,15 @@ export const MemberLoansPage: React.FC = () => (
   <PlaceholderScaffold
     title="My Active Loans"
     description="View physically borrowed equipment, due dates, request extensions, or initiate returns."
-    domainStage="Stage 3: Loans & Returns"
+    domainStage="Stage 2: Loans & Returns"
+  />
+);
+
+export const MemberLoanDetailPage: React.FC = () => (
+  <PlaceholderScaffold
+    title="Loan Details"
+    description="Inspect equipment serials, condition on handover, loan extension history, and return checklist."
+    domainStage="Stage 2: Loan Detail"
   />
 );
 
@@ -169,7 +210,7 @@ export const MemberFavoritesPage: React.FC = () => (
   <PlaceholderScaffold
     title="Favorite Equipment"
     description="Quickly access frequently requested boards, motors, and electronic resources."
-    domainStage="Stage 2: Favorites Integration"
+    domainStage="Stage 2: Favorite Equipment"
   />
 );
 
@@ -177,7 +218,7 @@ export const MemberNotificationsPage: React.FC = () => (
   <PlaceholderScaffold
     title="In-App Notifications"
     description="Authoritative notifications for loan approvals, return confirmations, due dates, and alerts."
-    domainStage="Stage 3: In-App Notifications"
+    domainStage="Stage 2: Member Notifications"
   />
 );
 
@@ -185,6 +226,6 @@ export const MemberProfilePage: React.FC = () => (
   <PlaceholderScaffold
     title="Member Profile & Clearance"
     description="View verified affiliation, clearance level, strikes ledger, and assigned projects."
-    domainStage="Stage 2: Profile & Verification"
+    domainStage="Stage 2: Member Profile & Verification"
   />
 );

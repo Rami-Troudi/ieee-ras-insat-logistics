@@ -20,11 +20,11 @@ The official web platform for managing hardware inventory, borrow requests, acti
 - **Responsive Dual-Shell Architecture**:
   - **Member Portal (`/app`)**: Clean, spacious interface with a persistent desktop sidebar ($\ge 1024$px) or an ergonomic 5-tab mobile bottom bar (`Home`, `Inventory`, `Requests`, `Loans`, `Profile`).
   - **Board Console (`/board`)**: High-density 10-department operational sidebar on desktop and a high-efficiency 4-tab bar (`Action`, `Requests`, `Loans`, `Inventory`) + slide-up `More` drawer on mobile.
-- **In-Memory Dev Persona Switcher**:
-  - Instant role and clearance flipping (`useDevPersona`) across 6 real club profiles (Member, Unprocessed, Eurobot Lead, Strike 2 Restricted, Logistics Board, Superadmin Chairman).
+- **In-Memory Dev Persona Switcher & Session Abstraction**:
+  - Instant role and clearance flipping (`useDevPersona`) across 6 real club profiles in development, cleanly isolated from production bundle via `useSession`.
 - **Design System & Component Library**:
   - Radix UI accessible primitives (`Dialog`, `Sheet`, `DropdownMenu`, `AlertDialog`, `Table`).
-  - Multi-dimensional `StatusBadge` covering 10 domain statuses with icon + color + text.
+  - Multi-dimensional `StatusBadge` covering all 25 domain statuses with icon + color + text.
   - Tactile bound-checked `QuantitySelector` and accessible `SearchInput`.
   - Responsive dialog/drawer hybrid pattern (`ResponsiveDialog`).
 - **Development Design Lab (`/_dev/design`)**:
@@ -37,16 +37,24 @@ The official web platform for managing hardware inventory, borrow requests, acti
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 20+
 - npm 10+
 
 ### Installation & Run
+
 ```bash
 # Install dependencies
 npm install
 
 # Start development server
 npm run dev
+
+# Check Prettier code formatting
+npm run format:check
+
+# Run ESLint 9 static analysis
+npm run lint
 
 # Run TypeScript strict typecheck
 npm run typecheck

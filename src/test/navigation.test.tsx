@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, beforeEach } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, RouterProvider, createMemoryRouter } from "react-router-dom";
 import { Providers } from "@/app/providers";
 import { DesktopSidebar } from "@/components/shared/DesktopSidebar";
 import { DesktopBoardSidebar } from "@/components/shared/DesktopBoardSidebar";
@@ -11,6 +11,11 @@ import { QuantitySelector } from "@/components/shared/QuantitySelector";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { EmptyState, ErrorState } from "@/components/shared/FeedbackStates";
 import { DevPersonaSwitcher } from "@/components/shared/DevPersonaSwitcher";
+import { MemberLayout } from "@/layouts/MemberLayout";
+import { BoardLayout } from "@/layouts/BoardLayout";
+import { MemberRequestDetailPage, MemberLoanDetailPage } from "@/pages/member";
+import { BoardRequestDetailPage, BoardProfilePage, BoardNotificationsPage } from "@/pages/board";
+import { NotFoundPage } from "@/pages/system/NotFoundPage";
 
 describe("Stage 1 Navigation & Shell Architecture", () => {
   beforeEach(() => {
@@ -26,14 +31,12 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
       </Providers>
     );
 
-    // Member links must exist
     expect(screen.getByText("Home")).toBeInTheDocument();
     expect(screen.getByText("Inventory")).toBeInTheDocument();
     expect(screen.getByText("My Requests")).toBeInTheDocument();
     expect(screen.getByText("My Loans")).toBeInTheDocument();
     expect(screen.getByText("Favorites")).toBeInTheDocument();
 
-    // Board-only links must NOT exist in Member sidebar
     expect(screen.queryByText("Action Center")).not.toBeInTheDocument();
     expect(screen.queryByText("Audits")).not.toBeInTheDocument();
     expect(screen.queryByText("Incidents & Strikes")).not.toBeInTheDocument();
@@ -49,7 +52,6 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
       </Providers>
     );
 
-    // Board links must exist
     expect(screen.getByText("Action Center")).toBeInTheDocument();
     expect(screen.getByText("Requests")).toBeInTheDocument();
     expect(screen.getByText("Loans")).toBeInTheDocument();
@@ -93,6 +95,103 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
     expect(screen.getByText("Inventory")).toBeInTheDocument();
     expect(screen.getByText("More")).toBeInTheDocument();
   });
+
+  it("opens Board More bottom sheet with all secondary management links", async () => {
+    render(
+      <Providers>
+        <MemoryRouter>
+          <MobileBoardBottomNav />
+        </MemoryRouter>
+      </Providers>
+    );
+
+    const moreTrigger = screen.getByLabelText("More Board Options");
+    fireEvent.click(moreTrigger);
+
+    expect(await screen.findByText("Board Operations Menu")).toBeInTheDocument();
+    expect(screen.getByText("Projects")).toBeInTheDocument();
+    expect(screen.getByText("Users & Accounts")).toBeInTheDocument();
+    expect(screen.getByText("Audits")).toBeInTheDocument();
+    expect(screen.getByText("Incidents & Strikes")).toBeInTheDocument();
+    expect(screen.getByText("Insights Dashboard")).toBeInTheDocument();
+    expect(screen.getByText("Data Exports")).toBeInTheDocument();
+    expect(screen.getByText("Operational Notifications")).toBeInTheDocument();
+    expect(screen.getByText("Board Profile")).toBeInTheDocument();
+  });
+
+  it("renders 404 NotFoundPage for unmapped route", () => {
+    const testRouter = createMemoryRouter([{ path: "*", element: <NotFoundPage /> }], {
+      initialEntries: ["/unmapped/invalid/path"],
+    });
+
+    render(
+      <Providers>
+        <RouterProvider router={testRouter} />
+      </Providers>
+    );
+
+    expect(screen.getByText("404 Error")).toBeInTheDocument();
+    expect(screen.getByText("Page Not Found")).toBeInTheDocument();
+  });
+
+  it("renders structural detail placeholder routes", () => {
+    const detailRouter = createMemoryRouter(
+      [
+        {
+          path: "/app",
+          element: <MemberLayout />,
+          children: [
+            { path: "requests/:requestId", element: <MemberRequestDetailPage /> },
+            { path: "loans/:loanId", element: <MemberLoanDetailPage /> },
+          ],
+        },
+        {
+          path: "/board",
+          element: <BoardLayout />,
+          children: [{ path: "requests/:requestId", element: <BoardRequestDetailPage /> }],
+        },
+      ],
+      { initialEntries: ["/app/requests/REQ-2026-001"] }
+    );
+
+    render(
+      <Providers>
+        <RouterProvider router={detailRouter} />
+      </Providers>
+    );
+
+    expect(screen.getByText("Request Details Structural Route")).toBeInTheDocument();
+    expect(screen.getByText("Scheduled for Stage 2: Request Detail")).toBeInTheDocument();
+  });
+
+  it("preserves Board shell context when navigating to Board Profile and Board Notifications", () => {
+    const boardContextRouter = createMemoryRouter(
+      [
+        {
+          path: "/board",
+          element: <BoardLayout />,
+          children: [
+            { path: "profile", element: <BoardProfilePage /> },
+            { path: "notifications", element: <BoardNotificationsPage /> },
+          ],
+        },
+      ],
+      { initialEntries: ["/board/profile"] }
+    );
+
+    render(
+      <Providers>
+        <RouterProvider router={boardContextRouter} />
+      </Providers>
+    );
+
+    // Board layout is active (has Board Operations sidebar)
+    expect(screen.getByText("Board Operations")).toBeInTheDocument();
+    expect(
+      screen.getByText("Board Member & Custodian Profile Structural Route")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Scheduled for Stage 3: Board Custodian Profile")).toBeInTheDocument();
+  });
 });
 
 describe("Design System Primitives & Feedback States", () => {
@@ -113,14 +212,7 @@ describe("Design System Primitives & Feedback States", () => {
       quantity = val;
     };
 
-    render(
-      <QuantitySelector
-        value={quantity}
-        onChange={handleChange}
-        min={1}
-        max={5}
-      />
-    );
+    render(<QuantitySelector value={quantity} onChange={handleChange} min={1} max={5} />);
 
     const incrementBtn = screen.getByLabelText("Increase quantity");
     const decrementBtn = screen.getByLabelText("Decrease quantity");
@@ -184,7 +276,7 @@ describe("Design System Primitives & Feedback States", () => {
 });
 
 describe("Dev Persona Switcher", () => {
-  it("renders the active persona and switches when changed", () => {
+  it("renders the active persona and role indicator in development", async () => {
     render(
       <Providers>
         <MemoryRouter>
@@ -193,8 +285,7 @@ describe("Dev Persona Switcher", () => {
       </Providers>
     );
 
-    // Initial persona button shows active persona name
-    const trigger = screen.getByTitle("Switch Active Dev Persona");
+    const trigger = await screen.findByTitle("Switch Active Dev Persona");
     expect(trigger).toBeInTheDocument();
     expect(trigger).toHaveTextContent("MEMBER");
   });

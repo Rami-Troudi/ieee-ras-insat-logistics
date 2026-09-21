@@ -2,34 +2,10 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AppBrand } from "@/components/shared/AppBrand";
 import { cn } from "@/lib/utils";
-import {
-  Inbox,
-  Package,
-  ClipboardList,
-  Clock,
-  FolderGit2,
-  Users,
-  CheckCircle2,
-  AlertTriangle,
-  BarChart3,
-  Download,
-  Bell,
-  User,
-  FlaskConical,
-} from "lucide-react";
+import { BOARD_NAV_ITEMS } from "@/constants/navigation";
+import { Bell, User, FlaskConical } from "lucide-react";
 
-export const BOARD_NAV_ITEMS = [
-  { name: "Action Center", path: "/board", icon: Inbox },
-  { name: "Inventory", path: "/board/inventory", icon: Package },
-  { name: "Requests", path: "/board/requests", icon: ClipboardList },
-  { name: "Loans", path: "/board/loans", icon: Clock },
-  { name: "Projects", path: "/board/projects", icon: FolderGit2 },
-  { name: "Users", path: "/board/users", icon: Users },
-  { name: "Audits", path: "/board/audits", icon: CheckCircle2 },
-  { name: "Incidents", path: "/board/incidents", icon: AlertTriangle },
-  { name: "Insights", path: "/board/insights", icon: BarChart3 },
-  { name: "Exports", path: "/board/exports", icon: Download },
-];
+export { BOARD_NAV_ITEMS };
 
 export const DesktopBoardSidebar: React.FC = () => {
   const location = useLocation();
@@ -42,7 +18,10 @@ export const DesktopBoardSidebar: React.FC = () => {
       </div>
 
       {/* Navigation List */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5" aria-label="Board Sidebar Navigation">
+      <nav
+        className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5"
+        aria-label="Board Sidebar Navigation"
+      >
         <div className="px-3 pb-2 pt-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
           Board Operations
         </div>
@@ -89,18 +68,28 @@ export const DesktopBoardSidebar: React.FC = () => {
         )}
       </nav>
 
-      {/* Secondary Bottom Links */}
+      {/* Secondary Bottom Links — Board context preserves Board shell */}
       <div className="p-3 border-t border-border space-y-1">
         <Link
-          to="/app/notifications"
-          className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors min-h-[40px]"
+          to="/board/notifications"
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[40px]",
+            location.pathname === "/board/notifications"
+              ? "bg-secondary text-secondary-foreground font-semibold"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+          )}
         >
           <Bell className="w-4 h-4 shrink-0" />
           <span>Notifications</span>
         </Link>
         <Link
-          to="/app/profile"
-          className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors min-h-[40px]"
+          to="/board/profile"
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[40px]",
+            location.pathname === "/board/profile"
+              ? "bg-secondary text-secondary-foreground font-semibold"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+          )}
         >
           <User className="w-4 h-4 shrink-0" />
           <span>Profile</span>

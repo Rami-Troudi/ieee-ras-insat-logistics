@@ -5,15 +5,10 @@ import { cn } from "@/lib/utils";
 
 interface AppBrandProps {
   className?: string;
-  collapsed?: boolean;
   to?: string;
 }
 
-export const AppBrand: React.FC<AppBrandProps> = ({
-  className,
-  collapsed = false,
-  to = "/",
-}) => {
+export const AppBrand: React.FC<AppBrandProps> = ({ className, to = "/" }) => {
   return (
     <Link
       to={to}
@@ -23,26 +18,21 @@ export const AppBrand: React.FC<AppBrandProps> = ({
       )}
       aria-label="IEEE RAS INSAT Logistics Home"
     >
-      <div className="flex-shrink-0 flex items-center justify-center">
+      <div className="flex-shrink-0 flex items-center justify-center p-1">
         <img
           src={rasLogoFull}
           alt="IEEE Robotics & Automation Society"
-          className={cn(
-            "object-contain transition-all",
-            collapsed ? "h-7 w-auto min-w-[32px]" : "h-9 w-auto min-w-[110px] max-w-[150px]"
-          )}
+          className="h-9 w-auto min-w-[110px] max-w-[150px] object-contain transition-all"
         />
       </div>
-      {!collapsed && (
-        <div className="hidden sm:flex flex-col border-l border-border/80 pl-2.5">
-          <span className="text-xs font-semibold uppercase tracking-wider text-foreground leading-tight">
-            Logistics
-          </span>
-          <span className="text-[10px] font-medium text-muted-foreground leading-tight">
-            INSAT Student Branch Chapter
-          </span>
-        </div>
-      )}
+      <div className="hidden sm:flex flex-col border-l border-border/80 pl-2.5">
+        <span className="text-xs font-semibold uppercase tracking-wider text-foreground leading-tight">
+          Logistics
+        </span>
+        <span className="text-[10px] font-medium text-muted-foreground leading-tight">
+          INSAT Student Branch Chapter
+        </span>
+      </div>
     </Link>
   );
 };

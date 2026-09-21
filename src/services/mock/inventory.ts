@@ -1,7 +1,9 @@
 import { IInventoryService, InventoryQueryFilter } from "../contracts/inventory";
 import { InventoryItemSummary } from "@/types";
 
-const MOCK_ITEMS: InventoryItemSummary[] = [
+export type MockScenario = "NORMAL" | "SUCCESS" | "EMPTY" | "ERROR" | "SLOW";
+
+export const MOCK_ITEMS: InventoryItemSummary[] = [
   {
     id: "item-stm32-f4",
     name: "STM32F401RE Nucleo-64",
@@ -75,14 +77,38 @@ const MOCK_ITEMS: InventoryItemSummary[] = [
 ];
 
 export class MockInventoryService implements IInventoryService {
-  private delayMs: number;
+  private defaultDelayMs: number;
+  private scenario: MockScenario = "NORMAL";
 
-  constructor(delayMs = 250) {
-    this.delayMs = delayMs;
+  constructor(defaultDelayMs = 250) {
+    this.defaultDelayMs = defaultDelayMs;
+  }
+
+  setScenario(scenario: MockScenario): void {
+    this.scenario = scenario;
+  }
+
+  getScenario(): MockScenario {
+    return this.scenario;
+  }
+
+  private async simulateLatency(): Promise<void> {
+    let delay = this.defaultDelayMs;
+    if (this.scenario === "SLOW") {
+      delay = 1500;
+    }
+    await new Promise((res) => setTimeout(res, delay));
+    if (this.scenario === "ERROR") {
+      throw new Error("Simulated mock service network error");
+    }
   }
 
   async listItems(filters?: InventoryQueryFilter): Promise<InventoryItemSummary[]> {
-    await new Promise((res) => setTimeout(res, this.delayMs));
+    await this.simulateLatency();
+
+    if (this.scenario === "EMPTY") {
+      return [];
+    }
 
     let items = [...MOCK_ITEMS];
     if (filters?.search) {
@@ -104,10 +130,15 @@ export class MockInventoryService implements IInventoryService {
   }
 
   async getItem(id: string): Promise<InventoryItemSummary | null> {
-    await new Promise((res) => setTimeout(res, this.delayMs));
+    await this.simulateLatency();
+
+    if (this.scenario === "EMPTY") {
+      return null;
+    }
+
     const found = MOCK_ITEMS.find((it) => it.id === id);
     return found || null;
   }
 }
 
-export const inventoryService = new MockInventoryService();
+export const mockInventoryService = new MockInventoryService();

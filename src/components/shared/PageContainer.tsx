@@ -50,9 +50,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
             {title}
           </h1>
-          {description && (
-            <p className="text-sm text-muted-foreground max-w-2xl">{description}</p>
-          )}
+          {description && <p className="text-sm text-muted-foreground max-w-2xl">{description}</p>}
         </div>
         {action && <div className="flex items-center gap-2 shrink-0">{action}</div>}
       </div>
@@ -74,11 +72,14 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   className,
 }) => {
   return (
-    <div className={cn("flex items-center justify-between gap-4 pb-2 border-b border-border/40", className)}>
+    <div
+      className={cn(
+        "flex items-center justify-between gap-4 pb-2 border-b border-border/40",
+        className
+      )}
+    >
       <div>
-        <h2 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">
-          {title}
-        </h2>
+        <h2 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">{title}</h2>
         {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}

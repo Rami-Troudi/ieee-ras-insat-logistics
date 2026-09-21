@@ -10,7 +10,9 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
     min-height: 100vh;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }

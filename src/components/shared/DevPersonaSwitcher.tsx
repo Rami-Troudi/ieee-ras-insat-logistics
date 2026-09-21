@@ -1,5 +1,6 @@
 import React from "react";
-import { useDevPersona, PRESET_PERSONAS } from "@/hooks/useDevPersona";
+import { useNavigate } from "react-router-dom";
+import { useDevPersona } from "@/hooks/useDevPersona";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -10,18 +11,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { UserCheck, ShieldAlert, ChevronDown } from "lucide-react";
+import { UserPersona } from "@/types";
 
 export const DevPersonaSwitcher: React.FC = () => {
-  const { currentPersona, setPersona, isDev } = useDevPersona();
+  const { currentPersona, personas, setPersona, isDev } = useDevPersona();
+  const navigate = useNavigate();
 
   if (!isDev) return null;
+
+  const handleSelectPersona = (p: UserPersona) => {
+    setPersona(p);
+    if (p.role === "BOARD" || p.role === "SUPERADMIN") {
+      navigate("/board");
+    } else {
+      navigate("/app");
+    }
+  };
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-colors focus-visible:ring-2 focus-visible:ring-amber-500"
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-amber-500/10 text-amber-700 border border-amber-500/30 hover:bg-amber-500/20 transition-colors focus-visible:ring-2 focus-visible:ring-amber-500 min-h-[44px] sm:min-h-[36px]"
           title="Switch Active Dev Persona"
+          aria-label={`Current Persona: ${currentPersona.role}. Click to switch role.`}
         >
           <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
           <span className="font-semibold">{currentPersona.role}</span>
@@ -39,12 +52,12 @@ export const DevPersonaSwitcher: React.FC = () => {
           </Badge>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {PRESET_PERSONAS.map((p) => {
+        {personas.map((p) => {
           const isSelected = p.id === currentPersona.id;
           return (
             <DropdownMenuItem
               key={p.id}
-              onClick={() => setPersona(p)}
+              onClick={() => handleSelectPersona(p)}
               className="flex flex-col items-start gap-0.5 py-2 cursor-pointer"
             >
               <div className="flex items-center justify-between w-full">
@@ -66,9 +79,7 @@ export const DevPersonaSwitcher: React.FC = () => {
                 {p.strikesCount > 0 && (
                   <>
                     <span>•</span>
-                    <span className="text-destructive font-semibold">
-                      {p.strikesCount} Strikes
-                    </span>
+                    <span className="text-destructive font-semibold">{p.strikesCount} Strikes</span>
                   </>
                 )}
               </div>

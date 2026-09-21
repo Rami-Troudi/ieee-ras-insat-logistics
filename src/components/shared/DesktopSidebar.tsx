@@ -2,24 +2,10 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AppBrand } from "@/components/shared/AppBrand";
 import { cn } from "@/lib/utils";
-import {
-  Home,
-  Package,
-  ClipboardList,
-  Clock,
-  Heart,
-  Bell,
-  User,
-  FlaskConical,
-} from "lucide-react";
+import { MEMBER_NAV_ITEMS } from "@/constants/navigation";
+import { Bell, User, FlaskConical } from "lucide-react";
 
-export const MEMBER_NAV_ITEMS = [
-  { name: "Home", path: "/app", icon: Home },
-  { name: "Inventory", path: "/app/inventory", icon: Package },
-  { name: "My Requests", path: "/app/requests", icon: ClipboardList },
-  { name: "My Loans", path: "/app/loans", icon: Clock },
-  { name: "Favorites", path: "/app/favorites", icon: Heart },
-];
+export { MEMBER_NAV_ITEMS };
 
 export const DesktopSidebar: React.FC<{ isBoard?: boolean }> = ({ isBoard = false }) => {
   const location = useLocation();

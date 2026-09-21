@@ -1,50 +1,161 @@
 import React, { useState } from "react";
 import { PageContainer, PageHeader, SectionHeader } from "@/components/shared/PageContainer";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { StatusBadge } from "@/components/shared/StatusBadge";
+import { StatusBadge, DomainStatus } from "@/components/shared/StatusBadge";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { QuantitySelector } from "@/components/shared/QuantitySelector";
 import { EmptyState, ErrorState } from "@/components/shared/FeedbackStates";
 import { ResponsiveDialog } from "@/components/shared/ResponsiveDialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+import { AlertBanner } from "@/components/shared/AlertBanner";
+import { PolicyNotice } from "@/components/shared/PolicyNotice";
+import { FavoriteButton } from "@/components/shared/FavoriteButton";
+import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
+import { ResponsiveDataTable } from "@/components/shared/ResponsiveDataTable";
+import { MobileEntityCard } from "@/components/shared/MobileEntityCard";
+import { Metric } from "@/components/shared/Metric";
+import { KeyValueRow } from "@/components/shared/KeyValueRow";
+import { LoadingState } from "@/components/shared/LoadingState";
+import { FilterBar, ActiveFilter } from "@/components/shared/FilterBar";
+import { FilterDrawer } from "@/components/shared/FilterDrawer";
+import { UserMenu } from "@/components/shared/UserMenu";
 import { useQuery } from "@tanstack/react-query";
-import { inventoryService } from "@/services/mock/inventory";
+import { inventoryService, mockInventoryService, MockScenario } from "@/services/inventory";
 import { QUERY_KEYS } from "@/app/query-client";
 import rasLogoFull from "@/assets/ras_logo_full.png";
 import rasLogoWhite from "@/assets/ras_logo_white.svg";
-import { ShieldAlert } from "lucide-react";
+import { Clock, ClipboardList, AlertTriangle, Package } from "lucide-react";
+import { InventoryItemSummary } from "@/types";
 
 export const DesignLabPage: React.FC = () => {
   const [searchValue, setSearchValue] = useState("");
   const [qty, setQty] = useState(2);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [activeScenario, setActiveScenario] = useState<MockScenario>("NORMAL");
+  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>({
+    "item-stm32-f4": true,
+    "item-pololu-driver": true,
+  });
 
-  // TanStack Query test against MockInventoryService
-  const { data: mockItems, isLoading, isError, refetch } = useQuery({
-    queryKey: QUERY_KEYS.inventory.list(),
+  // Filter Bar state
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([
+    { id: "class-e", label: "Class", value: "Class E (Electronic)", count: 3 },
+    { id: "stock-avail", label: "Status", value: "Available Only" },
+  ]);
+
+  // TanStack Query using public service boundary
+  const {
+    data: mockItems,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: [...QUERY_KEYS.inventory.list(), activeScenario],
     queryFn: () => inventoryService.listItems(),
   });
+
+  const handleScenarioChange = (scenario: MockScenario) => {
+    setActiveScenario(scenario);
+    mockInventoryService.setScenario(scenario);
+    refetch();
+  };
+
+  const toggleFavorite = (id: string) => {
+    setFavoriteMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const removeFilter = (id: string) => {
+    setActiveFilters((prev) => prev.filter((f) => f.id !== id));
+  };
+
+  const clearAllFilters = () => {
+    setActiveFilters([]);
+  };
+
+  const tableColumns = [
+    {
+      key: "name",
+      header: "Equipment Item",
+      render: (item: InventoryItemSummary) => (
+        <div className="space-y-0.5">
+          <span className="font-semibold text-foreground block">{item.name}</span>
+          <span className="text-xs text-muted-foreground line-clamp-1">{item.description}</span>
+        </div>
+      ),
+    },
+    {
+      key: "category",
+      header: "Category",
+      render: (item: InventoryItemSummary) => (
+        <span className="text-xs text-muted-foreground">{item.category}</span>
+      ),
+    },
+    {
+      key: "class",
+      header: "Class",
+      render: (item: InventoryItemSummary) => (
+        <Badge variant="outline" className="font-mono text-xs">
+          Class {item.equipmentClass}
+        </Badge>
+      ),
+    },
+    {
+      key: "stock",
+      header: "Available / Total",
+      className: "text-right",
+      headerClassName: "text-right",
+      render: (item: InventoryItemSummary) => (
+        <span className="font-mono font-semibold text-xs">
+          <span className="text-[hsl(var(--success))]">{item.availableQuantity}</span>
+          <span className="text-muted-foreground"> / {item.totalQuantity}</span>
+        </span>
+      ),
+    },
+    {
+      key: "action",
+      header: "Favorite",
+      className: "text-right",
+      headerClassName: "text-right",
+      render: (item: InventoryItemSummary) => (
+        <FavoriteButton
+          isFavorite={!!favoriteMap[item.id]}
+          onToggle={() => toggleFavorite(item.id)}
+          itemName={item.name}
+        />
+      ),
+    },
+  ];
+
+  const allStatuses: DomainStatus[] = [
+    "PENDING",
+    "APPROVED",
+    "PARTIALLY_APPROVED",
+    "REJECTED",
+    "EXPIRED",
+    "WAITING",
+    "HANDED_OVER",
+    "ACTIVE",
+    "CLOSED",
+    "RETURNED",
+    "PARTIALLY_RETURNED",
+    "AVAILABLE",
+    "BORROWED",
+    "DAMAGED",
+    "MAINTENANCE",
+    "LOST",
+    "RETIRED",
+    "DUE_SOON",
+    "OVERDUE",
+    "RESTRICTED",
+    "BANNED",
+    "SUCCESS",
+    "WARNING",
+    "ERROR",
+    "INFO",
+  ];
 
   return (
     <PageContainer maxWidth="wide" className="space-y-12">
@@ -52,9 +163,15 @@ export const DesignLabPage: React.FC = () => {
         title="Stage 1 Design Lab & Visual System"
         description="Authoritative reference for IEEE RAS brand tokens, official tints, typography, responsive components, and semantic states."
         action={
-          <Badge variant="outline" className="text-xs px-3 py-1 font-mono uppercase bg-amber-500/10 text-amber-700 border-amber-500/30">
-            Development Only
-          </Badge>
+          <div className="flex items-center gap-3">
+            <UserMenu />
+            <Badge
+              variant="outline"
+              className="text-xs px-3 py-1 font-mono uppercase bg-amber-500/10 text-amber-700 border-amber-500/30"
+            >
+              Development Only
+            </Badge>
+          </div>
         }
       />
 
@@ -79,7 +196,8 @@ export const DesignLabPage: React.FC = () => {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Official wordmark and oval mark. Proportions strictly maintained, digital minimum ≥ 100px.
+              Official combined IEEE Master Brand and RAS wordmark lockup. Digital clear space: ≥ ½
+              × oval height.
             </p>
           </div>
 
@@ -95,23 +213,25 @@ export const DesignLabPage: React.FC = () => {
               />
             </div>
             <p className="text-xs text-white/70">
-              Authorized white vector treatment over IEEE Navy. Never placed over light backgrounds.
+              Authorized white vector knockout treatment over IEEE Navy.
             </p>
           </div>
         </div>
 
         {/* Core Colors & Tints */}
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-foreground">Canonical Palette & Official Tints</h4>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+          <h4 className="text-sm font-semibold text-foreground">
+            Canonical Palette & Official Tints
+          </h4>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {/* RAS Red */}
             <div className="space-y-1.5">
               <div className="h-14 rounded-md bg-[var(--ras-red)] text-white flex items-center justify-center font-mono text-xs font-bold shadow-sm">
                 #861F41
               </div>
               <span className="text-xs font-semibold text-foreground block">RAS Red (100%)</span>
-              <div className="grid grid-cols-4 gap-1">
+              <div className="grid grid-cols-4 gap-1 text-[9px] font-mono text-center">
                 <div className="h-6 rounded bg-[var(--ras-red-80)]" title="80% #A54F63" />
                 <div className="h-6 rounded bg-[var(--ras-red-60)]" title="60% #BD7A87" />
                 <div className="h-6 rounded bg-[var(--ras-red-40)]" title="40% #D4A5AD" />
@@ -125,7 +245,7 @@ export const DesignLabPage: React.FC = () => {
                 #772583
               </div>
               <span className="text-xs font-semibold text-foreground block">RAS Purple (100%)</span>
-              <div className="grid grid-cols-4 gap-1">
+              <div className="grid grid-cols-4 gap-1 text-[9px] font-mono text-center">
                 <div className="h-6 rounded bg-[var(--ras-purple-80)]" title="80% #96529A" />
                 <div className="h-6 rounded bg-[var(--ras-purple-60)]" title="60% #B17CB3" />
                 <div className="h-6 rounded bg-[var(--ras-purple-40)]" title="40% #CBA7CC" />
@@ -139,7 +259,7 @@ export const DesignLabPage: React.FC = () => {
                 #00629B
               </div>
               <span className="text-xs font-semibold text-foreground block">IEEE Blue (100%)</span>
-              <div className="grid grid-cols-4 gap-1">
+              <div className="grid grid-cols-4 gap-1 text-[9px] font-mono text-center">
                 <div className="h-6 rounded bg-[var(--ieee-blue-80)]" title="80% #007DAF" />
                 <div className="h-6 rounded bg-[var(--ieee-blue-60)]" title="60% #5B9CC3" />
                 <div className="h-6 rounded bg-[var(--ieee-blue-40)]" title="40% #95BCD6" />
@@ -153,277 +273,365 @@ export const DesignLabPage: React.FC = () => {
                 #002855
               </div>
               <span className="text-xs font-semibold text-foreground block">IEEE Navy (100%)</span>
-              <div className="grid grid-cols-4 gap-1">
+              <div className="grid grid-cols-4 gap-1 text-[9px] font-mono text-center">
                 <div className="h-6 rounded bg-[var(--ieee-navy-80)]" title="80% #2D4D76" />
                 <div className="h-6 rounded bg-[var(--ieee-navy-60)]" title="60% #627596" />
                 <div className="h-6 rounded bg-[var(--ieee-navy-40)]" title="40% #94A1B8" />
                 <div className="h-6 rounded bg-[var(--ieee-navy-20)]" title="20% #C8CEDA" />
               </div>
             </div>
-
-            {/* IEEE Orange */}
-            <div className="space-y-1.5">
-              <div className="h-14 rounded-md bg-[var(--ieee-orange)] text-black flex items-center justify-center font-mono text-xs font-bold shadow-sm">
-                #FFA300
-              </div>
-              <span className="text-xs font-semibold text-foreground block">IEEE Orange</span>
-              <span className="text-[11px] text-muted-foreground">Accent Supporting</span>
-            </div>
-
-            {/* IEEE Gold */}
-            <div className="space-y-1.5">
-              <div className="h-14 rounded-md bg-[var(--ieee-gold)] text-black flex items-center justify-center font-mono text-xs font-bold shadow-sm">
-                #FFC72C
-              </div>
-              <span className="text-xs font-semibold text-foreground block">IEEE Gold</span>
-              <span className="text-[11px] text-muted-foreground">Accent Supporting</span>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* 2. Semantic UI Controls Section */}
+      {/* 2. Shared Foundation Components */}
       <section className="space-y-6">
         <SectionHeader
-          title="2. Interactive UI Primitives & Sizing"
-          description="Buttons, inputs, dialogs, drawers, and quantity selectors with strict >=44px touch targets."
+          title="2. Shared Foundation Primitives"
+          description="Operational primitives built for Stage 2 (Member) and Stage 3 (Board) workflows."
         />
 
-        {/* Buttons Grid */}
-        <div className="p-6 rounded-xl border border-border bg-card space-y-4">
-          <h4 className="text-sm font-semibold text-foreground">Button Variants (Primary = RAS Purple, Brand Accent = RAS Red)</h4>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="default">Primary Action (RAS Purple)</Button>
-            <Button variant="secondary">Secondary (RAS Red)</Button>
-            <Button variant="destructive">Destructive (Semantic Danger)</Button>
-            <Button variant="outline">Outline Neutral</Button>
-            <Button variant="ghost">Ghost Button</Button>
-            <Button variant="brandRed">Brand Red Explicit</Button>
-          </div>
+        {/* Operational Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Metric
+            label="Active Loans"
+            value="14"
+            description="Across 6 active Eurobot teams"
+            icon={Package}
+            variant="default"
+          />
+          <Metric
+            label="Pending Review"
+            value="7"
+            description="3 Class E, 2 Class F"
+            icon={ClipboardList}
+            variant="secondary"
+          />
+          <Metric
+            label="Due Soon"
+            value="3"
+            description="Collection window < 48h"
+            icon={Clock}
+            variant="warning"
+          />
+          <Metric
+            label="Active Strikes"
+            value="2"
+            description="1 user restricted (Strike 2)"
+            icon={AlertTriangle}
+            variant="danger"
+          />
         </div>
 
-        {/* Form Controls & Quantity Selector */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-6 rounded-xl border border-border bg-card space-y-4">
-            <h4 className="text-sm font-semibold text-foreground">Search Input & Form Field</h4>
-            <SearchInput
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              onClear={() => setSearchValue("")}
-              placeholder="Search STM32, Arduino, sensors..."
-            />
-            <Input placeholder="Direct serial or text input..." />
-          </div>
-
-          <div className="p-6 rounded-xl border border-border bg-card space-y-4">
-            <h4 className="text-sm font-semibold text-foreground">Quantity Selector & Overlays</h4>
-            <div className="flex items-center gap-4">
-              <QuantitySelector value={qty} onChange={setQty} min={1} max={10} />
-              <span className="text-xs text-muted-foreground">Current: {qty} units requested</span>
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(true)}>
-                Open Responsive Dialog
+        {/* Alert Banners & Policy Notices */}
+        <div className="space-y-3">
+          <AlertBanner
+            variant="warning"
+            title="Loan Due in 24 Hours: STM32F401RE Nucleo"
+            description="Your loan for Eurobot 2027 is due tomorrow at 18:00. Return equipment to the Board cabinet or request an extension."
+            action={
+              <Button size="sm" variant="outline">
+                Request Extension
               </Button>
+            }
+          />
+          <AlertBanner
+            variant="danger"
+            title="Strike 2 Notice Active"
+            description="Due to 7-day late return on REQ-2026-0089, borrower privileges are restricted to Class A/B only."
+          />
+          <PolicyNotice
+            ruleRef="REG-SEC-3.1"
+            summary="Class E (Electronic Resources) Clearance Rule"
+            details="Class E equipment requires verified Level III clearance or above. Eurobot leads hold Level V authorization for team batch allocations."
+          />
+        </div>
 
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive">Test Consequence Dialog</Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center gap-2">
-                      <ShieldAlert className="w-5 h-5 text-destructive" />
-                      <span>Issue Permanent Blacklist (Strike 5)?</span>
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently blacklist the user from the IEEE RAS INSAT Logistics Platform.
-                      Historical accountability and logs will be preserved, but all future borrowing privileges will be revoked permanently.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel Action</AlertDialogCancel>
-                    <AlertDialogAction>Permanently Blacklist</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
+        {/* KeyValueRow Inspection Panel */}
+        <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+          <h4 className="text-sm font-semibold text-foreground">
+            Equipment Item Inspector (KeyValueRow Pattern)
+          </h4>
+          <div className="max-w-lg">
+            <KeyValueRow label="Item Identifier" value="item-stm32-f4" isMono />
+            <KeyValueRow label="Equipment Class" value={<Badge variant="outline">Class E</Badge>} />
+            <KeyValueRow label="Tracking Mode" value="INDIVIDUAL_ASSET" isMono />
+            <KeyValueRow label="Available Stock" value="5 of 8 units" />
+            <KeyValueRow label="Borrower Status" value={<StatusBadge status="AVAILABLE" />} />
           </div>
         </div>
       </section>
 
-      {/* 3. Domain Status Badges Section */}
+      {/* 3. Responsive Data Presentation (Table + Mobile Cards) */}
       <section className="space-y-6">
         <SectionHeader
-          title="3. Multi-Dimensional Domain Statuses"
-          description="Consistent vocabulary pairing colors, icons, and explicit text without color-only encoding."
-        />
-
-        <div className="p-6 rounded-xl border border-border bg-card space-y-6">
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-              Request Decision States
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              <StatusBadge status="PENDING" label="Pending Board Review" />
-              <StatusBadge status="APPROVED" label="Approved (48h Window)" />
-              <StatusBadge status="PARTIALLY_APPROVED" label="Partially Approved (2 of 3)" />
-              <StatusBadge status="REJECTED" label="Rejected" />
-              <StatusBadge status="EXPIRED" label="Approval Expired" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-              Loan Lifecycle & Urgency States
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              <StatusBadge status="ACTIVE" label="Active Loan (Handed Over)" />
-              <StatusBadge status="DUE_SOON" label="Due Tomorrow" />
-              <StatusBadge status="OVERDUE" label="Overdue by 3 Days" />
-              <StatusBadge status="RETURNED" label="Return Confirmed" />
-              <StatusBadge status="PARTIALLY_RETURNED" label="Partially Returned" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-              Inventory State & Disciplinary Sanctions
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              <StatusBadge status="AVAILABLE" label="Available Stock" />
-              <StatusBadge status="BORROWED" label="Borrowed" />
-              <StatusBadge status="MAINTENANCE" label="Under Maintenance" />
-              <StatusBadge status="DAMAGED" label="Damaged Unit" />
-              <StatusBadge status="RESTRICTED" label="Strike 2 Active (Restricted)" />
-              <StatusBadge status="BANNED" label="Semester Ban (Strike 4)" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. Typed Mock Service & TanStack Query Section */}
-      <section className="space-y-6">
-        <SectionHeader
-          title="4. Data Architecture & Mock Service Layer"
-          description="Verified TanStack Query integration over typed IInventoryService with simulated latency."
+          title="3. Responsive Data Presentation Pattern"
+          description="Desktop renders dense tabular display; mobile viewports (<1024px) seamlessly adapt to thumb-friendly entity cards."
         />
 
         <div className="p-6 rounded-xl border border-border bg-card space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
             <div>
-              <h4 className="text-sm font-semibold text-foreground">Live TanStack Query Output</h4>
+              <h4 className="text-sm font-semibold text-foreground">Catalog Equipment Items</h4>
               <p className="text-xs text-muted-foreground">
-                Fetched via MockInventoryService with simulated 250ms latency.
+                Resize browser to inspect desktop table vs mobile cards adaptation.
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              Refetch Query
-            </Button>
           </div>
 
-          {isLoading && (
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          )}
-
-          {isError && (
-            <ErrorState
-              title="Query Failed"
-              description="Could not communicate with the inventory service."
-              onRetry={() => refetch()}
-            />
-          )}
-
-          {!isLoading && !isError && mockItems && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Mode</TableHead>
-                  <TableHead className="text-right">Available</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockItems.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-semibold text-foreground">
-                      {item.name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{item.category}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-mono text-xs">
-                        Class {item.equipmentClass}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {item.trackingMode}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-semibold text-[hsl(var(--success))]">
-                      {item.availableQuantity}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">
-                      {item.totalQuantity}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <ResponsiveDataTable<InventoryItemSummary>
+            data={mockItems || []}
+            keyExtractor={(it) => it.id}
+            columns={tableColumns}
+            renderMobileCard={(item) => (
+              <MobileEntityCard
+                title={item.name}
+                subtitle={item.category}
+                status={
+                  <StatusBadge status={item.availableQuantity > 0 ? "AVAILABLE" : "BORROWED"} />
+                }
+                metadata={[
+                  { label: "Class", value: `Class ${item.equipmentClass}` },
+                  { label: "Stock", value: `${item.availableQuantity} / ${item.totalQuantity}` },
+                  { label: "Tracking", value: item.trackingMode },
+                ]}
+                action={
+                  <FavoriteButton
+                    isFavorite={!!favoriteMap[item.id]}
+                    onToggle={() => toggleFavorite(item.id)}
+                    itemName={item.name}
+                  />
+                }
+              />
+            )}
+          />
         </div>
       </section>
 
-      {/* 5. Feedback States (Empty & Error) */}
+      {/* 4. Filter Foundation (Toolbar, Chips, Drawer) */}
       <section className="space-y-6">
         <SectionHeader
-          title="5. Reusable Empty & Error States"
-          description="Consistent guidance when data is zero, pending, or interrupted."
+          title="4. Filter Foundation & Ergonomics"
+          description="Inline toolbar on desktop, slide-up sheet on mobile, with removable filter chips."
+        />
+
+        <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+          <FilterBar
+            filters={activeFilters}
+            onRemoveFilter={removeFilter}
+            onClearAll={clearAllFilters}
+            desktopControls={
+              <>
+                <SearchInput
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  onClear={() => setSearchValue("")}
+                  placeholder="Filter by keyword..."
+                  className="w-64"
+                />
+                <Button variant="outline" size="sm">
+                  Class E Only
+                </Button>
+                <Button variant="outline" size="sm">
+                  Available Stock
+                </Button>
+              </>
+            }
+            mobileDrawer={
+              <FilterDrawer
+                open={filterDrawerOpen}
+                onOpenChange={setFilterDrawerOpen}
+                activeCount={activeFilters.length}
+                onReset={clearAllFilters}
+                onApply={() => {}}
+              >
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Equipment Class
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {["Class A", "Class C", "Class E", "Class F"].map((cls) => (
+                        <Button key={cls} variant="outline" size="sm" className="justify-start">
+                          {cls}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Availability
+                    </label>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        In Stock Only
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        All Items
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </FilterDrawer>
+            }
+          />
+        </div>
+      </section>
+
+      {/* 5. Mock Service Scenario Control */}
+      <section className="space-y-6">
+        <SectionHeader
+          title="5. Mock Service State Control (Simulated Scenarios)"
+          description="Test async UI states: SUCCESS, EMPTY, ERROR, and SLOW latency with live TanStack Query."
+        />
+
+        <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase text-muted-foreground mr-2">
+              Select Scenario:
+            </span>
+            {(["NORMAL", "SUCCESS", "EMPTY", "ERROR", "SLOW"] as MockScenario[]).map((sc) => (
+              <Button
+                key={sc}
+                variant={activeScenario === sc ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleScenarioChange(sc)}
+                className="font-mono text-xs"
+              >
+                {sc}
+              </Button>
+            ))}
+            {isFetching && (
+              <Badge variant="outline" className="animate-pulse ml-2">
+                Simulating network...
+              </Badge>
+            )}
+          </div>
+
+          <div className="pt-2">
+            {isLoading && <LoadingState variant="table" count={3} />}
+
+            {isError && (
+              <ErrorState
+                title="Mock Query Failure Triggered"
+                description="Simulated network fault scenario. Demonstrating resilient error boundary."
+                onRetry={() => refetch()}
+              />
+            )}
+
+            {!isLoading && !isError && mockItems && mockItems.length === 0 && (
+              <EmptyState
+                title="No Matching Equipment Found"
+                description="Empty scenario active. No items match current catalog query."
+                actionLabel="Switch to NORMAL Scenario"
+                onAction={() => handleScenarioChange("NORMAL")}
+              />
+            )}
+
+            {!isLoading && !isError && mockItems && mockItems.length > 0 && (
+              <div className="text-xs text-muted-foreground font-mono">
+                Fetched {mockItems.length} items successfully under scenario [{activeScenario}].
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 6. Generic Loading State Skeletons */}
+      <section className="space-y-6">
+        <SectionHeader
+          title="6. Standard Loading State Patterns"
+          description="Consistent skeleton placeholders for cards, tables, sections, and lists."
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <EmptyState
-            title="No Active Loans"
-            description="You do not currently hold any borrowed equipment. Browse the inventory catalog when you need items for projects."
-            actionLabel="Browse Catalog"
-            onAction={() => {}}
-          />
-
-          <ErrorState
-            title="Connection Interrupted"
-            description="Could not sync with the logistics server. Unsent input has been preserved locally."
-            onRetry={() => {}}
-          />
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase">
+              Card Grid Loading
+            </span>
+            <LoadingState variant="cards" count={2} />
+          </div>
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase">
+              List Item Loading
+            </span>
+            <LoadingState variant="list" count={3} />
+          </div>
         </div>
       </section>
 
-      {/* Responsive Dialog Instance */}
+      {/* 7. Comprehensive Domain Status Badges */}
+      <section className="space-y-6">
+        <SectionHeader
+          title="7. Complete Multi-Dimensional Status Badges (All 25 Domain States)"
+          description="Verified declarative STATUS_CONFIG mapping without brittle switch fallbacks."
+        />
+
+        <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {allStatuses.map((st) => (
+              <StatusBadge key={st} status={st} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 8. Interactive Form Controls & Dialogs */}
+      <section className="space-y-6">
+        <SectionHeader
+          title="8. Interactive Controls & Dialogs"
+          description="Bound-checked numeric selector, responsive dialog (drawer on mobile), and confirmation dialog."
+        />
+
+        <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-3">
+              <QuantitySelector value={qty} onChange={setQty} min={1} max={10} />
+              <span className="text-xs text-muted-foreground">Requested Units: {qty}</span>
+            </div>
+
+            <Button variant="outline" onClick={() => setDialogOpen(true)}>
+              Open Responsive Dialog
+            </Button>
+
+            <Button variant="destructive" onClick={() => setConfirmOpen(true)}>
+              Test Confirmation Dialog
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Overlays */}
       <ResponsiveDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         title="Responsive Dialog Pattern"
-        description="Adapts to an accessible modal dialog on desktop (>=1024px) and a swipeable bottom sheet drawer on mobile viewports."
+        description="Adapts to an accessible modal dialog on desktop (>=1024px) and a bottom sheet on mobile."
       >
         <div className="space-y-4 py-2">
           <p className="text-sm text-muted-foreground">
-            This interaction pattern ensures ergonomic thumb reach on mobile devices while maintaining comfortable desktop multi-column balance.
+            Ergonomic thumb reach on mobile devices with comfortable desktop multi-column balance.
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Dismiss
             </Button>
             <Button variant="default" onClick={() => setDialogOpen(false)}>
-              Confirm Choice
+              Confirm
             </Button>
           </div>
         </div>
       </ResponsiveDialog>
+
+      <ConfirmationDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Issue Permanent Sanction (Strike 5)?"
+        description="This will permanently revoke borrowing privileges per the 5-strike regulatory ledger. Historical audit logs will be preserved."
+        variant="destructive"
+        confirmLabel="Permanently Restrict"
+        onConfirm={() => setConfirmOpen(false)}
+      />
     </PageContainer>
   );
 };

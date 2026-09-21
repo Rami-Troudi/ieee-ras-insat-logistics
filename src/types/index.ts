@@ -20,7 +20,8 @@ export type EquipmentClass = "A" | "B" | "C" | "D" | "E" | "F" | "G";
 
 export type TrackingMode = "QUANTITY" | "INDIVIDUAL_ASSET";
 
-export type AssetCondition = "GOOD" | "MINOR_ISSUE" | "DAMAGED" | "MAINTENANCE" | "LOST" | "RETIRED";
+export type AssetCondition =
+  "GOOD" | "MINOR_ISSUE" | "DAMAGED" | "MAINTENANCE" | "LOST" | "RETIRED";
 
 export interface InventoryItemSummary {
   id: string;

@@ -4,13 +4,7 @@ import { PageContainer, PageHeader, SectionHeader } from "@/components/shared/Pa
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import {
-  Inbox,
-  ClipboardList,
-  Clock,
-  AlertTriangle,
-  ArrowRight,
-} from "lucide-react";
+import { Inbox, ClipboardList, Clock, AlertTriangle, ArrowRight } from "lucide-react";
 
 export const BoardActionCenterPage: React.FC = () => {
   return (
@@ -97,10 +91,10 @@ export const BoardActionCenterPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
             <Button asChild variant="outline" size="sm">
-              <Link to="/board/requests">Quick Review</Link>
+              <Link to="/board/requests/REQ-2026-0143">Quick Review</Link>
             </Button>
             <Button asChild variant="default" size="sm">
-              <Link to="/board/requests" className="gap-1">
+              <Link to="/board/requests/REQ-2026-0143" className="gap-1">
                 <span>Process</span>
                 <ArrowRight className="w-3 h-3" />
               </Link>
@@ -137,7 +131,7 @@ export const BoardInventoryPage: React.FC = () => (
   <PlaceholderScaffold
     title="Board Inventory Operations"
     description="Catalog management, stock operations (ADD/DAMAGE/REPAIR), and physical movement ledgers."
-    domainStage="Stage 2: Inventory Management"
+    domainStage="Stage 3: Inventory Management"
   />
 );
 
@@ -146,6 +140,14 @@ export const BoardRequestsPage: React.FC = () => (
     title="Request Review & Approval"
     description="Full line-item approvals, partial quantities, policy validation, and 48h handover allocations."
     domainStage="Stage 3: Approval & Allocation"
+  />
+);
+
+export const BoardRequestDetailPage: React.FC = () => (
+  <PlaceholderScaffold
+    title="Request Review & Line-Item Approval"
+    description="Inspect borrower clearance, line-item stock allocations, partial quantity adjustments, and approval disposition."
+    domainStage="Stage 3: Request Processing & Line-Item Approval"
   />
 );
 
@@ -169,7 +171,7 @@ export const BoardUsersPage: React.FC = () => (
   <PlaceholderScaffold
     title="User Accounts & Clearances"
     description="Process newly registered accounts, verify IEEE/Aerobotix affiliations, and update clearances."
-    domainStage="Stage 2: User Account Processing"
+    domainStage="Stage 3: User Account Processing"
   />
 );
 
@@ -177,7 +179,7 @@ export const BoardAuditsPage: React.FC = () => (
   <PlaceholderScaffold
     title="Inventory Audits"
     description="Start audits with expected snapshots, register physical counts, and reconcile ledger discrepancies."
-    domainStage="Stage 4: Inventory Auditing"
+    domainStage="Stage 3: Inventory Auditing"
   />
 );
 
@@ -185,7 +187,7 @@ export const BoardIncidentsPage: React.FC = () => (
   <PlaceholderScaffold
     title="Incidents, Strikes & Sanctions"
     description="Human-in-the-loop strike issuance (Strikes 1–5), compensation tracking, and appeals."
-    domainStage="Stage 4: Discipline & Sanctions"
+    domainStage="Stage 3: Discipline & Sanctions"
   />
 );
 
@@ -193,7 +195,7 @@ export const BoardInsightsPage: React.FC = () => (
   <PlaceholderScaffold
     title="Logistics Insights & Telemetry"
     description="Operational statistics, borrowing trends over time, inventory health, and project equipment usage."
-    domainStage="Stage 4: Analytics & Insights"
+    domainStage="Stage 3: Analytics & Insights"
   />
 );
 
@@ -201,6 +203,22 @@ export const BoardExportsPage: React.FC = () => (
   <PlaceholderScaffold
     title="CSV Data Exports"
     description="Permission-governed CSV data extraction for inventory, loans, audits, and club records."
-    domainStage="Stage 4: Data Exports"
+    domainStage="Stage 3: Data Exports"
+  />
+);
+
+export const BoardProfilePage: React.FC = () => (
+  <PlaceholderScaffold
+    title="Board Member & Custodian Profile"
+    description="Verified board clearance (Level V+), assigned cabinet responsibility, and recent administrative actions."
+    domainStage="Stage 3: Board Custodian Profile"
+  />
+);
+
+export const BoardNotificationsPage: React.FC = () => (
+  <PlaceholderScaffold
+    title="Board Operational Alerts"
+    description="Authoritative alerts for overdue loan thresholds, pending returns, and strike escalation notices."
+    domainStage="Stage 3: Board Operational Notifications"
   />
 );

@@ -1,53 +1,17 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import {
-  Inbox,
-  ClipboardList,
-  Clock,
-  Package,
-  MoreHorizontal,
-  FolderGit2,
-  Users,
-  CheckCircle2,
-  AlertTriangle,
-  BarChart3,
-  Download,
-  User,
-  FlaskConical,
-} from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { BOARD_MOBILE_TABS, BOARD_MORE_ITEMS } from "@/constants/navigation";
+import { MoreHorizontal, FlaskConical } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
-export const BOARD_MOBILE_TABS = [
-  { name: "Action", path: "/board", icon: Inbox },
-  { name: "Requests", path: "/board/requests", icon: ClipboardList },
-  { name: "Loans", path: "/board/loans", icon: Clock },
-  { name: "Inventory", path: "/board/inventory", icon: Package },
-];
-
-export const BOARD_MORE_ITEMS = [
-  { name: "Projects", path: "/board/projects", icon: FolderGit2 },
-  { name: "Users & Accounts", path: "/board/users", icon: Users },
-  { name: "Audits", path: "/board/audits", icon: CheckCircle2 },
-  { name: "Incidents & Strikes", path: "/board/incidents", icon: AlertTriangle },
-  { name: "Insights Dashboard", path: "/board/insights", icon: BarChart3 },
-  { name: "Data Exports", path: "/board/exports", icon: Download },
-  { name: "My Profile", path: "/app/profile", icon: User },
-];
+export { BOARD_MOBILE_TABS, BOARD_MORE_ITEMS };
 
 export const MobileBoardBottomNav: React.FC = () => {
   const location = useLocation();
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const isMoreActive = BOARD_MORE_ITEMS.some((item) =>
-    location.pathname.startsWith(item.path)
-  );
+  const isMoreActive = BOARD_MORE_ITEMS.some((item) => location.pathname.startsWith(item.path));
 
   return (
     <nav
@@ -99,7 +63,7 @@ export const MobileBoardBottomNav: React.FC = () => {
             <SheetHeader className="pb-3 border-b border-border">
               <SheetTitle>Board Operations Menu</SheetTitle>
             </SheetHeader>
-            <div className="grid grid-cols-1 gap-1 py-4">
+            <div className="grid grid-cols-1 gap-1 py-4 max-h-[70vh] overflow-y-auto">
               {BOARD_MORE_ITEMS.map((item) => {
                 const isActive = location.pathname.startsWith(item.path);
                 const Icon = item.icon;
@@ -111,7 +75,7 @@ export const MobileBoardBottomNav: React.FC = () => {
                     className={cn(
                       "flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors min-h-[48px]",
                       isActive
-                        ? "bg-secondary text-secondary-foreground"
+                        ? "bg-secondary text-secondary-foreground font-semibold"
                         : "hover:bg-muted text-foreground"
                     )}
                   >
