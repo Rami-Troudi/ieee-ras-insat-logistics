@@ -72,7 +72,7 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
         <button
           type="button"
           onClick={onDismiss}
-          className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary min-w-[32px] min-h-[32px] flex items-center justify-center"
+          className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-[44px] min-h-[44px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center"
           aria-label="Dismiss notification"
         >
           <X className="w-4 h-4" />

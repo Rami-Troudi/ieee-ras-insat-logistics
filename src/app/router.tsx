@@ -29,10 +29,15 @@ import {
   BoardNotificationsPage,
 } from "@/pages/board";
 import React from "react";
-const DesignLabPage = React.lazy(() =>
-  import("@/pages/system/DesignLabPage").then((m) => ({ default: m.DesignLabPage }))
-);
 import { NotFoundPage } from "@/pages/system/NotFoundPage";
+
+const isDev = import.meta.env.DEV;
+
+const DesignLabPage = isDev
+  ? React.lazy(() =>
+      import("@/pages/system/DesignLabPage").then((m) => ({ default: m.DesignLabPage }))
+    )
+  : null;
 
 export const router = createBrowserRouter([
   {
@@ -73,14 +78,18 @@ export const router = createBrowserRouter([
       { path: "notifications", element: <BoardNotificationsPage /> },
     ],
   },
-  {
-    path: "/_dev/design",
-    element: (
-      <React.Suspense fallback={null}>
-        <DesignLabPage />
-      </React.Suspense>
-    ),
-  },
+  ...(isDev && DesignLabPage
+    ? [
+        {
+          path: "/_dev/design",
+          element: (
+            <React.Suspense fallback={null}>
+              <DesignLabPage />
+            </React.Suspense>
+          ),
+        },
+      ]
+    : []),
   {
     path: "*",
     element: <NotFoundPage />,

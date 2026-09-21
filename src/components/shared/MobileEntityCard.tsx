@@ -27,12 +27,23 @@ export const MobileEntityCard: React.FC<MobileEntityCardProps> = ({
   className,
   children,
 }) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (onClick && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <div
       onClick={onClick}
+      onKeyDown={onClick ? handleKeyDown : undefined}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
       className={cn(
-        "p-4 rounded-xl border border-border bg-card shadow-sm space-y-3 transition-colors",
-        onClick && "cursor-pointer hover:border-primary/40 active:bg-muted/30",
+        "p-4 rounded-xl border border-border bg-card shadow-sm space-y-3 transition-colors text-left",
+        onClick &&
+          "cursor-pointer hover:border-primary/40 active:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         className
       )}
     >

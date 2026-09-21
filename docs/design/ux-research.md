@@ -19,7 +19,7 @@ To ensure technical rigor, all observations, operational data, and constraints a
 
 - `[KNOWN PROJECT FACT]` **Annual Scale**: The platform manages at most roughly 1,000 requests per calendar year. High-throughput distributed scaling is a non-goal; data correctness, auditability, and regulatory compliance are primary.
 - `[KNOWN PROJECT FACT]` **Normative Equipment Classes**: The system governs seven distinct equipment tiers: Class A (Consumables), Class B (Expendable Resources), Class C (Light Resources), Class D (Light Equipment), Class E (Electronic Resources), Class F (Heavy Equipment), and Class G (High-Value Electronics).
-- `[KNOWN PROJECT FACT]` **Clearance Hierarchy**: Strict clearance levels I through VI dictate request permissions, supervisory requirements, and maximum borrowing quotas.
+- `[KNOWN PROJECT FACT]` **Clearance Hierarchy**: Strict clearance levels I through VI dictate equipment class accessibility and supervisory requirements.
 - `[KNOWN PROJECT FACT]` **Operational Deadlines & Sanctions**: Loan pickups must occur within a strict 48-hour window following approval. A progressive 5-strike disciplinary ledger governs restrictions and semester bans.
 - `[KNOWN PROJECT FACT]` **Web-Only Scope**: The platform is purely a responsive React web application. There is no native iOS/Android application.
 

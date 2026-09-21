@@ -68,15 +68,3 @@ export const PRESET_PERSONAS: UserPersona[] = [
     strikesCount: 0,
   },
 ];
-
-export const PROD_DEFAULT_PERSONA: UserPersona = {
-  id: "prod-session-user",
-  name: "IEEE Member",
-  email: "member@insat.u-carthage.tn",
-  role: "MEMBER",
-  clearance: "III",
-  affiliation: "IEEE",
-  isProcessed: true,
-  status: "ACTIVE",
-  strikesCount: 0,
-};

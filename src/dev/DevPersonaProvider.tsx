@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { UserPersona } from "@/types";
-import { PRESET_PERSONAS, PROD_DEFAULT_PERSONA } from "@/constants/personas";
+import { PRESET_PERSONAS } from "@/constants/personas";
 import { DevPersonaContext } from "@/hooks/useDevPersona";
-import { SessionContext } from "@/hooks/useSession";
+import { SessionContext, PROD_DEFAULT_PERSONA } from "@/hooks/useSession";
 
 export { PRESET_PERSONAS, PROD_DEFAULT_PERSONA };
 

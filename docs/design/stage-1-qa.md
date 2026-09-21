@@ -148,11 +148,14 @@ Tested live via Chrome DevTools MCP on active local server (`http://127.0.0.1:51
 
 ## 5. Visual System & Design Lab (`/_dev/design`)
 
-- Live component and brand showcase at `/_dev/design`.
+- Live component and brand showcase at `/_dev/design` (development mode only).
+- **Production Route Isolation Verified**:
+  - `/_dev/design` is strictly conditionally registered when `import.meta.env.DEV` is true.
+  - In production builds (`vite build`), navigating to `/_dev/design` renders the standard `NotFoundPage` (404), and `DesignLabPage` is excluded from the main production bundle chunk.
 - Demonstrates:
   - Official Q4 2025 canonical colors (`#861F41`, `#772583`, `#00629B`, `#002855`) and 80/60/40/20% tints.
   - Open Sans typographic hierarchy.
-  - 10-state accessible `StatusBadge` matrix.
+  - 25-state accessible `StatusBadge` matrix.
   - Interactive `QuantitySelector` and `SearchInput`.
   - `ResponsiveDialog` (modal on desktop, bottom sheet on mobile).
   - Empty, Loading, and Error state primitives.

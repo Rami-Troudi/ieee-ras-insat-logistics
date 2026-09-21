@@ -35,10 +35,10 @@ export const FilterChip: React.FC<FilterChipProps> = ({
         <button
           type="button"
           onClick={onRemove}
-          className="ml-1 -mr-1 p-1 rounded-full hover:bg-primary/20 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-[32px] min-h-[32px] sm:min-w-[20px] sm:min-h-[20px] flex items-center justify-center"
+          className="ml-1 -mr-1 p-1 rounded-full hover:bg-primary/20 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-[44px] min-h-[44px] sm:min-w-[24px] sm:min-h-[24px] flex items-center justify-center"
           aria-label={`Remove filter for ${label}: ${value}`}
         >
-          <X className="w-3 h-3" />
+          <X className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
         </button>
       )}
     </span>
