@@ -5,6 +5,8 @@ import { RootRedirect } from "@/app/RootRedirect";
 import {
   MemberHomePage,
   MemberInventoryPage,
+  MemberItemDetailPage,
+  MemberCartPage,
   MemberRequestsPage,
   MemberRequestDetailPage,
   MemberLoansPage,
@@ -50,6 +52,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <MemberHomePage /> },
       { path: "inventory", element: <MemberInventoryPage /> },
+      { path: "inventory/:itemId", element: <MemberItemDetailPage /> },
+      { path: "cart", element: <MemberCartPage /> },
       { path: "requests", element: <MemberRequestsPage /> },
       { path: "requests/:requestId", element: <MemberRequestDetailPage /> },
       { path: "loans", element: <MemberLoansPage /> },

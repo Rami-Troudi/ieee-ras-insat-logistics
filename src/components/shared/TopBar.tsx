@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 import { AppBrand } from "@/components/shared/AppBrand";
 import { UserMenu } from "@/components/shared/UserMenu";
 import { DevPersonaSwitcher } from "@/components/shared/DevPersonaSwitcher";
-import { Bell, Search, ShieldCheck } from "lucide-react";
+import { Bell, Search, ShieldCheck, ShoppingBag } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
+import { useBorrowCart } from "@/features/cart";
 
 interface TopBarProps {
   isBoard?: boolean;
@@ -12,6 +13,8 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
   const { currentPersona } = useSession();
+  const { totalItemCount } = useBorrowCart();
+
   const isBoardRole =
     isBoard || currentPersona.role === "BOARD" || currentPersona.role === "SUPERADMIN";
 
@@ -46,8 +49,23 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
         )}
       </div>
 
-      {/* Right Controls: Dev Persona Switcher, Notifications, Reusable UserMenu */}
+      {/* Right Controls: Cart (Member), Dev Persona Switcher, Notifications, Reusable UserMenu */}
       <div className="flex items-center gap-2.5">
+        {!isBoardRole && (
+          <Link
+            to="/app/cart"
+            className="relative flex items-center justify-center w-10 h-10 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-[44px] min-h-[44px]"
+            aria-label={`View Borrow Cart (${totalItemCount} items)`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            {totalItemCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-primary rounded-full">
+                {totalItemCount}
+              </span>
+            )}
+          </Link>
+        )}
+
         <DevPersonaSwitcher />
 
         {/* In-App Notifications Button */}

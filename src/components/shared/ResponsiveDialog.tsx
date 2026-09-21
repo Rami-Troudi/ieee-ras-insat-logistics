@@ -35,7 +35,7 @@ export const ResponsiveDialog: React.FC<ResponsiveDialogProps> = ({
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             {description && <DialogDescription>{description}</DialogDescription>}
@@ -48,7 +48,7 @@ export const ResponsiveDialog: React.FC<ResponsiveDialogProps> = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom">
+      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
         <SheetHeader className="pb-3 border-b border-border">
           <SheetTitle>{title}</SheetTitle>
           {description && <SheetDescription>{description}</SheetDescription>}

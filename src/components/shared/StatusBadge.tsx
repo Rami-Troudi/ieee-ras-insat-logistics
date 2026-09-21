@@ -1,13 +1,22 @@
 import React from "react";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, CheckCircle2, AlertCircle, XCircle, AlertTriangle, Info } from "lucide-react";
+import {
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  AlertTriangle,
+  Info,
+  RotateCcw,
+} from "lucide-react";
 
 export type DomainStatus =
   | "PENDING"
   | "APPROVED"
   | "PARTIALLY_APPROVED"
   | "REJECTED"
+  | "CANCELLED"
   | "EXPIRED"
   | "WAITING"
   | "HANDED_OVER"
@@ -15,6 +24,7 @@ export type DomainStatus =
   | "CLOSED"
   | "RETURNED"
   | "PARTIALLY_RETURNED"
+  | "RETURN_REQUESTED"
   | "AVAILABLE"
   | "BORROWED"
   | "DAMAGED"
@@ -64,6 +74,13 @@ export const STATUS_CONFIG: Record<DomainStatus, StatusConfigItem> = {
     icon: XCircle,
     iconClass: "text-[hsl(var(--danger))]",
   },
+  CANCELLED: {
+    label: "Cancelled",
+    variant: "outline",
+    icon: XCircle,
+    iconClass: "text-muted-foreground",
+    badgeClass: "bg-muted/40 text-muted-foreground",
+  },
   EXPIRED: {
     label: "Approval Expired",
     variant: "outline",
@@ -107,6 +124,12 @@ export const STATUS_CONFIG: Record<DomainStatus, StatusConfigItem> = {
     label: "Partially Returned",
     variant: "warning",
     icon: AlertTriangle,
+    iconClass: "text-[hsl(var(--warning))]",
+  },
+  RETURN_REQUESTED: {
+    label: "Return Pending",
+    variant: "warning",
+    icon: RotateCcw,
     iconClass: "text-[hsl(var(--warning))]",
   },
   AVAILABLE: {

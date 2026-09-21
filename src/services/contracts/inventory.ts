@@ -1,3 +1,5 @@
+import { InventoryItemSummary } from "@/types";
+
 export interface InventoryQueryFilter {
   search?: string;
   category?: string;
@@ -6,6 +8,7 @@ export interface InventoryQueryFilter {
 }
 
 export interface IInventoryService {
-  listItems(filters?: InventoryQueryFilter): Promise<import("@/types").InventoryItemSummary[]>;
-  getItem(id: string): Promise<import("@/types").InventoryItemSummary | null>;
+  listItems(filters?: InventoryQueryFilter): Promise<InventoryItemSummary[]>;
+  getItem(id: string): Promise<InventoryItemSummary | null>;
+  getCategories(): Promise<string[]>;
 }

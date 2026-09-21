@@ -134,7 +134,7 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
     expect(screen.getByText("Page Not Found")).toBeInTheDocument();
   });
 
-  it("renders structural detail placeholder routes", () => {
+  it("renders structural detail placeholder routes", async () => {
     const detailRouter = createMemoryRouter(
       [
         {
@@ -151,7 +151,7 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
           children: [{ path: "requests/:requestId", element: <BoardRequestDetailPage /> }],
         },
       ],
-      { initialEntries: ["/app/requests/REQ-2026-001"] }
+      { initialEntries: ["/app/requests/REQ-2026-0142"] }
     );
 
     render(
@@ -160,8 +160,8 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
       </Providers>
     );
 
-    expect(screen.getByText("Request Details Structural Route")).toBeInTheDocument();
-    expect(screen.getByText("Scheduled for Stage 2: Request Detail")).toBeInTheDocument();
+    expect(await screen.findByText("Borrow Request Summary")).toBeInTheDocument();
+    expect(screen.getByText("Line Item Decision Breakdown")).toBeInTheDocument();
   });
 
   it("preserves Board shell context when navigating to Board Profile and Board Notifications", () => {

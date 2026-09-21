@@ -15,16 +15,29 @@ export const QUERY_KEYS = {
     all: ["inventory"] as const,
     list: (filters?: Record<string, unknown>) => ["inventory", "list", filters] as const,
     detail: (id: string) => ["inventory", "detail", id] as const,
+    categories: ["inventory", "categories"] as const,
   },
   requests: {
     all: ["requests"] as const,
-    mine: ["requests", "mine"] as const,
+    mine: (userId: string) => ["requests", "mine", userId] as const,
     detail: (id: string) => ["requests", "detail", id] as const,
   },
   loans: {
     all: ["loans"] as const,
-    mine: ["loans", "mine"] as const,
+    mine: (userId: string) => ["loans", "mine", userId] as const,
     detail: (id: string) => ["loans", "detail", id] as const,
+  },
+  notifications: {
+    mine: (userId: string) => ["notifications", "mine", userId] as const,
+  },
+  profile: {
+    detail: (userId: string) => ["profile", "detail", userId] as const,
+  },
+  projects: {
+    active: ["projects", "active"] as const,
+  },
+  favorites: {
+    mine: (userId: string) => ["favorites", "mine", userId] as const,
   },
   actionCenter: {
     queue: ["actionCenter", "queue"] as const,
