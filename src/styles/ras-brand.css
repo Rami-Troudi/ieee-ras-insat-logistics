@@ -1,0 +1,37 @@
+:root {
+  /* ==========================================================================
+     IEEE RAS Core Colors (Q4 2025 Brand Guidelines - Canonical)
+     ========================================================================== */
+  --ras-red: #861F41;
+  --ras-red-80: #A54F63;
+  --ras-red-60: #BD7A87;
+  --ras-red-40: #D4A5AD;
+  --ras-red-20: #EAD1D5;
+
+  --ras-purple: #772583;
+  --ras-purple-80: #96529A;
+  --ras-purple-60: #B17CB3;
+  --ras-purple-40: #CBA7CC;
+  --ras-purple-20: #E5D2E5;
+
+  /* ==========================================================================
+     IEEE Master Brand Supporting Colors & Official Tints
+     ========================================================================== */
+  --ieee-blue: #00629B;
+  --ieee-blue-80: #007DAF;
+  --ieee-blue-60: #5B9CC3;
+  --ieee-blue-40: #95BCD6;
+  --ieee-blue-20: #CADCEA;
+
+  --ieee-navy: #002855;
+  --ieee-navy-80: #2D4D76;
+  --ieee-navy-60: #627596;
+  --ieee-navy-40: #94A1B8;
+  --ieee-navy-20: #C8CEDA;
+
+  --ieee-orange: #FFA300;
+  --ieee-gold: #FFC72C;
+
+  --ras-black: #000000;
+  --ras-white: #FFFFFF;
+}
