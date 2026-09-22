@@ -4,57 +4,59 @@
 
 The Member experience operates inside `MemberLayout` with unified responsive navigation:
 
-- **TopBar**: Features real-time Cart counter badge and Notifications unread indicator.
-- **Desktop Sidebar**: Highlights active section (`Dashboard`, `Equipment Catalog`, `My Requests`, `Active Loans`, `Saved Items`, `Notifications`, `My Profile`).
-- **Mobile Bottom Bar**: Compact touch-friendly navigation bar (minimum 44×44 px touch targets) with quick access to Home, Inventory, Requests, Loans, and Profile.
+- **TopBar**: Dynamic role indicator, quick cart counter badge, notifications indicator, and user profile menu.
+- **Desktop Sidebar**: Primary navigation sections (`Dashboard`, `Equipment Catalog`, `My Requests`, `My Loans`, `Saved Items`, `Notifications`, `My Profile`).
+- **Mobile Bottom Navigation**: Compact touch-friendly navigation bar adhering to $\ge 44\times 44$ px touch targets on mobile (`Home`, `Inventory`, `Requests`, `Loans`, `Profile`).
 
 ---
 
 ## 2. Equipment Discovery & Eligibility
 
-- **Filter Bar & Mobile Filter Drawer**:
-  - Category, Availability (`ALL`, `AVAILABLE`, `BORROWED`), and Item Class (`ALL`, `CLASS_A` through `CLASS_G`).
-  - Active filters rendered as removable `FilterChip`s with accessible 44px dismiss touch targets on mobile.
-  - Search input with instantaneous filtering across name, code, model, and tags.
+- **Filtering & Search**:
+  - Filter by Category, Stock Availability (`ALL`, `AVAILABLE`, `BORROWED`), and Equipment Class (`ALL`, `CLASS_A` through `CLASS_G`).
+  - Mobile filter drawer with accessible $\ge 44$ px touch targets.
+  - Search input with real-time matching across name, code, category, and specifications.
 - **Visual Eligibility Cues**:
-  - Cards and detail views display badge status: `Eligible`, `Clearance Required (Lv X)`, `Project Required`, or `Restricted`.
-  - Class B and Class D items display `Direct Board Review Required` only when member clearance meets the required threshold (Level I for Class B, Level III for Class D); otherwise, `Insufficient Clearance` is prioritized.
-  - Strike 3 members receive explicit advisories indicating Class E is restricted to direct supervision, while Classes F and G remain unavailable.
-  - Non-eligible items disable the "Add to Cart" CTA and display contextual explanatory notices explaining the exact constraint.
-- **Equipment Detail Page**:
-  - High-resolution preview, availability metrics, item classification policies, full technical specifications table, serialized unit status list, and quantity stepper.
+  - Clear badge indicators: `Eligible`, `Clearance Req.`, `Direct Board`, `Supervised (Lv V+)`, `Level VI Auth Req.`, `Provisional`, `Board Review Req.`, `Supervised (Strike 3)`, `Restricted`, or `Out of Stock`.
+  - Class B and Class D items display `Direct Board` only after clearance eligibility is established (Level I for Class B, Level III for Class D); otherwise, `Clearance Req.` is displayed.
+  - Strike 3 members receive explicit advisories that Class E requires supervision, and Classes F and G are unavailable.
+  - Ineligible items disable the "Add to Cart" CTA and show contextual policy notices explaining the reason.
+- **Item Detail View**:
+  - High-resolution preview, availability metrics, equipment classification policies, full technical specifications, and quantity selector.
 
 ---
 
-## 3. Borrow Cart & Request Submission Lifecycle
+## 3. Borrow Cart & Request Submission
 
-- **Multi-item Cart**:
-  - Real-time verification of item limits, clearance levels, strike restrictions, and required project association.
-  - If a Class C item is in the cart, a Project selection dropdown becomes strictly required, populated only with projects the current member is actively assigned to.
-  - Strike 2 advisory banners alert users that Class C+ items cannot be checked out.
-  - Strike 3 advisory banners inform members that Class E items require direct supervisor presence during lab sessions.
-  - Provisional / unregistered users see an alert explaining that membership review is pending before checkouts can be processed.
-  - Estimated return date defaults to +14 days with validation against maximum permitted loan duration.
-  - Justification / Purpose textarea with live character counter.
+- **Borrow Request Cart**:
+  - Multi-item collection with real-time stock and eligibility checks.
+  - Optional Project assignment dropdown populated with projects the current member belongs to.
+  - Advisory banners for special standing:
+    - Strike 2: Advisory that all requests require explicit Board review; Classes F and G are unavailable.
+    - Strike 3: Advisory that all requests require explicit Board review; Class E requires supervision, and Classes F and G are unavailable.
+    - Provisional accounts: Informational notice that requests can be submitted and affiliation will be verified during processing.
+    - Class F items: Notice regarding Level V+ supervision requirement in the lab.
+    - Class G items: Notice regarding explicit Level VI authorization requirement.
+  - Target return date picker and technical justification / purpose textarea.
 - **Request Detail & Tracking**:
-  - Visual status timeline: `Submitted` $\to$ `Under Review` $\to$ `Decision` $\to$ `Ready for Pickup` $\to$ `Dispatched`.
-  - **Partial Approval Support**: Displays line-item breakdown indicating approved vs rejected quantities with board reviewer notes.
-  - **48-Hour Pickup Window Countdown**: For approved requests, displays prominent deadline banner with remaining hours/minutes countdown until expiration.
-  - **Cancellation Flow**: Allows members to cancel pending requests with confirmation dialog and cancellation reason.
+  - Multidimensional state inspection: Decision Status, Handover Status, and Lifecycle Status.
+  - **Line Item Decision Breakdown**: Shows approved vs rejected quantities per item with board review notes.
+  - **48-Hour Pickup Window Countdown**: Approved requests awaiting handover display a prominent countdown banner indicating remaining time before reservation expiration.
+  - **Cancellation Flow**: Allows members to cancel active PENDING requests with a confirmation dialog and optional reason.
 
 ---
 
 ## 4. Active Loans & Lifecycle Management
 
 - **Loan Overview & Detail**:
-  - Overdue warning alerts prominently displayed when `dueDate` has passed.
-  - Serialized unit breakdown with condition at dispatch.
-  - Multidimensional custody status and return status displayed cleanly via `getLoanDisplayStatus(loan)`.
+  - Multidimensional state tracking: Lifecycle Status (`ACTIVE` / `CLOSED`), Due Status (`ON_TIME` / `DUE_SOON` / `OVERDUE`), Return Status (`NONE` / `PENDING_CONFIRMATION` / `PARTIAL` / `COMPLETE`), and Extension Status.
+  - Prominent warning banners for overdue loans.
+  - Serialized unit breakdown and handover condition records.
 - **Due Date Extension**:
-  - Reusable modal to request additional days with reason and new target return date.
-  - Maximum 1 extension per loan; disabled if loan is currently overdue.
-- **Partial Return Declaration (RHF + Zod)**:
-  - Form validation powered by React Hook Form and Zod with strict returnable quantity caps:
+  - Modal to request a new proposed return date with justification.
+  - Preserves official due date in the UI while extension is pending review.
+- **Return Declaration Flow**:
+  - Form validation with strict returnable quantity caps:
     $$\text{maxReturnable} = \text{borrowedQuantity} - \text{returnedQuantity} - \text{alreadyPendingReturnQuantity}$$
-  - Enforces mobile-friendly minimum 44px inputs for quantity controls and condition notes.
+  - Enforces $\ge 44$ px interactive touch targets on mobile.
   - Physical inspection disclaimer emphasizing that custody records remain active until physical handover and board verification in the INSAT robotics lab.

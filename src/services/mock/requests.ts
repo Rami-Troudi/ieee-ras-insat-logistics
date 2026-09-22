@@ -111,12 +111,12 @@ export class MockRequestService implements IRequestService {
       if (!req) {
         throw new Error("Request not found or not owned by user");
       }
-      if (req.status !== "PENDING") {
+      if (req.decisionStatus !== "PENDING" || req.lifecycleStatus !== "ACTIVE") {
         throw new Error("Only PENDING requests can be cancelled by members");
       }
 
-      req.status = "CANCELLED";
       req.lifecycleStatus = "CANCELLED";
+      req.status = "CANCELLED";
       req.updatedAt = new Date().toISOString();
       req.rejectionReason = reason || "Cancelled by member";
       req.timeline.push({

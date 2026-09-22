@@ -74,7 +74,7 @@ export const MemberNotificationsPage: React.FC = () => {
           variant={filter === "ALL" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("ALL")}
-          className="text-xs h-8 min-h-[36px]"
+          className="text-xs min-h-[44px] sm:min-h-[36px]"
         >
           All Notifications ({notifications.length})
         </Button>
@@ -82,7 +82,7 @@ export const MemberNotificationsPage: React.FC = () => {
           variant={filter === "UNREAD" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("UNREAD")}
-          className="text-xs h-8 min-h-[36px]"
+          className="text-xs min-h-[44px] sm:min-h-[36px]"
         >
           Unread Only ({unreadCount})
         </Button>

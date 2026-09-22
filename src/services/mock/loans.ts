@@ -41,11 +41,7 @@ export class MockLoanService implements ILoanService {
       if (!loan) {
         throw new Error("Loan record not found or unauthorized");
       }
-      if (
-        loan.status === "CLOSED" ||
-        loan.status === "RETURNED" ||
-        loan.lifecycleStatus === "CLOSED"
-      ) {
+      if (loan.lifecycleStatus === "CLOSED") {
         throw new Error("Cannot request extension on closed loans");
       }
       if (loan.extensionStatus === "PENDING") {

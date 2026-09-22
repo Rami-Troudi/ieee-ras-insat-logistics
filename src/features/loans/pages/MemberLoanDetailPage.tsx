@@ -101,10 +101,9 @@ export const MemberLoanDetailPage: React.FC = () => {
   }
 
   const isOverdue =
-    isDatePast(loan.dueDate) && loan.status !== "CLOSED" && loan.status !== "RETURNED";
-  const isClosed = loan.status === "CLOSED" || loan.status === "RETURNED";
-  const isReturnPending =
-    loan.returnStatus === "PENDING_CONFIRMATION" || loan.status === "RETURN_REQUESTED";
+    loan.lifecycleStatus === "ACTIVE" && (loan.dueStatus === "OVERDUE" || isDatePast(loan.dueDate));
+  const isClosed = loan.lifecycleStatus === "CLOSED";
+  const isReturnPending = loan.returnStatus === "PENDING_CONFIRMATION";
   const displayStatus = getLoanDisplayStatus(loan);
 
   // Open Return Dialog & Init quantities according to strict formula:
@@ -305,7 +304,7 @@ export const MemberLoanDetailPage: React.FC = () => {
       )}
 
       {/* Return Pending Policy Warning */}
-      {loan.status === "RETURN_REQUESTED" && (
+      {isReturnPending && (
         <PolicyNotice
           variant="warning"
           title="Return Declaration Awaiting Physical Custodian Confirmation"

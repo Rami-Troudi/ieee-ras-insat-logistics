@@ -17,7 +17,7 @@ export const MemberHomePage: React.FC = () => {
   const { data: loans = [] } = useUserLoans(currentPersona.id);
   const { data: requests = [] } = useUserRequests(currentPersona.id);
 
-  const activeLoans = loans.filter((l) => l.status !== "CLOSED" && l.status !== "RETURNED");
+  const activeLoans = loans.filter((l) => l.lifecycleStatus === "ACTIVE");
   const totalHeldUnits = activeLoans.reduce(
     (sum, l) => sum + l.items.reduce((s, i) => s + (i.borrowedQuantity - i.returnedQuantity), 0),
     0

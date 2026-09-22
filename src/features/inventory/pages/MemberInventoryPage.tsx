@@ -117,7 +117,7 @@ export const MemberInventoryPage: React.FC = () => {
       <select
         value={selectedCategory}
         onChange={(e) => setSelectedCategory(e.target.value)}
-        className="rounded-md border border-input bg-background px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary h-9 min-h-[36px]"
+        className="rounded-md border border-input bg-background px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] sm:min-h-[36px]"
       >
         {categoryOptions.map((c) => (
           <option key={c.value} value={c.value}>
@@ -129,7 +129,7 @@ export const MemberInventoryPage: React.FC = () => {
       <select
         value={selectedClass}
         onChange={(e) => setSelectedClass(e.target.value)}
-        className="rounded-md border border-input bg-background px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary h-9 min-h-[36px]"
+        className="rounded-md border border-input bg-background px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] sm:min-h-[36px]"
       >
         {classOptions.map((c) => (
           <option key={c.value} value={c.value}>
@@ -141,7 +141,7 @@ export const MemberInventoryPage: React.FC = () => {
       <select
         value={selectedTracking}
         onChange={(e) => setSelectedTracking(e.target.value)}
-        className="rounded-md border border-input bg-background px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary h-9 min-h-[36px]"
+        className="rounded-md border border-input bg-background px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] sm:min-h-[36px]"
       >
         {trackingOptions.map((t) => (
           <option key={t.value} value={t.value}>

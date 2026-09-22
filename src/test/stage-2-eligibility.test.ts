@@ -163,4 +163,40 @@ describe("evaluateItemEligibility Clearance & Policy Matrix", () => {
     expect(strike3A.badgeType).toBe("WARNING");
     expect(strike3A.statusLabel).toBe("Board Review (Strike 3)");
   });
+
+  it("handles Level IV (Trusted Individuals) with exceptional access across classes", () => {
+    // Level IV has exceptional Level VI granted access across standard classes
+    const classA = evaluateItemEligibility("A", "IV", "ACTIVE", true, 10, 0);
+    expect(classA.canBorrowOnline).toBe(true);
+    expect(classA.badgeType).toBe("SUCCESS");
+
+    const classC = evaluateItemEligibility("C", "IV", "ACTIVE", true, 5, 0);
+    expect(classC.canBorrowOnline).toBe(true);
+    expect(classC.badgeType).toBe("SUCCESS");
+
+    const classE = evaluateItemEligibility("E", "IV", "ACTIVE", true, 5, 0);
+    expect(classE.canBorrowOnline).toBe(true);
+    expect(classE.badgeType).toBe("SUCCESS");
+
+    // Class F for Level IV: eligible without Level V+ supervision requirement
+    const classF = evaluateItemEligibility("F", "IV", "ACTIVE", true, 2, 0);
+    expect(classF.canBorrowOnline).toBe(true);
+    expect(classF.canRequest).toBe(true);
+    expect(classF.badgeType).toBe("SUCCESS");
+    expect(classF.statusLabel).toBe("Eligible");
+
+    // Class G for Level IV: requires explicit Level VI authorization
+    const classG = evaluateItemEligibility("G", "IV", "ACTIVE", true, 1, 0);
+    expect(classG.canBorrowOnline).toBe(true);
+    expect(classG.canRequest).toBe(true);
+    expect(classG.badgeType).toBe("WARNING");
+    expect(classG.statusLabel).toBe("Level VI Auth Req.");
+
+    // Direct Board classes
+    const classB = evaluateItemEligibility("B", "IV", "ACTIVE", true, 10, 0);
+    expect(classB.statusLabel).toBe("Direct Board");
+
+    const classD = evaluateItemEligibility("D", "IV", "ACTIVE", true, 5, 0);
+    expect(classD.statusLabel).toBe("Direct Board");
+  });
 });

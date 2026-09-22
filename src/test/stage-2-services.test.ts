@@ -2,11 +2,45 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { mockRequestService } from "@/services/mock/requests";
 import { mockLoanService } from "@/services/mock/loans";
 import { mockProjectService } from "@/services/mock/profile";
+import { authService } from "@/services";
 import { mockDb } from "@/mocks/db";
+import { UserPersona } from "@/types";
 
 describe("Stage 2 Domain Services Workflow", () => {
   beforeEach(() => {
     mockDb.resetToDefault();
+  });
+
+  it("registers a provisional member via authService and updates session", async () => {
+    let notifiedPersona: UserPersona | null = null;
+    const unsubscribe = authService.subscribeSession((p) => {
+      notifiedPersona = p;
+    });
+
+    const result = await authService.registerMember({
+      name: "Test Candidate",
+      email: "candidate@insat.u-carthage.tn",
+      phone: "+216 55 123 456",
+      studentId: "2400999",
+    });
+
+    expect(result.persona.id).toBe("p-member-unprocessed");
+    expect(result.persona.name).toBe("Test Candidate");
+    expect(result.persona.role).toBe("MEMBER");
+    expect(result.persona.clearance).toBe("I");
+    expect(result.persona.affiliation).toBe("EXTERNAL");
+    expect(result.persona.isProcessed).toBe(false);
+    expect(result.persona.status).toBe("ACTIVE");
+
+    expect(result.profile.phone).toBe("+216 55 123 456");
+    expect(result.profile.studentId).toBe("2400999");
+
+    // Check that session subscribers were notified
+    expect(notifiedPersona).not.toBeNull();
+    const persona: UserPersona = notifiedPersona!;
+    expect(persona.name).toBe("Test Candidate");
+
+    unsubscribe();
   });
 
   it("submits a new borrow request with multi-dimensional states and line quantities", async () => {

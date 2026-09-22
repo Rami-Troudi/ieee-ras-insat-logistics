@@ -28,7 +28,15 @@ export const MemberRequestsPage: React.FC = () => {
 
   const filteredRequests = (requests || []).filter((req) => {
     if (statusFilter === "ALL") return true;
-    return req.status === statusFilter;
+    if (statusFilter === "PENDING")
+      return req.decisionStatus === "PENDING" && req.lifecycleStatus === "ACTIVE";
+    if (statusFilter === "APPROVED")
+      return req.decisionStatus === "APPROVED" && req.lifecycleStatus === "ACTIVE";
+    if (statusFilter === "PARTIALLY_APPROVED")
+      return req.decisionStatus === "PARTIALLY_APPROVED" && req.lifecycleStatus === "ACTIVE";
+    if (statusFilter === "HANDED_OVER") return req.handoverStatus === "HANDED_OVER";
+    if (statusFilter === "CANCELLED") return req.lifecycleStatus === "CANCELLED";
+    return getRequestDisplayStatus(req) === statusFilter;
   });
 
   return (
@@ -54,7 +62,7 @@ export const MemberRequestsPage: React.FC = () => {
             variant={statusFilter === opt.value ? "default" : "outline"}
             size="sm"
             onClick={() => setStatusFilter(opt.value)}
-            className="text-xs h-8 min-h-[36px]"
+            className="text-xs min-h-[44px] sm:min-h-[36px]"
           >
             {opt.label}
           </Button>
@@ -84,7 +92,9 @@ export const MemberRequestsPage: React.FC = () => {
         <div className="space-y-4">
           {filteredRequests.map((req) => {
             const hasPickupWindow =
-              (req.status === "APPROVED" || req.status === "PARTIALLY_APPROVED") &&
+              (req.decisionStatus === "APPROVED" || req.decisionStatus === "PARTIALLY_APPROVED") &&
+              req.handoverStatus === "WAITING" &&
+              req.lifecycleStatus === "ACTIVE" &&
               req.pickupDeadline;
 
             return (

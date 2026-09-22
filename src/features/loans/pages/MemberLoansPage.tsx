@@ -28,8 +28,17 @@ export const MemberLoansPage: React.FC = () => {
 
   const filteredLoans = (loans || []).filter((loan) => {
     if (statusFilter === "ALL") return true;
-    if (statusFilter === "ACTIVE") return loan.status === "ACTIVE" || loan.status === "DUE_SOON";
-    return loan.status === statusFilter;
+    if (statusFilter === "ACTIVE") return loan.lifecycleStatus === "ACTIVE";
+    if (statusFilter === "DUE_SOON")
+      return loan.lifecycleStatus === "ACTIVE" && loan.dueStatus === "DUE_SOON";
+    if (statusFilter === "OVERDUE")
+      return (
+        loan.lifecycleStatus === "ACTIVE" &&
+        (loan.dueStatus === "OVERDUE" || isDatePast(loan.dueDate))
+      );
+    if (statusFilter === "RETURN_REQUESTED") return loan.returnStatus === "PENDING_CONFIRMATION";
+    if (statusFilter === "CLOSED") return loan.lifecycleStatus === "CLOSED";
+    return true;
   });
 
   return (
@@ -47,7 +56,7 @@ export const MemberLoansPage: React.FC = () => {
             variant={statusFilter === opt.value ? "default" : "outline"}
             size="sm"
             onClick={() => setStatusFilter(opt.value)}
-            className="text-xs h-8 min-h-[36px]"
+            className="text-xs min-h-[44px] sm:min-h-[36px]"
           >
             {opt.label}
           </Button>
@@ -77,7 +86,8 @@ export const MemberLoansPage: React.FC = () => {
         <div className="space-y-4">
           {filteredLoans.map((loan) => {
             const isOverdue =
-              isDatePast(loan.dueDate) && loan.status !== "CLOSED" && loan.status !== "RETURNED";
+              loan.lifecycleStatus === "ACTIVE" &&
+              (loan.dueStatus === "OVERDUE" || isDatePast(loan.dueDate));
 
             const computedStatus: LoanStatus = getLoanDisplayStatus(loan);
 

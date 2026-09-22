@@ -162,7 +162,7 @@ export const MemberRequestDetailPage: React.FC = () => {
               Decision Status
             </span>
             <span className="font-semibold text-foreground mt-0.5 block">
-              {request.decisionStatus || request.status}
+              {request.decisionStatus}
             </span>
           </div>
           <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
@@ -180,7 +180,7 @@ export const MemberRequestDetailPage: React.FC = () => {
               Lifecycle Status
             </span>
             <span className="font-semibold text-foreground mt-0.5 block">
-              {request.lifecycleStatus || "ACTIVE"}
+              {request.lifecycleStatus}
             </span>
           </div>
         </div>
@@ -197,27 +197,31 @@ export const MemberRequestDetailPage: React.FC = () => {
       </div>
 
       {/* 48h Collection Window Banner */}
-      {pickupWindow && (displayStatus === "APPROVED" || displayStatus === "PARTIALLY_APPROVED") && (
-        <PolicyNotice
-          variant={
-            pickupWindow.isExpired
-              ? "restricted"
-              : pickupWindow.status === "URGENT"
-                ? "warning"
-                : "info"
-          }
-          title={
-            pickupWindow.isExpired
-              ? "Collection Window Expired"
-              : `48-Hour Collection Window: ${pickupWindow.hoursRemaining} Hours Remaining`
-          }
-          description={
-            pickupWindow.isExpired
-              ? "The 48-hour reservation window has elapsed. Uncollected items have been released back to general inventory."
-              : `Your equipment is staged at the RAS Logistics desk until ${formatDateTime(pickupWindow.deadline)}. Present your student card to finalize handover.`
-          }
-        />
-      )}
+      {pickupWindow &&
+        (request.decisionStatus === "APPROVED" ||
+          request.decisionStatus === "PARTIALLY_APPROVED") &&
+        request.handoverStatus === "WAITING" &&
+        request.lifecycleStatus === "ACTIVE" && (
+          <PolicyNotice
+            variant={
+              pickupWindow.isExpired
+                ? "restricted"
+                : pickupWindow.status === "URGENT"
+                  ? "warning"
+                  : "info"
+            }
+            title={
+              pickupWindow.isExpired
+                ? "Collection Window Expired"
+                : `48-Hour Collection Window: ${pickupWindow.hoursRemaining} Hours Remaining`
+            }
+            description={
+              pickupWindow.isExpired
+                ? "The 48-hour reservation window has elapsed. Uncollected items have been released back to general inventory."
+                : `Your equipment is staged at the RAS Logistics desk until ${formatDateTime(pickupWindow.deadline)}. Present your student card to finalize handover.`
+            }
+          />
+        )}
 
       {/* Line Item Granular Approval Breakdown */}
       <div className="p-6 rounded-xl border border-border bg-card shadow-sm space-y-4">

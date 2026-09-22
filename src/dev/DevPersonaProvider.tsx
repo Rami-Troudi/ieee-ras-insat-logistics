@@ -3,6 +3,7 @@ import { UserPersona } from "@/types";
 import { PRESET_PERSONAS } from "@/constants/personas";
 import { DevPersonaContext } from "@/hooks/useDevPersona";
 import { SessionContext, PROD_DEFAULT_PERSONA } from "@/hooks/useSession";
+import { authService } from "@/services";
 
 export { PRESET_PERSONAS, PROD_DEFAULT_PERSONA };
 
@@ -23,6 +24,13 @@ export const DevPersonaProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   });
 
   useEffect(() => {
+    const unsubscribe = authService.subscribeSession((session) => {
+      setCurrentPersona(session);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
     if (isDev) {
       try {
         localStorage.setItem("ras_dev_persona_id", currentPersona.id);
@@ -35,12 +43,7 @@ export const DevPersonaProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const handleSetPersona = React.useCallback(
     (persona: UserPersona) => {
       if (isDev) {
-        // Write synchronously so any subsequent page navigation reads the correct ID
-        try {
-          localStorage.setItem("ras_dev_persona_id", persona.id);
-        } catch {
-          // ignore
-        }
+        authService.setSession(persona);
         setCurrentPersona(persona);
       }
     },

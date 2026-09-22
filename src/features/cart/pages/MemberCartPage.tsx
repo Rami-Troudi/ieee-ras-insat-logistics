@@ -232,7 +232,7 @@ export const MemberCartPage: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={clearCart}
-              className="text-xs text-muted-foreground hover:text-destructive min-h-[36px]"
+              className="text-xs text-muted-foreground hover:text-destructive min-h-[44px] sm:min-h-[36px]"
             >
               Clear Cart
             </Button>
