@@ -2,6 +2,7 @@ import React from "react";
 import { DesktopSidebar } from "@/components/shared/DesktopSidebar";
 import { MobileBottomNav } from "@/components/shared/MobileBottomNav";
 import { TopBar } from "@/components/shared/TopBar";
+import { QuickOnboardingModal } from "@/components/shared/QuickOnboardingModal";
 import { Outlet } from "react-router-dom";
 
 export const MemberLayout: React.FC = () => {
@@ -20,6 +21,9 @@ export const MemberLayout: React.FC = () => {
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav />
+
+      {/* First-time QR Onboarding Dialog */}
+      <QuickOnboardingModal />
     </div>
   );
 };

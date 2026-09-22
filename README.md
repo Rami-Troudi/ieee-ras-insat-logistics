@@ -18,6 +18,7 @@ The official web platform for managing hardware inventory, borrow requests, acti
   - Strict isolation between semantic destructive actions and the brand accent red.
 - **Mobile-First Borrower Experience (`/app`)**:
   - **Instant Visual Catalogue Landing**: Borrowers land directly on `/app` with a responsive photo-first equipment grid (2 cols mobile, 3 tablet, 4–5 desktop) with categories and simple availability indicators (`Available`, `Limited`, `Unavailable`). Raw internal stock quantities remain Board-only.
+  - **QR Code Fast Onboarding & Persistent Session**: First-time scan prompts a clean student account creation modal (Name, Email, Student ID, Phone). The borrower stays permanently logged in on their device with all requests automatically attributed to their personal info.
   - **Simplified 2-Tab Navigation**: `Catalogue` and `Activity` for zero distraction.
   - **Streamlined Visual Cart**: Fast add/increment for Class C and E resources, friendly return date selector, and optional purpose note.
   - **Unified Activity Hub**: Consolidates `Ready to pick up`, `With you` (active loans), `Waiting` (pending requests), and `Past` (with 1-click `[Request again]`).
