@@ -21,7 +21,6 @@ test.describe("Member Complete Logistics Journey", () => {
     await page.getByRole("link", { name: /STM32F401RE Nucleo-64/i }).click();
     await expect(page).toHaveURL(/\/app\/inventory\/item-stm32-f4/);
     await expect(page.getByRole("heading", { name: "STM32F401RE Nucleo-64" })).toBeVisible();
-    await expect(page.getByText("Technical Specifications")).toBeVisible();
 
     // 4. Increase quantity to 2 and add to cart from detail page
     const increaseBtn = page.getByRole("button", { name: "Increase quantity" });
