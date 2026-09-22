@@ -8,7 +8,7 @@
 | **Lint**               | `npm run lint`         | ESLint 9 Flat Config (React / TS / Hooks)   | Zero errors, zero warnings                | **PASS** |
 | **Typecheck**          | `npm run typecheck`    | TypeScript compiler (`tsc --noEmit`)        | Zero errors across entire codebase        | **PASS** |
 | **Unit & Integration** | `npm run test`         | Vitest test suites (11 files, 63 tests)     | 11 passed, 63 tests passed (100%)         | **PASS** |
-| **E2E Journeys**       | `npx playwright test`  | 8 comprehensive Member journeys & scenarios | 8 passed (24.4s), zero failures           | **PASS** |
+| **E2E Journeys**       | `npm run test:e2e`     | 8 comprehensive Member journeys & scenarios | 8 passed (24.4s), zero failures           | **PASS** |
 | **Production Build**   | `npm run build`        | Vite + Rollup production bundle             | Completed cleanly in 4.9s                 | **PASS** |
 
 ---

@@ -9,7 +9,7 @@ import { useUserRequests } from "../hooks/useRequests";
 import { useSession } from "@/hooks/useSession";
 import { formatDate } from "@/lib/dates";
 import { ArrowRight, Clock, Plus, AlertCircle } from "lucide-react";
-import { RequestStatus } from "@/types";
+import { getRequestDisplayStatus } from "@/types";
 
 export const MemberRequestsPage: React.FC = () => {
   const { currentPersona } = useSession();
@@ -111,7 +111,7 @@ export const MemberRequestsPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <StatusBadge status={req.status as RequestStatus} />
+                    <StatusBadge status={getRequestDisplayStatus(req)} />
                   </div>
                 </div>
 

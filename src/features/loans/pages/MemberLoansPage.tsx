@@ -7,9 +7,9 @@ import { EmptyState, ErrorState } from "@/components/shared/FeedbackStates";
 import { Button } from "@/components/ui/button";
 import { useUserLoans } from "../hooks/useLoans";
 import { useSession } from "@/hooks/useSession";
-import { formatDate, isDatePast, isDateWithinDays } from "@/lib/dates";
+import { formatDate, isDatePast } from "@/lib/dates";
 import { ArrowRight, Clock, AlertTriangle, PackageCheck } from "lucide-react";
-import { LoanStatus } from "@/types";
+import { LoanStatus, getLoanDisplayStatus } from "@/types";
 
 export const MemberLoansPage: React.FC = () => {
   const { currentPersona } = useSession();
@@ -78,13 +78,8 @@ export const MemberLoansPage: React.FC = () => {
           {filteredLoans.map((loan) => {
             const isOverdue =
               isDatePast(loan.dueDate) && loan.status !== "CLOSED" && loan.status !== "RETURNED";
-            const isDueSoon = isDateWithinDays(loan.dueDate, 3) && loan.status !== "CLOSED";
 
-            const computedStatus: LoanStatus = isOverdue
-              ? "OVERDUE"
-              : isDueSoon && loan.status === "ACTIVE"
-                ? "DUE_SOON"
-                : loan.status;
+            const computedStatus: LoanStatus = getLoanDisplayStatus(loan);
 
             return (
               <div

@@ -9,6 +9,7 @@ import { useSession } from "@/hooks/useSession";
 import { useUserLoans } from "@/features/loans/hooks/useLoans";
 import { useUserRequests } from "@/features/requests/hooks/useRequests";
 import { formatDate, isDatePast, isDateWithinDays } from "@/lib/dates";
+import { getRequestDisplayStatus } from "@/types";
 
 export const MemberHomePage: React.FC = () => {
   const { currentPersona } = useSession();
@@ -135,7 +136,7 @@ export const MemberHomePage: React.FC = () => {
           <div className="pt-2 flex items-center justify-between border-t border-border/60">
             {recentRequest ? (
               <>
-                <StatusBadge status={recentRequest.status} />
+                <StatusBadge status={getRequestDisplayStatus(recentRequest)} />
                 <Link
                   to={`/app/requests/${recentRequest.id}`}
                   className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1 py-2.5 min-h-[44px]"
