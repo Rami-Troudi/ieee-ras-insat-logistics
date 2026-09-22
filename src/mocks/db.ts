@@ -5,6 +5,15 @@ import {
   AppNotification,
   UserProfile,
   ProjectSummary,
+  AllocationRecord,
+  InventoryEvent,
+  InventoryAudit,
+  IncidentRecord,
+  DisciplinaryRecommendation,
+  StrikeRecord,
+  CompensationRecord,
+  AuditEvent,
+  SemesterConfig,
 } from "@/types";
 import { INITIAL_INVENTORY } from "./seed/inventory";
 import { INITIAL_PROJECTS } from "./seed/projects";
@@ -12,6 +21,15 @@ import { INITIAL_REQUESTS } from "./seed/requests";
 import { INITIAL_LOANS } from "./seed/loans";
 import { INITIAL_NOTIFICATIONS } from "./seed/notifications";
 import { INITIAL_USER_PROFILES } from "./seed/users";
+import { INITIAL_ALLOCATIONS } from "./seed/allocations";
+import { INITIAL_INVENTORY_EVENTS } from "./seed/inventory-events";
+import { INITIAL_AUDITS } from "./seed/audits";
+import { INITIAL_INCIDENTS } from "./seed/incidents";
+import { INITIAL_RECOMMENDATIONS } from "./seed/recommendations";
+import { INITIAL_STRIKES } from "./seed/strikes";
+import { INITIAL_COMPENSATIONS } from "./seed/compensations";
+import { INITIAL_AUDIT_EVENTS } from "./seed/audit-events";
+import { INITIAL_SEMESTERS } from "./seed/semesters";
 
 export interface MockDatabaseSchema {
   inventory: InventoryItemSummary[];
@@ -21,9 +39,18 @@ export interface MockDatabaseSchema {
   notifications: AppNotification[];
   userProfiles: Record<string, UserProfile>;
   favorites: Record<string, string[]>; // userId -> itemId[]
+  allocations: AllocationRecord[];
+  inventoryEvents: InventoryEvent[];
+  audits: InventoryAudit[];
+  incidents: IncidentRecord[];
+  recommendations: DisciplinaryRecommendation[];
+  strikes: StrikeRecord[];
+  compensations: CompensationRecord[];
+  auditEvents: AuditEvent[];
+  semesters: SemesterConfig[];
 }
 
-const STORAGE_KEY = "ras_insat_mock_db_v1";
+const STORAGE_KEY = "ras_insat_mock_db_v2";
 
 class MockDatabase {
   private data: MockDatabaseSchema;
@@ -43,6 +70,15 @@ class MockDatabase {
       favorites: {
         "p-member-ieee": [],
       },
+      allocations: JSON.parse(JSON.stringify(INITIAL_ALLOCATIONS)),
+      inventoryEvents: JSON.parse(JSON.stringify(INITIAL_INVENTORY_EVENTS)),
+      audits: JSON.parse(JSON.stringify(INITIAL_AUDITS)),
+      incidents: JSON.parse(JSON.stringify(INITIAL_INCIDENTS)),
+      recommendations: JSON.parse(JSON.stringify(INITIAL_RECOMMENDATIONS)),
+      strikes: JSON.parse(JSON.stringify(INITIAL_STRIKES)),
+      compensations: JSON.parse(JSON.stringify(INITIAL_COMPENSATIONS)),
+      auditEvents: JSON.parse(JSON.stringify(INITIAL_AUDIT_EVENTS)),
+      semesters: JSON.parse(JSON.stringify(INITIAL_SEMESTERS)),
     };
   }
 
@@ -53,7 +89,12 @@ class MockDatabase {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        // Merge with default to guarantee new tables exist
+        return {
+          ...this.getDefaultData(),
+          ...parsed,
+        };
       }
     } catch (e) {
       console.warn("Failed to load mock db from localStorage:", e);
@@ -75,6 +116,10 @@ class MockDatabase {
   public resetToDefault(): void {
     this.data = this.getDefaultData();
     this.saveToStorage(this.data);
+  }
+
+  public reset(): void {
+    this.resetToDefault();
   }
 
   public getSnapshot(): MockDatabaseSchema {

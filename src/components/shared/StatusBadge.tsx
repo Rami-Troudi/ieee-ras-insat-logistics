@@ -35,10 +35,33 @@ export type DomainStatus =
   | "OVERDUE"
   | "RESTRICTED"
   | "BANNED"
+  | "BLACKLISTED"
+  | "SUSPENDED"
   | "SUCCESS"
   | "WARNING"
   | "ERROR"
-  | "INFO";
+  | "INFO"
+  | "IN_PROGRESS"
+  | "RECONCILED"
+  | "MATCHED"
+  | "DISCREPANCY"
+  | "PENDING_COUNT"
+  | "CONFIRMED"
+  | "PENDING_REVIEW"
+  | "APPLIED"
+  | "DISMISSED"
+  | "OPEN"
+  | "INVESTIGATING"
+  | "RESOLVED"
+  | "ON_TIME"
+  | "OVERTURNED"
+  | "PAID"
+  | "WAIVED"
+  | "APPEALED"
+  | "ARCHIVED"
+  | "COMPLETED"
+  | "PLANNING"
+  | "FULFILLED";
 
 export interface StatusConfigItem {
   label: string;
@@ -216,6 +239,123 @@ export const STATUS_CONFIG: Record<DomainStatus, StatusConfigItem> = {
     variant: "info",
     icon: Info,
     iconClass: "text-[hsl(var(--info))]",
+  },
+  BLACKLISTED: {
+    label: "Blacklisted",
+    variant: "danger",
+    icon: AlertCircle,
+    iconClass: "text-[hsl(var(--danger))]",
+  },
+  SUSPENDED: {
+    label: "Suspended",
+    variant: "danger",
+    icon: AlertCircle,
+    iconClass: "text-[hsl(var(--danger))]",
+  },
+  IN_PROGRESS: {
+    label: "In Progress",
+    variant: "secondary",
+    icon: Clock,
+  },
+  RECONCILED: {
+    label: "Reconciled",
+    variant: "success",
+    icon: CheckCircle2,
+  },
+  MATCHED: {
+    label: "Matched",
+    variant: "success",
+    icon: CheckCircle2,
+  },
+  DISCREPANCY: {
+    label: "Discrepancy",
+    variant: "danger",
+    icon: AlertTriangle,
+  },
+  PENDING_COUNT: {
+    label: "Pending Count",
+    variant: "outline",
+    icon: Clock,
+  },
+  CONFIRMED: {
+    label: "Confirmed",
+    variant: "success",
+    icon: CheckCircle2,
+  },
+  PENDING_REVIEW: {
+    label: "Pending Review",
+    variant: "warning",
+    icon: AlertTriangle,
+  },
+  APPLIED: {
+    label: "Applied",
+    variant: "danger",
+    icon: AlertCircle,
+  },
+  DISMISSED: {
+    label: "Dismissed",
+    variant: "outline",
+    icon: CheckCircle2,
+  },
+  OPEN: {
+    label: "Open",
+    variant: "warning",
+    icon: AlertTriangle,
+  },
+  INVESTIGATING: {
+    label: "Investigating",
+    variant: "secondary",
+    icon: Clock,
+  },
+  RESOLVED: {
+    label: "Resolved",
+    variant: "success",
+    icon: CheckCircle2,
+  },
+  ON_TIME: {
+    label: "On Time",
+    variant: "success",
+    icon: CheckCircle2,
+  },
+  OVERTURNED: {
+    label: "Overturned",
+    variant: "outline",
+    icon: RotateCcw,
+  },
+  PAID: {
+    label: "Paid",
+    variant: "success",
+    icon: CheckCircle2,
+  },
+  WAIVED: {
+    label: "Waived",
+    variant: "outline",
+    icon: CheckCircle2,
+  },
+  APPEALED: {
+    label: "Appealed",
+    variant: "warning",
+    icon: AlertTriangle,
+  },
+  ARCHIVED: {
+    label: "Archived",
+    variant: "outline",
+    icon: Info,
+  },
+  COMPLETED: {
+    label: "Completed",
+    variant: "success",
+    icon: CheckCircle2,
+  },
+  PLANNING: {
+    label: "Planning",
+    variant: "secondary",
+    icon: Clock,
+  },
+  FULFILLED: {
+    label: "Fulfilled",
+    variant: "success",
+    icon: CheckCircle2,
   },
 };
 

@@ -13,6 +13,7 @@ import {
   Download,
   User,
   Bell,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react";
 
@@ -49,6 +50,7 @@ export const BOARD_NAV_ITEMS: NavItem[] = [
   { name: "Incidents", path: "/board/incidents", icon: AlertTriangle },
   { name: "Insights", path: "/board/insights", icon: BarChart3 },
   { name: "Exports", path: "/board/exports", icon: Download },
+  { name: "Audit Log", path: "/board/audit-log", icon: ScrollText },
 ];
 
 export const BOARD_MOBILE_TABS: NavItem[] = [
@@ -65,6 +67,7 @@ export const BOARD_MORE_ITEMS: NavItem[] = [
   { name: "Incidents & Strikes", path: "/board/incidents", icon: AlertTriangle },
   { name: "Insights Dashboard", path: "/board/insights", icon: BarChart3 },
   { name: "Data Exports", path: "/board/exports", icon: Download },
+  { name: "Audit Log", path: "/board/audit-log", icon: ScrollText },
   { name: "Operational Notifications", path: "/board/notifications", icon: Bell },
   { name: "Board Profile", path: "/board/profile", icon: User },
 ];

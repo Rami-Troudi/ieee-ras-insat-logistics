@@ -1,4 +1,5 @@
 export type EquipmentClass = "A" | "B" | "C" | "D" | "E" | "F" | "G";
+export type ItemClass = EquipmentClass;
 
 export type TrackingMode = "QUANTITY" | "INDIVIDUAL_ASSET";
 
@@ -19,12 +20,15 @@ export interface InventoryItemSummary {
   description: string;
   category: string;
   equipmentClass: EquipmentClass;
+  itemClass?: EquipmentClass;
   trackingMode: TrackingMode;
   totalQuantity: number;
   availableQuantity: number;
   allocatedQuantity: number;
   borrowedQuantity: number;
   damagedQuantity: number;
+  maintenanceQuantity?: number;
+  lostQuantity?: number;
   location?: string;
   isFavorite?: boolean;
   imageUrl?: string;
@@ -33,6 +37,7 @@ export interface InventoryItemSummary {
   assets?: IndividualAsset[];
   aliases?: string[];
   tags?: string[];
+  isDirectBoardApproval?: boolean;
 }
 
 export interface InventoryQueryFilter {

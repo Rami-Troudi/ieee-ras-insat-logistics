@@ -71,7 +71,7 @@ describe("Dev Persona Switching & Shell Transition", () => {
     // 4. Verify Board persona is active and navigated to /board (BoardLayout rendered)
     expect(await screen.findByText("BOARD")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/board");
-    expect(screen.getByText("Logistics Action Center")).toBeInTheDocument();
+    expect(await screen.findByText("Logistics Action Center")).toBeInTheDocument();
     expect(screen.getByText("Board Operations")).toBeInTheDocument();
 
     // 5. Open switcher again and select Member

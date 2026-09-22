@@ -1,0 +1,66 @@
+import {
+  UserProfile,
+  Affiliation,
+  ClearanceLevel,
+  Role,
+  UserStatus,
+  ClearanceSource,
+} from "@/types";
+
+export interface ProcessUserPayload {
+  userId: string;
+  verifiedAffiliation: Affiliation;
+  notes?: string;
+}
+
+export interface UpdateUserClearancePayload {
+  userId: string;
+  newClearance: ClearanceLevel;
+  source: ClearanceSource;
+  reason: string;
+}
+
+export interface UpdateUserRolePayload {
+  userId: string;
+  newRole: Role;
+  reason: string;
+}
+
+export interface UpdateUserStatusPayload {
+  userId: string;
+  status: UserStatus;
+  reason: string;
+}
+
+export interface IBoardUserService {
+  getUsers(filters?: {
+    search?: string;
+    role?: Role | "ALL";
+    clearance?: ClearanceLevel | "ALL";
+    affiliation?: Affiliation | "ALL";
+    unprocessedOnly?: boolean;
+    status?: UserStatus | "ALL";
+  }): Promise<UserProfile[]>;
+  getUserById(userId: string): Promise<UserProfile | null>;
+  processUser(
+    payload: ProcessUserPayload,
+    actorUserId: string,
+    actorRole: string
+  ): Promise<UserProfile>;
+  updateClearance(
+    payload: UpdateUserClearancePayload,
+    actorUserId: string,
+    actorRole: string,
+    actorClearance: string
+  ): Promise<UserProfile>;
+  updateRole(
+    payload: UpdateUserRolePayload,
+    actorUserId: string,
+    actorRole: string
+  ): Promise<UserProfile>;
+  updateStatus(
+    payload: UpdateUserStatusPayload,
+    actorUserId: string,
+    actorRole: string
+  ): Promise<UserProfile>;
+}

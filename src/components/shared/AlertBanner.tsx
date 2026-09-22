@@ -2,7 +2,8 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from "lucide-react";
 
-export type AlertBannerVariant = "info" | "warning" | "danger" | "success";
+export type AlertBannerVariant =
+  "info" | "warning" | "danger" | "destructive" | "error" | "success";
 
 export interface AlertBannerProps {
   variant?: AlertBannerVariant;
@@ -13,7 +14,14 @@ export interface AlertBannerProps {
   className?: string;
 }
 
-const VARIANT_CONFIG = {
+const VARIANT_CONFIG: Record<
+  AlertBannerVariant,
+  {
+    container: string;
+    icon: React.ComponentType<{ className?: string }>;
+    iconColor: string;
+  }
+> = {
   info: {
     container:
       "bg-[hsl(var(--info-surface))] border-[hsl(var(--info))]/30 text-[hsl(var(--foreground))]",
@@ -27,6 +35,18 @@ const VARIANT_CONFIG = {
     iconColor: "text-[hsl(var(--warning))]",
   },
   danger: {
+    container:
+      "bg-[hsl(var(--danger-surface))] border-[hsl(var(--danger))]/30 text-[hsl(var(--foreground))]",
+    icon: AlertCircle,
+    iconColor: "text-[hsl(var(--danger))]",
+  },
+  destructive: {
+    container:
+      "bg-[hsl(var(--danger-surface))] border-[hsl(var(--danger))]/30 text-[hsl(var(--foreground))]",
+    icon: AlertCircle,
+    iconColor: "text-[hsl(var(--danger))]",
+  },
+  error: {
     container:
       "bg-[hsl(var(--danger-surface))] border-[hsl(var(--danger))]/30 text-[hsl(var(--foreground))]",
     icon: AlertCircle,
@@ -48,7 +68,7 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
   onDismiss,
   className,
 }) => {
-  const config = VARIANT_CONFIG[variant];
+  const config = VARIANT_CONFIG[variant] || VARIANT_CONFIG.info;
   const Icon = config.icon;
 
   return (

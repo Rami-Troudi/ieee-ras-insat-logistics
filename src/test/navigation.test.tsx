@@ -187,10 +187,7 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
 
     // Board layout is active (has Board Operations sidebar)
     expect(screen.getByText("Board Operations")).toBeInTheDocument();
-    expect(
-      screen.getByText("Board Member & Custodian Profile Structural Route")
-    ).toBeInTheDocument();
-    expect(screen.getByText("Scheduled for Stage 3: Board Custodian Profile")).toBeInTheDocument();
+    expect(screen.getByText("Board Custodian Profile")).toBeInTheDocument();
   });
 });
 

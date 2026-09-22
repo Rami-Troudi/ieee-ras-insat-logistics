@@ -1,5 +1,7 @@
 export type ProjectStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED" | "PLANNING";
 
+export type ProjectCategory = "EUROBOT" | "RAS_INTERNAL" | "HACKATHON" | "ACADEMIC" | string;
+
 export interface ProjectSummary {
   id: string;
   name: string;
@@ -9,4 +11,8 @@ export interface ProjectSummary {
   leadName: string;
   membersCount: number;
   memberIds: string[];
+  category?: ProjectCategory;
+  leadId?: string;
+  leadMemberId?: string;
+  activeLoanCount?: number;
 }
