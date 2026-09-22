@@ -21,13 +21,14 @@ class MockAuthService implements IAuthService {
   async registerMember(input: RegisterMemberInput): Promise<RegisterResult> {
     await new Promise((res) => setTimeout(res, 200));
 
+    const affiliation = input.membership || (input.affiliation as any) || "EXTERNAL";
     const newPersona: UserPersona = {
       id: "p-member-unprocessed",
       name: input.name.trim(),
       email: input.email.trim().toLowerCase(),
       role: "MEMBER",
-      clearance: "I",
-      affiliation: "EXTERNAL",
+      clearance: affiliation === "IEEE" ? "II" : affiliation === "AEROBOTIX" ? "II" : "I",
+      affiliation: affiliation,
       isProcessed: false,
       status: "ACTIVE",
       strikesCount: 0,
@@ -37,7 +38,8 @@ class MockAuthService implements IAuthService {
       draft.userProfiles[newPersona.id] = {
         ...newPersona,
         phone: input.phone.trim(),
-        studentId: input.studentId.trim(),
+        studentId: (input.studentId || "").trim(),
+        claimedAffiliation: affiliation,
         joinedDate: new Date().toISOString(),
         strikes: [],
         activeLoansCount: 0,

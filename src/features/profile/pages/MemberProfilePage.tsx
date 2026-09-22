@@ -42,7 +42,7 @@ export const MemberProfilePage: React.FC = () => {
     id: currentPersona.id,
     name: currentPersona.name,
     email: currentPersona.email,
-    studentId: "INSAT Student",
+    affiliation: currentPersona.affiliation,
     phone: "",
     status: currentPersona.status,
     strikesCount: currentPersona.strikesCount,
@@ -77,7 +77,9 @@ export const MemberProfilePage: React.FC = () => {
           </div>
           <div>
             <h2 className="font-bold text-base text-foreground">{p.name}</h2>
-            <span className="text-xs text-muted-foreground">{p.studentId || "INSAT Member"}</span>
+            <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary">
+              Membership: {p.affiliation === "AEROBOTIX" ? "Aerobotix" : p.affiliation === "EXTERNAL" ? "External" : "IEEE"}
+            </span>
           </div>
         </div>
 

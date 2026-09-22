@@ -1,9 +1,13 @@
 import { UserPersona, UserProfile } from "@/types";
 
+export type MembershipType = "IEEE" | "AEROBOTIX" | "EXTERNAL";
+
 export interface RegisterMemberInput {
   name: string;
   email: string;
-  studentId: string;
+  membership?: MembershipType;
+  affiliation?: string;
+  studentId?: string;
   phone: string;
   password?: string;
 }

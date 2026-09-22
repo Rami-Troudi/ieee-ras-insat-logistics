@@ -11,8 +11,8 @@ import { authService } from "@/services";
 
 const registerSchema = z.object({
   name: z.string().min(3, "Full name must be at least 3 characters"),
-  email: z.string().email("Please enter a valid institutional email"),
-  studentId: z.string().min(5, "Student ID must be at least 5 characters"),
+  email: z.string().email("Please enter a valid email"),
+  membership: z.enum(["IEEE", "AEROBOTIX", "EXTERNAL"]),
   phone: z.string().min(8, "Phone number must be at least 8 digits"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
@@ -26,10 +26,17 @@ export const RegisterPage: React.FC = () => {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      membership: "IEEE",
+    },
   });
+
+  const selectedMembership = watch("membership");
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
@@ -86,7 +93,7 @@ export const RegisterPage: React.FC = () => {
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                Institutional Email *
+                Email *
               </label>
               <input
                 type="email"
@@ -99,36 +106,53 @@ export const RegisterPage: React.FC = () => {
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                  Student ID *
-                </label>
-                <input
-                  type="text"
-                  {...register("studentId")}
-                  placeholder="INSAT-2025-XXXX"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px]"
-                />
-                {errors.studentId && (
-                  <span className="text-xs text-destructive block">{errors.studentId.message}</span>
-                )}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                Membership *
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    { id: "IEEE", label: "IEEE" },
+                    { id: "AEROBOTIX", label: "Aerobotix" },
+                    { id: "EXTERNAL", label: "External" },
+                  ] as const
+                ).map((m) => {
+                  const isSelected = selectedMembership === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setValue("membership", m.id, { shouldValidate: true })}
+                      className={`h-11 rounded-lg text-xs font-semibold border transition-all flex items-center justify-center ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-background border-input text-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
               </div>
+              {errors.membership && (
+                <span className="text-xs text-destructive block">{errors.membership.message}</span>
+              )}
+            </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
-                  {...register("phone")}
-                  placeholder="+216 XX XXX XXX"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px]"
-                />
-                {errors.phone && (
-                  <span className="text-xs text-destructive block">{errors.phone.message}</span>
-                )}
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                {...register("phone")}
+                placeholder="+216 XX XXX XXX"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px]"
+              />
+              {errors.phone && (
+                <span className="text-xs text-destructive block">{errors.phone.message}</span>
+              )}
             </div>
 
             <div className="space-y-1.5">

@@ -17,8 +17,8 @@ import { useUserProfile } from "@/features/profile/hooks/useProfile";
 
 const onboardingSchema = z.object({
   name: z.string().min(3, "Full name must be at least 3 characters"),
-  email: z.string().email("Please enter a valid institutional or personal email"),
-  studentId: z.string().min(4, "Student ID must be at least 4 characters"),
+  email: z.string().email("Please enter a valid email"),
+  membership: z.enum(["IEEE", "AEROBOTIX", "EXTERNAL"]),
   phone: z.string().min(8, "Phone number must be at least 8 digits"),
 });
 
@@ -50,23 +50,27 @@ export const QuickOnboardingModal: React.FC = () => {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<OnboardingFormData>({
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
       name: currentPersona.name.includes("(") ? "" : currentPersona.name,
       email: currentPersona.email.includes("rami.ieee") ? "" : currentPersona.email,
-      studentId: profile?.studentId || "",
+      membership: (profile?.affiliation === "AEROBOTIX" ? "AEROBOTIX" : profile?.affiliation === "EXTERNAL" ? "EXTERNAL" : "IEEE") as "IEEE" | "AEROBOTIX" | "EXTERNAL",
       phone: profile?.phone || "",
     },
   });
+
+  const selectedMembership = watch("membership");
 
   const onSubmit = async (data: OnboardingFormData) => {
     try {
       await authService.registerMember({
         name: data.name,
         email: data.email,
-        studentId: data.studentId,
+        membership: data.membership,
         phone: data.phone,
       });
 
@@ -130,38 +134,55 @@ export const QuickOnboardingModal: React.FC = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                Student ID *
-              </label>
-              <input
-                type="text"
-                {...register("studentId")}
-                placeholder="2100456"
-                className="w-full rounded-xl border border-input bg-card px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[40px] text-foreground"
-              />
-              {errors.studentId && (
-                <span className="text-[11px] text-destructive block">
-                  {errors.studentId.message}
-                </span>
-              )}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+              Membership *
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(
+                [
+                  { id: "IEEE", label: "IEEE" },
+                  { id: "AEROBOTIX", label: "Aerobotix" },
+                  { id: "EXTERNAL", label: "External" },
+                ] as const
+              ).map((m) => {
+                const isSelected = selectedMembership === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setValue("membership", m.id, { shouldValidate: true })}
+                    className={`h-10 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                        : "bg-card border-input text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
             </div>
+            {errors.membership && (
+              <span className="text-[11px] text-destructive block">
+                {errors.membership.message}
+              </span>
+            )}
+          </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                Phone Number *
-              </label>
-              <input
-                type="tel"
-                {...register("phone")}
-                placeholder="+216 98 765 432"
-                className="w-full rounded-xl border border-input bg-card px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[40px] text-foreground"
-              />
-              {errors.phone && (
-                <span className="text-[11px] text-destructive block">{errors.phone.message}</span>
-              )}
-            </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+              Phone Number *
+            </label>
+            <input
+              type="tel"
+              {...register("phone")}
+              placeholder="+216 98 765 432"
+              className="w-full rounded-xl border border-input bg-card px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary min-h-[40px] text-foreground"
+            />
+            {errors.phone && (
+              <span className="text-[11px] text-destructive block">{errors.phone.message}</span>
+            )}
           </div>
 
           <Button
