@@ -35,6 +35,9 @@ export const BoardInventoryPage: React.FC = () => {
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
+      if (classFilter === "NEEDS_ATTENTION") {
+        return (item.damagedQuantity || 0) > 0 || (item.maintenanceQuantity || 0) > 0;
+      }
       if (categoryFilter !== "ALL" && item.category !== categoryFilter) return false;
       if (classFilter !== "ALL" && item.equipmentClass !== classFilter) return false;
       if (searchQuery.trim()) {
@@ -102,13 +105,12 @@ export const BoardInventoryPage: React.FC = () => {
       />
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 pb-2">
-        <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto text-xs">
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
+            type="button"
+            variant={classFilter === "NEEDS_ATTENTION" ? "destructive" : "outline"}
             size="sm"
-            variant={categoryFilter === "ALL" ? "default" : "outline"}
-            onClick={() => setCategoryFilter("ALL")}
-            className="h-8 text-xs"
           >
             All Categories
           </Button>
@@ -187,9 +189,20 @@ export const BoardInventoryPage: React.FC = () => {
                     return (
                       <tr key={item.id} className="hover:bg-accent/40 transition-colors">
                         <td className="py-3 px-4">
-                          <div className="font-semibold text-foreground">{item.name}</div>
-                          <div className="text-[11px] font-mono text-muted-foreground">
-                            {item.id}
+                          <div className="flex items-center gap-2.5">
+                            {item.imageUrl && (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-9 h-9 rounded object-cover border border-border shrink-0"
+                              />
+                            )}
+                            <div>
+                              <div className="font-semibold text-foreground">{item.name}</div>
+                              <div className="text-[11px] font-mono text-muted-foreground">
+                                {item.id}
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td className="py-3 px-4 text-muted-foreground">{item.category}</td>

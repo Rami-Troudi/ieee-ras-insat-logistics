@@ -54,6 +54,29 @@ export function useConfirmReturn() {
   });
 }
 
+export function useUpdateLoanDueDate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      loanId,
+      dueDate,
+      actorUserId,
+    }: {
+      loanId: string;
+      dueDate: string;
+      actorUserId: string;
+    }) => boardLoanService.updateDueDate(loanId, dueDate, actorUserId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardLoans.all });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.loans.all });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.boardLoans.detail(variables.loanId),
+      });
+    },
+  });
+}
+
 export function useReviewExtension() {
   const queryClient = useQueryClient();
 

@@ -13,7 +13,7 @@ export const MobileBottomNav: React.FC = () => {
       className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border px-2 pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom,0px))] shadow-sm"
       aria-label="Mobile Navigation"
     >
-      <div className="grid grid-cols-5 items-center justify-items-center h-14">
+      <div className="flex items-center justify-around h-14 max-w-md mx-auto">
         {MOBILE_MEMBER_TABS.map((tab) => {
           const isActive =
             location.pathname === tab.path ||

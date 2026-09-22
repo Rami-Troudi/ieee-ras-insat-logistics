@@ -3,7 +3,6 @@ import { MemberLayout } from "@/layouts/MemberLayout";
 import { BoardLayout } from "@/layouts/BoardLayout";
 import { RootRedirect } from "@/app/RootRedirect";
 import {
-  MemberHomePage,
   MemberInventoryPage,
   MemberItemDetailPage,
   MemberCartPage,
@@ -14,9 +13,14 @@ import {
   MemberFavoritesPage,
   MemberNotificationsPage,
   MemberProfilePage,
+  MemberActivityPage,
 } from "@/pages/member";
 import {
   BoardActionCenterPage,
+  BoardDashboardPage,
+  BoardBorrowedPage,
+  BoardPeoplePage,
+  BoardMorePage,
   BoardInventoryPage,
   BoardItemDetailPage,
   BoardRequestsPage,
@@ -78,10 +82,11 @@ export const router = createBrowserRouter([
     path: "/app",
     element: <MemberLayout />,
     children: [
-      { index: true, element: <MemberHomePage /> },
+      { index: true, element: <MemberInventoryPage /> },
       { path: "inventory", element: <MemberInventoryPage /> },
       { path: "inventory/:itemId", element: <MemberItemDetailPage /> },
       { path: "cart", element: <MemberCartPage /> },
+      { path: "activity", element: <MemberActivityPage /> },
       { path: "requests", element: <MemberRequestsPage /> },
       { path: "requests/:requestId", element: <MemberRequestDetailPage /> },
       { path: "loans", element: <MemberLoansPage /> },
@@ -95,13 +100,18 @@ export const router = createBrowserRouter([
     path: "/board",
     element: <BoardLayout />,
     children: [
-      { index: true, element: <BoardActionCenterPage /> },
+      { index: true, element: <BoardDashboardPage /> },
+      { path: "dashboard", element: <BoardDashboardPage /> },
+      { path: "action-center", element: <BoardActionCenterPage /> },
       { path: "requests", element: <BoardRequestsPage /> },
       { path: "requests/:requestId", element: <BoardRequestDetailPage /> },
+      { path: "borrowed", element: <BoardBorrowedPage /> },
       { path: "loans", element: <BoardLoansPage /> },
       { path: "loans/:loanId", element: <BoardLoanDetailPage /> },
       { path: "inventory", element: <BoardInventoryPage /> },
       { path: "inventory/:itemId", element: <BoardItemDetailPage /> },
+      { path: "people", element: <BoardPeoplePage /> },
+      { path: "more", element: <BoardMorePage /> },
       { path: "projects", element: <BoardProjectsPage /> },
       { path: "projects/:projectId", element: <BoardProjectDetailPage /> },
       { path: "users", element: <BoardUsersPage /> },

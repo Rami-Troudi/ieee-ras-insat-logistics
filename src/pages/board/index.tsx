@@ -18,3 +18,7 @@ export { BoardExportsPage } from "@/features/exports/board/pages/BoardExportsPag
 export { BoardProfilePage } from "@/features/profile/board/pages/BoardProfilePage";
 export { BoardNotificationsPage } from "@/features/notifications/board/pages/BoardNotificationsPage";
 export { BoardAuditLogPage } from "@/features/audit-log/board/pages/BoardAuditLogPage";
+export { BoardDashboardPage } from "@/features/dashboard/board/pages/BoardDashboardPage";
+export { BoardBorrowedPage } from "@/features/loans/board/pages/BoardBorrowedPage";
+export { BoardPeoplePage } from "@/features/users/board/pages/BoardPeoplePage";
+export { BoardMorePage } from "@/features/dashboard/board/pages/BoardMorePage";

@@ -81,57 +81,69 @@ export const MemberItemDetailPage: React.FC = () => {
         />
       </div>
 
-      {/* Main Detail Header Card */}
-      <div className="p-6 rounded-xl border border-border bg-card shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 flex-wrap mb-2">
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                Class {item.equipmentClass}
-              </span>
-              <span className="text-xs font-medium text-muted-foreground">{item.category}</span>
-              <span className="text-xs font-mono text-muted-foreground">ID: {item.id}</span>
-            </div>
-            <h1 className="text-2xl font-extrabold text-foreground tracking-tight">{item.name}</h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <StatusBadge
-              status={
-                item.availableQuantity === 0
-                  ? "BORROWED"
-                  : eligibility.badgeType === "SUCCESS"
-                    ? "AVAILABLE"
-                    : eligibility.badgeType
-              }
-              label={
-                item.availableQuantity === 0
-                  ? "0 Available"
-                  : eligibility.statusLabel ||
-                    `${item.availableQuantity} of ${item.totalQuantity} Available`
-              }
+      {/* Hero Photo & Header Card */}
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden space-y-4">
+        {item.imageUrl && (
+          <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full bg-muted/30 overflow-hidden border-b border-border">
+            <img
+              src={item.imageUrl}
+              alt={item.name}
+              className="w-full h-full object-cover object-center"
             />
           </div>
-        </div>
+        )}
 
-        <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
-
-        {/* Location & Tracking Details */}
-        <div className="flex flex-wrap gap-4 pt-2 text-xs text-muted-foreground border-t border-border/60">
-          {item.location && (
-            <div className="flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-primary" />
-              <span>Storage: {item.location}</span>
+        <div className="p-6 pt-2 space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-muted text-foreground border border-border">
+                  {item.category}
+                </span>
+              </div>
+              <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
+                {item.name}
+              </h1>
             </div>
-          )}
-          <div className="flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-secondary" />
-            <span>
-              Tracking Mode:{" "}
-              {item.trackingMode === "INDIVIDUAL_ASSET"
-                ? "Individual Serial Numbers"
-                : "Batch Quantity"}
-            </span>
+
+            <div className="flex items-center gap-3">
+              <StatusBadge
+                status={
+                  item.availableQuantity === 0
+                    ? "BORROWED"
+                    : eligibility.badgeType === "SUCCESS"
+                      ? "AVAILABLE"
+                      : eligibility.badgeType
+                }
+                label={
+                  item.availableQuantity === 0
+                    ? "0 Available"
+                    : eligibility.statusLabel ||
+                      `${item.availableQuantity} of ${item.totalQuantity} Available`
+                }
+              />
+            </div>
+          </div>
+
+          <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+
+          {/* Location & Tracking Details */}
+          <div className="flex flex-wrap gap-4 pt-2 text-xs text-muted-foreground border-t border-border/60">
+            {item.location && (
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-primary" />
+                <span>Storage: {item.location}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-secondary" />
+              <span>
+                Tracking Mode:{" "}
+                {item.trackingMode === "INDIVIDUAL_ASSET"
+                  ? "Individual Serial Numbers"
+                  : "Batch Quantity"}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -191,20 +203,9 @@ export const MemberItemDetailPage: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div className="p-4 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground space-y-2">
-            <p className="font-semibold text-foreground">
-              {item.equipmentClass === "B" || item.equipmentClass === "D"
-                ? "Direct Board Request / Interaction Required"
-                : "Cannot reserve item online"}
-            </p>
-            <p>
-              {item.equipmentClass === "B"
-                ? "Class B items (screws, LEDs, resistors, rods, cables) are expendable resources provided directly by the Board at the workshop."
-                : item.equipmentClass === "D"
-                  ? "Class D tools (screwdrivers, hammers, keys, multimeters) are checked out via Direct Board interaction."
-                  : eligibility.reason ||
-                    "This item is either out of stock or your credentials restrict this request."}
-            </p>
+          <div className="p-4 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground space-y-1">
+            <p className="font-semibold text-foreground">Item Currently Unavailable</p>
+            <p>{eligibility.reason || "This item is currently not available for borrowing."}</p>
           </div>
         )}
       </div>

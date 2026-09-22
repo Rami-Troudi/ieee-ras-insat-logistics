@@ -11,26 +11,22 @@ The official web platform for managing hardware inventory, borrow requests, acti
 
 ---
 
-## Features (Stage 1: Foundation & Application Shell)
+## Features & Product Architecture
 
 - **Authoritative IEEE RAS Visual Identity**:
-  - Canonical Q4 2025 colors: **RAS Dark Red** (`#861F41`), **RAS Dark Purple** (`#772583`), **IEEE Blue** (`#00629B`), **IEEE Navy** (`#002855`), and official 80/60/40/20% tints.
-  - Official Open Sans typography hierarchy.
-  - Strict isolation between semantic destructive actions (`#EF4444`) and the brand accent red (`#861F41`).
-- **Responsive Dual-Shell Architecture**:
-  - **Member Portal (`/app`)**: Clean, spacious interface with a persistent desktop sidebar ($\ge 1024$px) or an ergonomic 5-tab mobile bottom bar (`Home`, `Inventory`, `Requests`, `Loans`, `Profile`).
-  - **Board Console (`/board`)**: High-density 10-department operational sidebar on desktop and a high-efficiency 4-tab bar (`Action`, `Requests`, `Loans`, `Inventory`) + slide-up `More` drawer on mobile.
-- **In-Memory Dev Persona Switcher & Session Abstraction**:
-  - Instant role and clearance flipping (`useDevPersona`) across 6 real club profiles in development, cleanly isolated from production bundle via `useSession`.
-- **Design System & Component Library**:
-  - Radix UI accessible primitives (`Dialog`, `Sheet`, `DropdownMenu`, `AlertDialog`, `Table`).
-  - Multi-dimensional `StatusBadge` covering all 25 domain statuses with icon + color + text.
-  - Tactile bound-checked `QuantitySelector` and accessible `SearchInput`.
-  - Responsive dialog/drawer hybrid pattern (`ResponsiveDialog`).
-- **Development Design Lab (`/_dev/design`)**:
-  - Visual catalog showcasing tokens, components, contrast ratios, and simulated latency states.
-- **Typed Mock Service Layer**:
-  - `IInventoryService` contract and `MockInventoryService` with simulated latency integrated with TanStack Query.
+  - Canonical colors: **RAS Dark Red** (`#861F41`), **RAS Dark Purple** (`#772583`), **IEEE Blue** (`#00629B`), **IEEE Navy** (`#002855`).
+  - Strict isolation between semantic destructive actions and the brand accent red.
+- **Mobile-First Borrower Experience (`/app`)**:
+  - **Instant Visual Catalogue Landing**: Borrowers land directly on `/app` with a responsive photo-first equipment grid (2 cols mobile, 3 tablet, 4–5 desktop) with categories and simple availability indicators (`Available`, `Limited`, `Unavailable`). Raw internal stock quantities remain Board-only.
+  - **Simplified 2-Tab Navigation**: `Catalogue` and `Activity` for zero distraction.
+  - **Streamlined Visual Cart**: Fast add/increment for Class C and E resources, friendly return date selector, and optional purpose note.
+  - **Unified Activity Hub**: Consolidates `Ready to pick up`, `With you` (active loans), `Waiting` (pending requests), and `Past` (with 1-click `[Request again]`).
+- **Operational Board Console (`/board`)**:
+  - **Action-Oriented Dashboard**: 4 top metrics (`Pending Requests`, `Items Out`, `Due Today`, `Overdue`) with quick 1-click approvals for standard requests.
+  - **Equipment Out (`/board/borrowed`)**: Rapid search by student or item, direct inline return date editing, and fast return intake modal (`Good`, `Needs attention`, `Damaged`, `Lost`).
+  - **Secondary Tools Hub (`/board/more`)**: Clean secondary access for Projects, Insights, Physical Audits, Data Exports, Incidents, and Audit Log.
+- **Robust Preserved Domain Engine**:
+  - Central mock datastore (`STORAGE_KEY = ras_insat_mock_db_v3`), multi-dimensional inventory ledger, allocations, asset tracking, permissions, and audit logs preserved underneath the simple UI.
 
 ---
 

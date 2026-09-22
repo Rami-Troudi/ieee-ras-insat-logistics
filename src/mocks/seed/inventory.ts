@@ -1,9 +1,11 @@
+import { EQUIPMENT_IMAGES, DEFAULT_EQUIPMENT_IMAGE } from "@/assets/equipmentImages";
 import { InventoryItemSummary } from "@/types";
 
 export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   // Class A — Consumables (hot glue, strong glue, adhesive, solder wick)
   {
     id: "item-glue-sticks",
+    imageUrl: EQUIPMENT_IMAGES["item-glue-sticks"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "Hot Melt Glue Sticks (Pack of 10)",
     description:
       "11mm multipurpose clear adhesive sticks for rapid mechanical prototyping and harness wire restraint.",
@@ -27,6 +29,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   },
   {
     id: "item-strong-adhesive",
+    imageUrl: EQUIPMENT_IMAGES["item-strong-adhesive"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "Cyanoacrylate Structural Adhesive 50g",
     description:
       "High-viscosity fast-acting bonding glue for rigid chassis assemblies, brackets, and acrylic mounts.",
@@ -52,6 +55,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   // Class B — Expendable Resources (screws, LEDs, resistors, rods, cables) -> Direct Board Request
   {
     id: "item-m3-hardware-pack",
+    imageUrl: EQUIPMENT_IMAGES["item-m3-hardware-pack"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "M3 Hex Screw & Standoff Assortment (120 pcs)",
     description:
       "Assorted M3 steel machine screws, brass threaded standoffs, and nylon washers for robot chassis mounting.",
@@ -75,6 +79,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   },
   {
     id: "item-resistor-led-kit",
+    imageUrl: EQUIPMENT_IMAGES["item-resistor-led-kit"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "Breadboard Resistor & 5mm LED Assortment",
     description:
       "Essential expendable electronic kit: 300x 1/4W metal film resistors and 50x diffuse 5mm LEDs.",
@@ -100,6 +105,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   // Class C — Light Resources (bearings, motor supports, wheels, batteries)
   {
     id: "item-lipo-battery",
+    imageUrl: EQUIPMENT_IMAGES["item-lipo-battery"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "Turnigy 3S 2200mAh 25C LiPo Battery Pack",
     description:
       "Rechargeable lithium polymer battery pack for mobile robot power distribution and DC motor drivers.",
@@ -130,6 +136,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   },
   {
     id: "item-omni-wheels",
+    imageUrl: EQUIPMENT_IMAGES["item-omni-wheels"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "100mm Double Aluminium Omni-Directional Wheels (Pair)",
     description:
       "Precision dual-plate omni wheels with ball bearings for holonomic mobile base locomotion.",
@@ -155,6 +162,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   // Class D — Light Equipment (screwdriver, hammer, keys, multimeter) -> Direct Board Request
   {
     id: "item-fluke-multimeter",
+    imageUrl: EQUIPMENT_IMAGES["item-fluke-multimeter"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "Fluke 117 True-RMS Digital Multimeter",
     description:
       "Compact digital multimeter with VoltAlert non-contact voltage detection, resistance, continuity, and capacitance.",
@@ -178,6 +186,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   },
   {
     id: "item-precision-screwdrivers",
+    imageUrl: EQUIPMENT_IMAGES["item-precision-screwdrivers"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "iFixit Pro Tech Precision Screwdriver Set",
     description:
       "64-bit precision screwdriver set for delicate electronics, robotic chassis assembly, and sensor mounting.",
@@ -202,6 +211,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   // Class E — Electronic Resources (Arduino, STM, sensors, motors)
   {
     id: "item-stm32-f4",
+    imageUrl: EQUIPMENT_IMAGES["item-stm32-f4"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "STM32F401RE Nucleo-64",
     description:
       "ARM Cortex-M4 microcontroller development board, 84 MHz CPU with FPU, 512 KB Flash, 96 KB SRAM, Arduino Uno V3 connectivity.",
@@ -246,6 +256,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   },
   {
     id: "item-arduino-uno",
+    imageUrl: EQUIPMENT_IMAGES["item-arduino-uno"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "Arduino Uno R3",
     description:
       "ATmega328P microcontroller board with 14 digital I/O pins, 6 analog inputs, 16 MHz quartz crystal, and USB connection.",
@@ -270,6 +281,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   },
   {
     id: "item-pololu-driver",
+    imageUrl: EQUIPMENT_IMAGES["item-pololu-driver"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "A4988 Stepper Motor Driver Carrier",
     description:
       "Microstepping driver with built-in translator for easy stepper control, adjustable current limiting, over-current and over-temperature protection.",
@@ -293,6 +305,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   },
   {
     id: "item-rpi-4",
+    imageUrl: EQUIPMENT_IMAGES["item-rpi-4"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "Raspberry Pi 4 Model B (4GB RAM)",
     description:
       "Quad core Cortex-A72 64-bit SoC @ 1.5GHz, dual-band 2.4/5.0 GHz wireless, Bluetooth 5.0, Gigabit Ethernet.",
@@ -318,6 +331,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   // Class F — Heavy Equipment (drill, grinder, soldering iron) -> Level III needs Level V+ supervision
   {
     id: "item-soldering-station",
+    imageUrl: EQUIPMENT_IMAGES["item-soldering-station"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "Weller WE 1010 Digital Soldering Station 70W",
     description:
       "Precision temperature-controlled digital soldering station. Class F Heavy Equipment requiring Level V+ supervisor presence during utilization.",
@@ -352,6 +366,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   },
   {
     id: "item-bench-drill-press",
+    imageUrl: EQUIPMENT_IMAGES["item-bench-drill-press"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "Bosch PBD 40 Digital Bench Drill Press",
     description:
       "Heavy precision drill press with digital display and integrated laser crosshair. Class F equipment for lab fabrication under supervision.",
@@ -377,6 +392,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
   // Class G — High Value Electronics (rare / irreplaceable electronics -> Level VI authorization required)
   {
     id: "item-keysight-dso",
+    imageUrl: EQUIPMENT_IMAGES["item-keysight-dso"] || DEFAULT_EQUIPMENT_IMAGE,
     name: "Keysight InfiniiVision DSOX1204G 4-Channel 200MHz Oscilloscope",
     description:
       "High-value precision mixed-signal oscilloscope with integrated waveform generator. Rare calibration instrument requiring Level VI Board authorization.",

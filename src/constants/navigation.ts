@@ -1,19 +1,11 @@
 import {
-  Home,
   Package,
+  Activity,
+  LayoutDashboard,
   ClipboardList,
   Clock,
-  Heart,
-  Inbox,
-  FolderGit2,
   Users,
-  CheckCircle2,
-  AlertTriangle,
-  BarChart3,
-  Download,
-  User,
-  Bell,
-  ScrollText,
+  MoreHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,51 +15,41 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
+// Simplified 2-tab borrower navigation
 export const MEMBER_NAV_ITEMS: NavItem[] = [
-  { name: "Home", path: "/app", icon: Home },
-  { name: "Inventory", path: "/app/inventory", icon: Package },
-  { name: "My Requests", path: "/app/requests", icon: ClipboardList },
-  { name: "My Loans", path: "/app/loans", icon: Clock },
-  { name: "Favorites", path: "/app/favorites", icon: Heart },
+  { name: "Catalogue", path: "/app/inventory", icon: Package },
+  { name: "Activity", path: "/app/activity", icon: Activity },
 ];
 
 export const MOBILE_MEMBER_TABS: NavItem[] = [
-  { name: "Home", path: "/app", icon: Home },
-  { name: "Inventory", path: "/app/inventory", icon: Package },
-  { name: "Requests", path: "/app/requests", icon: ClipboardList },
-  { name: "Loans", path: "/app/loans", icon: Clock },
-  { name: "Profile", path: "/app/profile", icon: User },
+  { name: "Catalogue", path: "/app/inventory", icon: Package },
+  { name: "Activity", path: "/app/activity", icon: Activity },
 ];
 
+// Simplified Board navigation
 export const BOARD_NAV_ITEMS: NavItem[] = [
-  { name: "Action Center", path: "/board", icon: Inbox },
-  { name: "Inventory", path: "/board/inventory", icon: Package },
+  { name: "Dashboard", path: "/board", icon: LayoutDashboard },
   { name: "Requests", path: "/board/requests", icon: ClipboardList },
-  { name: "Loans", path: "/board/loans", icon: Clock },
-  { name: "Projects", path: "/board/projects", icon: FolderGit2 },
-  { name: "Users", path: "/board/users", icon: Users },
-  { name: "Audits", path: "/board/audits", icon: CheckCircle2 },
-  { name: "Incidents", path: "/board/incidents", icon: AlertTriangle },
-  { name: "Insights", path: "/board/insights", icon: BarChart3 },
-  { name: "Exports", path: "/board/exports", icon: Download },
-  { name: "Audit Log", path: "/board/audit-log", icon: ScrollText },
+  { name: "Borrowed", path: "/board/borrowed", icon: Clock },
+  { name: "Inventory", path: "/board/inventory", icon: Package },
+  { name: "People", path: "/board/people", icon: Users },
+  { name: "More", path: "/board/more", icon: MoreHorizontal },
 ];
 
 export const BOARD_MOBILE_TABS: NavItem[] = [
-  { name: "Action", path: "/board", icon: Inbox },
+  { name: "Dashboard", path: "/board", icon: LayoutDashboard },
   { name: "Requests", path: "/board/requests", icon: ClipboardList },
-  { name: "Loans", path: "/board/loans", icon: Clock },
+  { name: "Borrowed", path: "/board/borrowed", icon: Clock },
   { name: "Inventory", path: "/board/inventory", icon: Package },
 ];
 
 export const BOARD_MORE_ITEMS: NavItem[] = [
-  { name: "Projects", path: "/board/projects", icon: FolderGit2 },
-  { name: "Users & Accounts", path: "/board/users", icon: Users },
-  { name: "Audits", path: "/board/audits", icon: CheckCircle2 },
-  { name: "Incidents & Strikes", path: "/board/incidents", icon: AlertTriangle },
-  { name: "Insights Dashboard", path: "/board/insights", icon: BarChart3 },
-  { name: "Data Exports", path: "/board/exports", icon: Download },
-  { name: "Audit Log", path: "/board/audit-log", icon: ScrollText },
-  { name: "Operational Notifications", path: "/board/notifications", icon: Bell },
-  { name: "Board Profile", path: "/board/profile", icon: User },
+  { name: "More Overview", path: "/board/more", icon: MoreHorizontal },
+  { name: "People", path: "/board/people", icon: Users },
+  { name: "Projects", path: "/board/projects", icon: MoreHorizontal },
+  { name: "Insights", path: "/board/insights", icon: MoreHorizontal },
+  { name: "Inventory Audits", path: "/board/audits", icon: MoreHorizontal },
+  { name: "Exports", path: "/board/exports", icon: MoreHorizontal },
+  { name: "Incidents", path: "/board/incidents", icon: MoreHorizontal },
+  { name: "Audit Log", path: "/board/audit-log", icon: MoreHorizontal },
 ];

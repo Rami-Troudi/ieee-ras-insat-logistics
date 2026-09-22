@@ -9,3 +9,4 @@ export { MemberFavoritesPage } from "@/features/favorites/pages/MemberFavoritesP
 export { MemberNotificationsPage } from "@/features/notifications/pages/MemberNotificationsPage";
 export { MemberProfilePage } from "@/features/profile/pages/MemberProfilePage";
 export { MemberCartPage } from "@/features/cart/pages/MemberCartPage";
+export { MemberActivityPage } from "@/features/activity/pages/MemberActivityPage";

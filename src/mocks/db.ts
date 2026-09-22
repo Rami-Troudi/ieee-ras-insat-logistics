@@ -50,7 +50,7 @@ export interface MockDatabaseSchema {
   semesters: SemesterConfig[];
 }
 
-const STORAGE_KEY = "ras_insat_mock_db_v2";
+const STORAGE_KEY = "ras_insat_mock_db_v3";
 
 class MockDatabase {
   private data: MockDatabaseSchema;

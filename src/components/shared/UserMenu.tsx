@@ -71,7 +71,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isBoard = false }) => {
             className="flex items-center gap-2 cursor-pointer min-h-[44px] sm:min-h-[36px]"
           >
             <User className="w-4 h-4 text-muted-foreground" />
-            <span>Profile & Clearance</span>
+            <span>Profile</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

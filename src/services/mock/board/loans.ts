@@ -374,6 +374,47 @@ class MockBoardLoanService implements IBoardLoanService {
     }
     throw new Error("Failed to process extension review");
   }
+
+  async updateDueDate(loanId: string, dueDate: string, actorUserId: string): Promise<LoanRecord> {
+    await this.simulateLatency();
+    let updatedLoan: LoanRecord | null = null;
+    const nowIso = new Date().toISOString();
+
+    mockDb.mutate((draft) => {
+      const loan = draft.loans.find((l) => l.id === loanId);
+      if (!loan) throw new Error("Loan record not found");
+      loan.dueDate = dueDate;
+      loan.updatedAt = nowIso;
+
+      draft.notifications.push({
+        id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        userId: loan.userId,
+        title: "Expected Return Date Updated",
+        message: `Your return date for loan ${loan.id} was updated to ${dueDate}.`,
+        type: "GENERAL",
+        read: false,
+        link: `/app/activity`,
+        createdAt: nowIso,
+      });
+
+      updatedLoan = { ...loan };
+    });
+
+    if (updatedLoan) {
+      await mockBoardAuditLogService.logEvent({
+        actorUserId,
+        actorName: "Board Custodian",
+        actorRole: "BOARD",
+        action: "STATUS_OVERRIDE",
+        entityType: "LOAN",
+        entityId: (updatedLoan as LoanRecord).id,
+        after: updatedLoan,
+        reason: `Due date changed to ${dueDate}`,
+      });
+      return updatedLoan;
+    }
+    throw new Error("Failed to update loan due date");
+  }
 }
 
 export const mockBoardLoanService = new MockBoardLoanService();

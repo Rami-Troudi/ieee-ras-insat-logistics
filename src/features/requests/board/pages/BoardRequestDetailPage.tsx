@@ -445,27 +445,36 @@ export const BoardRequestDetailPage: React.FC = () => {
                     className="p-3.5 rounded-lg border border-border bg-muted/20 space-y-3"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm text-foreground">
-                            {item.itemName}
-                          </span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                            Class {itemClass}
-                          </span>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Requested:{" "}
-                          <span className="font-bold text-foreground">
-                            {item.requestedQuantity}
-                          </span>{" "}
-                          units
-                          {" · "}
-                          Available in Stock:{" "}
-                          <span className="font-bold text-emerald-600">
-                            {liveItem?.availableQuantity ?? "N/A"}
-                          </span>{" "}
-                          units
+                      <div className="flex items-center gap-3">
+                        {liveItem?.imageUrl && (
+                          <img
+                            src={liveItem.imageUrl}
+                            alt={item.itemName}
+                            className="w-10 h-10 rounded-lg object-cover border border-border shrink-0"
+                          />
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm text-foreground">
+                              {item.itemName}
+                            </span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                              Class {itemClass}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Requested:{" "}
+                            <span className="font-bold text-foreground">
+                              {item.requestedQuantity}
+                            </span>{" "}
+                            units
+                            {" · "}
+                            Available in Stock:{" "}
+                            <span className="font-bold text-emerald-600">
+                              {liveItem?.availableQuantity ?? "N/A"}
+                            </span>{" "}
+                            units
+                          </div>
                         </div>
                       </div>
 

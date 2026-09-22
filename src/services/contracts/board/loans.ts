@@ -44,4 +44,5 @@ export interface IBoardLoanService {
     actorUserId: string,
     actorRole: string
   ): Promise<LoanRecord>;
+  updateDueDate(loanId: string, dueDate: string, actorUserId: string): Promise<LoanRecord>;
 }

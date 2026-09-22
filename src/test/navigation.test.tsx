@@ -22,7 +22,7 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
     localStorage.clear();
   });
 
-  it("renders Desktop Member Navigation with correct member links and excludes board links", () => {
+  it("renders Desktop Member Navigation with simplified human links and excludes board links", () => {
     render(
       <Providers>
         <MemoryRouter>
@@ -31,11 +31,8 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
       </Providers>
     );
 
-    expect(screen.getByText("Home")).toBeInTheDocument();
-    expect(screen.getByText("Inventory")).toBeInTheDocument();
-    expect(screen.getByText("My Requests")).toBeInTheDocument();
-    expect(screen.getByText("My Loans")).toBeInTheDocument();
-    expect(screen.getByText("Favorites")).toBeInTheDocument();
+    expect(screen.getByText("Catalogue")).toBeInTheDocument();
+    expect(screen.getByText("Activity")).toBeInTheDocument();
 
     expect(screen.queryByText("Action Center")).not.toBeInTheDocument();
     expect(screen.queryByText("Audits")).not.toBeInTheDocument();
@@ -43,7 +40,7 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
     expect(screen.queryByText("Telemetry & Insights")).not.toBeInTheDocument();
   });
 
-  it("renders Desktop Board Navigation with high-density board links", () => {
+  it("renders Desktop Board Navigation with streamlined operational links", () => {
     render(
       <Providers>
         <MemoryRouter>
@@ -52,19 +49,15 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
       </Providers>
     );
 
-    expect(screen.getByText("Action Center")).toBeInTheDocument();
+    expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Requests")).toBeInTheDocument();
-    expect(screen.getByText("Loans")).toBeInTheDocument();
+    expect(screen.getByText("Borrowed")).toBeInTheDocument();
     expect(screen.getByText("Inventory")).toBeInTheDocument();
-    expect(screen.getByText("Projects")).toBeInTheDocument();
-    expect(screen.getByText("Users")).toBeInTheDocument();
-    expect(screen.getByText("Audits")).toBeInTheDocument();
-    expect(screen.getByText("Incidents")).toBeInTheDocument();
-    expect(screen.getByText("Insights")).toBeInTheDocument();
-    expect(screen.getByText("Exports")).toBeInTheDocument();
+    expect(screen.getByText("People")).toBeInTheDocument();
+    expect(screen.getByText("More")).toBeInTheDocument();
   });
 
-  it("renders Member Mobile Bottom Nav with exactly 5 primary touch destinations", () => {
+  it("renders Member Mobile Bottom Nav with 2 primary touch destinations", () => {
     render(
       <Providers>
         <MemoryRouter>
@@ -73,14 +66,11 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
       </Providers>
     );
 
-    expect(screen.getByText("Home")).toBeInTheDocument();
-    expect(screen.getByText("Inventory")).toBeInTheDocument();
-    expect(screen.getByText("Requests")).toBeInTheDocument();
-    expect(screen.getByText("Loans")).toBeInTheDocument();
-    expect(screen.getByText("Profile")).toBeInTheDocument();
+    expect(screen.getByText("Catalogue")).toBeInTheDocument();
+    expect(screen.getByText("Activity")).toBeInTheDocument();
   });
 
-  it("renders Board Mobile Bottom Nav with 4 primary operational actions plus More sheet", () => {
+  it("renders Board Mobile Bottom Nav with operational actions plus More sheet", () => {
     render(
       <Providers>
         <MemoryRouter>
@@ -89,14 +79,14 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
       </Providers>
     );
 
-    expect(screen.getByText("Action")).toBeInTheDocument();
+    expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Requests")).toBeInTheDocument();
-    expect(screen.getByText("Loans")).toBeInTheDocument();
+    expect(screen.getByText("Borrowed")).toBeInTheDocument();
     expect(screen.getByText("Inventory")).toBeInTheDocument();
     expect(screen.getByText("More")).toBeInTheDocument();
   });
 
-  it("opens Board More bottom sheet with all secondary management links", async () => {
+  it("opens Board More bottom sheet with secondary management links", async () => {
     render(
       <Providers>
         <MemoryRouter>
@@ -109,14 +99,13 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
     fireEvent.click(moreTrigger);
 
     expect(await screen.findByText("Board Operations Menu")).toBeInTheDocument();
+    expect(screen.getByText("People")).toBeInTheDocument();
     expect(screen.getByText("Projects")).toBeInTheDocument();
-    expect(screen.getByText("Users & Accounts")).toBeInTheDocument();
-    expect(screen.getByText("Audits")).toBeInTheDocument();
-    expect(screen.getByText("Incidents & Strikes")).toBeInTheDocument();
-    expect(screen.getByText("Insights Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Data Exports")).toBeInTheDocument();
-    expect(screen.getByText("Operational Notifications")).toBeInTheDocument();
-    expect(screen.getByText("Board Profile")).toBeInTheDocument();
+    expect(screen.getByText("Insights")).toBeInTheDocument();
+    expect(screen.getByText("Inventory Audits")).toBeInTheDocument();
+    expect(screen.getByText("Exports")).toBeInTheDocument();
+    expect(screen.getByText("Incidents")).toBeInTheDocument();
+    expect(screen.getByText("Audit Log")).toBeInTheDocument();
   });
 
   it("renders 404 NotFoundPage for unmapped route", () => {
