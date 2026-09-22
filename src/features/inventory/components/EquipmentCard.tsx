@@ -133,9 +133,9 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({ item }) => {
               variant="default"
               size="sm"
               onClick={handleAdd}
-              className="w-full text-xs font-semibold gap-1.5 h-9 min-h-[36px] rounded-lg shadow-xs"
+              className="w-full text-xs font-semibold gap-1.5 h-9 min-h-[36px] rounded-lg shadow-xs active:scale-95 transition-all duration-150 hover:shadow-sm"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Add</span>
             </Button>
           )

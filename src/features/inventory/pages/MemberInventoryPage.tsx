@@ -8,7 +8,7 @@ import { useInventoryItems, useInventoryCategories } from "../hooks/useInventory
 import { useSession } from "@/hooks/useSession";
 import { useBorrowCart } from "@/features/cart";
 import { EquipmentCard } from "../components/EquipmentCard";
-import { ShoppingBag, SlidersHorizontal } from "lucide-react";
+import { ShoppingBag, SlidersHorizontal, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const MemberInventoryPage: React.FC = () => {
@@ -156,10 +156,37 @@ export const MemberInventoryPage: React.FC = () => {
           }}
         />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 pb-20 sm:pb-6">
           {displayItems.map((item) => (
             <EquipmentCard key={item.id} item={item} />
           ))}
+        </div>
+      )}
+
+      {/* Floating Sticky Mobile Cart Bar */}
+      {totalItemCount > 0 && (
+        <div className="fixed bottom-16 sm:bottom-6 left-4 right-4 z-40 max-w-lg mx-auto animate-in slide-in-from-bottom-4 duration-300">
+          <Link
+            to="/app/cart"
+            className="flex items-center justify-between px-4 py-3.5 bg-primary text-primary-foreground rounded-2xl shadow-xl hover:bg-primary/95 active:scale-[0.99] transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-bold text-xs">
+                {totalItemCount}
+              </div>
+              <div className="text-left">
+                <span className="text-xs font-bold block leading-tight">
+                  {totalItemCount === 1 ? "1 item selected" : `${totalItemCount} items selected`}
+                </span>
+                <span className="text-[10px] text-white/80 block">Tap to review & borrow</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs font-bold bg-white text-primary px-3 py-1.5 rounded-xl shadow-xs group-hover:translate-x-0.5 transition-transform">
+              <span>Review Cart</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </Link>
         </div>
       )}
     </div>

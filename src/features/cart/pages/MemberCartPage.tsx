@@ -228,30 +228,62 @@ export const MemberCartPage: React.FC = () => {
           )}
         </div>
 
-        {/* Optional Purpose / Note */}
-        <div className="space-y-1.5">
-          {!showNote ? (
-            <button
-              type="button"
-              onClick={() => setShowNote(true)}
-              className="text-xs text-primary font-medium hover:underline flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add a note or purpose (optional)</span>
-            </button>
-          ) : (
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground block">
-                Note or Purpose (optional)
-              </label>
-              <textarea
-                value={cartState.purpose}
-                onChange={(e) => setPurpose(e.target.value)}
-                rows={2}
-                placeholder="Briefly describe what you are building or testing..."
-                className="w-full rounded-xl border border-input bg-card p-3 text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-              />
-            </div>
+        {/* Purpose / Note with 1-tap presets */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+              Purpose & Project
+            </label>
+            {!showNote && (
+              <button
+                type="button"
+                onClick={() => setShowNote(true)}
+                className="text-xs text-primary font-medium hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Custom note</span>
+              </button>
+            )}
+          </div>
+
+          {/* Quick-tap purpose preset pills */}
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              "Robotics Workshop",
+              "Eurobot Prep",
+              "Lab Practical Work",
+              "Personal Project",
+              "Competition Testing",
+            ].map((preset) => {
+              const isSelected = cartState.purpose === preset;
+              return (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => {
+                    setPurpose(isSelected ? "" : preset);
+                    setShowNote(true);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                    isSelected
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-card border-input/80 text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  }`}
+                >
+                  {preset}
+                </button>
+              );
+            })}
+          </div>
+
+          {showNote && (
+            <textarea
+              value={cartState.purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              rows={2}
+              placeholder="Briefly describe what you are building or testing..."
+              className="w-full rounded-xl border border-input bg-card p-3 text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary resize-none mt-1.5"
+            />
           )}
         </div>
 

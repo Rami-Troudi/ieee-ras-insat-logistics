@@ -1,6 +1,7 @@
 import {
   Package,
   Activity,
+  ShoppingBag,
   LayoutDashboard,
   ClipboardList,
   Clock,
@@ -15,7 +16,7 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-// Simplified 2-tab borrower navigation
+// Simplified borrower navigation
 export const MEMBER_NAV_ITEMS: NavItem[] = [
   { name: "Catalogue", path: "/app/inventory", icon: Package },
   { name: "Activity", path: "/app/activity", icon: Activity },
@@ -23,6 +24,7 @@ export const MEMBER_NAV_ITEMS: NavItem[] = [
 
 export const MOBILE_MEMBER_TABS: NavItem[] = [
   { name: "Catalogue", path: "/app/inventory", icon: Package },
+  { name: "Cart", path: "/app/cart", icon: ShoppingBag },
   { name: "Activity", path: "/app/activity", icon: Activity },
 ];
 
