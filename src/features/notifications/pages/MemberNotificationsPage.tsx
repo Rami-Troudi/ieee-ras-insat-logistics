@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { PageContainer, PageHeader } from "@/components/shared/PageContainer";
 import { LoadingState } from "@/components/shared/LoadingState";
@@ -20,7 +20,13 @@ export const MemberNotificationsPage: React.FC = () => {
   const markAsRead = useMarkNotificationAsRead(currentPersona.id);
   const markAllAsRead = useMarkAllNotificationsAsRead(currentPersona.id);
 
+  const [filter, setFilter] = useState<"ALL" | "UNREAD">("ALL");
+
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const filteredNotifications = notifications.filter((n) => {
+    if (filter === "UNREAD") return !n.read;
+    return true;
+  });
 
   const renderIcon = (type: NotificationType) => {
     switch (type) {
@@ -62,18 +68,42 @@ export const MemberNotificationsPage: React.FC = () => {
         }
       />
 
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 pb-2">
+        <Button
+          variant={filter === "ALL" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setFilter("ALL")}
+          className="text-xs h-8 min-h-[36px]"
+        >
+          All Notifications ({notifications.length})
+        </Button>
+        <Button
+          variant={filter === "UNREAD" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setFilter("UNREAD")}
+          className="text-xs h-8 min-h-[36px]"
+        >
+          Unread Only ({unreadCount})
+        </Button>
+      </div>
+
       {isLoading ? (
         <LoadingState message="Loading your notifications..." />
-      ) : notifications.length === 0 ? (
+      ) : filteredNotifications.length === 0 ? (
         <EmptyState
-          title="No Notifications"
-          description="You are completely caught up! Operational announcements and loan events will show up here."
+          title={filter === "UNREAD" ? "No Unread Notifications" : "No Notifications"}
+          description={
+            filter === "UNREAD"
+              ? "You have read all notifications. Switch to 'All Notifications' to view history."
+              : "You are completely caught up! Operational announcements and loan events will show up here."
+          }
           actionLabel="Refresh"
           onAction={() => refetch()}
         />
       ) : (
         <div className="space-y-3">
-          {notifications.map((notif) => (
+          {filteredNotifications.map((notif) => (
             <div
               key={notif.id}
               className={`p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${

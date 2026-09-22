@@ -6,6 +6,7 @@ import { DevPersonaSwitcher } from "@/components/shared/DevPersonaSwitcher";
 import { Bell, Search, ShieldCheck, ShoppingBag } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
 import { useBorrowCart } from "@/features/cart";
+import { useUserNotifications } from "@/features/profile/hooks/useProfile";
 
 interface TopBarProps {
   isBoard?: boolean;
@@ -17,6 +18,9 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
 
   const isBoardRole =
     isBoard || currentPersona.role === "BOARD" || currentPersona.role === "SUPERADMIN";
+
+  const { data: notifications = [] } = useUserNotifications(currentPersona.id);
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const notificationPath = isBoardRole ? "/board/notifications" : "/app/notifications";
 
@@ -68,14 +72,16 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
 
         <DevPersonaSwitcher />
 
-        {/* In-App Notifications Button */}
+        {/* In-App Notifications Button with real unread state */}
         <Link
           to={notificationPath}
           className="relative flex items-center justify-center w-10 h-10 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-[44px] min-h-[44px]"
-          aria-label="View In-App Notifications"
+          aria-label={`View In-App Notifications (${unreadCount} unread)`}
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
+          {unreadCount > 0 && (
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
+          )}
         </Link>
 
         {/* Reusable User Menu Component */}

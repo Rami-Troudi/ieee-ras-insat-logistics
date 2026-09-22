@@ -1,14 +1,7 @@
-import { InventoryItemSummary } from "@/types";
-
-export interface InventoryQueryFilter {
-  search?: string;
-  category?: string;
-  equipmentClass?: string;
-  availableOnly?: boolean;
-}
+import { InventoryItemSummary, InventoryQueryFilter } from "@/types";
 
 export interface IInventoryService {
-  listItems(filters?: InventoryQueryFilter): Promise<InventoryItemSummary[]>;
+  listItems(filters?: InventoryQueryFilter, userId?: string): Promise<InventoryItemSummary[]>;
   getItem(id: string): Promise<InventoryItemSummary | null>;
   getCategories(): Promise<string[]>;
 }

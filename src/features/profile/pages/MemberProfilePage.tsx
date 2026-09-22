@@ -4,11 +4,10 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { PolicyNotice } from "@/components/shared/PolicyNotice";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
-import { useUserProfile, useUpdateContactInfo } from "../hooks/useProfile";
-import { useActiveProjects } from "@/features/requests/hooks/useRequests";
+import { useUserProfile, useUpdateContactInfo, useResetDemoData } from "../hooks/useProfile";
+import { useMyProjects } from "@/features/requests/hooks/useRequests";
 import { useSession } from "@/hooks/useSession";
 import { formatDate } from "@/lib/dates";
-import { mockDb } from "@/mocks/db";
 import {
   ShieldCheck,
   UserCheck,
@@ -22,8 +21,9 @@ import {
 export const MemberProfilePage: React.FC = () => {
   const { currentPersona } = useSession();
   const { data: profile, isLoading, refetch } = useUserProfile(currentPersona.id);
-  const { data: projects = [] } = useActiveProjects();
+  const { data: myProjects = [] } = useMyProjects(currentPersona.id);
   const updateContactMutation = useUpdateContactInfo(currentPersona.id);
+  const resetDemoMutation = useResetDemoData();
 
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(profile?.phone || "");
@@ -36,8 +36,8 @@ export const MemberProfilePage: React.FC = () => {
     refetch();
   };
 
-  const handleResetDemoData = () => {
-    mockDb.resetToDefault();
+  const handleResetDemoData = async () => {
+    await resetDemoMutation.mutateAsync();
     setResetSuccess(true);
     setTimeout(() => {
       window.location.reload();
@@ -70,38 +70,61 @@ export const MemberProfilePage: React.FC = () => {
     totalRequestsCount: 0,
   };
 
+  const isBanned = p.status === "BANNED" || p.status === "BLACKLISTED" || p.strikesCount >= 5;
+  const isSuspendedSemester = p.strikesCount === 4;
+  const isStrike2Or3 = p.strikesCount >= 2 && p.strikesCount < 4;
+
   return (
     <PageContainer>
       <PageHeader
         title="Member Profile & Credentials"
         description="Verify your logistics clearance, check discipline standing, and inspect assigned team projects."
         action={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleResetDemoData}
-            className="text-xs gap-1.5 min-h-[44px]"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-primary" />
-            <span>{resetSuccess ? "Resetting..." : "Reset Demo Data"}</span>
-          </Button>
+          import.meta.env.DEV ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetDemoData}
+              disabled={resetDemoMutation.isPending}
+              className="text-xs gap-1.5 min-h-[44px]"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-primary" />
+              <span>{resetSuccess ? "Resetting..." : "Reset Demo Data"}</span>
+            </Button>
+          ) : undefined
         }
       />
 
       {/* Verification Notice */}
       {!p.isProcessed && (
         <PolicyNotice
-          variant="warning"
-          title="Account Pending Physical Verification"
-          description="Your IEEE RAS membership affiliation has been self-declared and is pending verification by the Logistics Custodian at the INSAT workshop desk."
+          variant="info"
+          title="Account Affiliation Pending Board Verification"
+          description="Your affiliation has been registered and is provisional. You can submit requests normally; the Logistics Board will verify your identity and affiliation during processing."
         />
       )}
 
-      {p.status === "RESTRICTED" && (
+      {isBanned && (
         <PolicyNotice
           variant="restricted"
-          title="Disciplinary Restriction Active"
-          description="Your borrowing privileges are suspended due to active strikes for overdue items. Please coordinate with the Logistics Board to resolve outstanding liabilities."
+          title="Account Blacklisted"
+          description="Your account is permanently blacklisted (Strike 5 reached). All logistics privileges are revoked."
+        />
+      )}
+
+      {isSuspendedSemester && (
+        <PolicyNotice
+          variant="restricted"
+          title="Borrowing Suspended for Semester"
+          description="You have accumulated 4 strikes. Borrowing privileges are suspended until the end of the academic semester."
+        />
+      )}
+
+      {isStrike2Or3 && (
+        <PolicyNotice
+          variant="warning"
+          title={`Disciplinary Standing: Strike ${p.strikesCount} Active`}
+          description="Second warning standing: all borrow requests require explicit Board review and approval. Heavy Equipment (Class F) and High Value Electronics (Class G) are unavailable."
         />
       )}
 
@@ -126,8 +149,8 @@ export const MemberProfilePage: React.FC = () => {
           <div className="flex items-center gap-2">
             <StatusBadge status={p.status === "ACTIVE" ? "ACTIVE" : "RESTRICTED"} />
             <StatusBadge
-              status={p.isProcessed ? "SUCCESS" : "WARNING"}
-              label={p.isProcessed ? "Verified Member" : "Unverified (Level I)"}
+              status={p.isProcessed ? "SUCCESS" : "INFO"}
+              label={p.isProcessed ? "Verified Member" : "Provisional Affiliation"}
             />
           </div>
         </div>
@@ -145,7 +168,17 @@ export const MemberProfilePage: React.FC = () => {
               Level {p.clearance}
             </span>
             <p className="text-[11px] text-muted-foreground">
-              Authorized for online borrowing of Class A, C, and E equipment.
+              {p.clearance === "I"
+                ? "External Individuals: Eligible for Classes A and B."
+                : p.clearance === "II"
+                  ? "Aerobotix: Eligible for Classes A, B, and C."
+                  : p.clearance === "III"
+                    ? "IEEE Member: Eligible for Classes A–E; F under Level V+ supervision."
+                    : p.clearance === "IV"
+                      ? "Trusted Individual: Exceptional Level VI authorized access."
+                      : p.clearance === "V"
+                        ? "RAS Board / Eurobot: Operational logistics authority; can supervise F."
+                        : "RAS Chairman / Logistics Manager: Full granting authority across all classes."}
             </p>
           </div>
 
@@ -165,13 +198,14 @@ export const MemberProfilePage: React.FC = () => {
           <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Affiliation
+                Affiliation & Standing
               </span>
               <span className="text-xs font-bold text-foreground font-mono">{p.affiliation}</span>
             </div>
             <span className="text-2xl font-bold text-foreground">{p.strikesCount} Strikes</span>
             <p className="text-[11px] text-muted-foreground">
-              3 strikes incur an automatic 1-semester borrowing suspension.
+              Strike 1: Warning · Strike 2: Board approval req. · Strike 4: Semester suspension ·
+              Strike 5: Blacklist.
             </p>
           </div>
         </div>
@@ -278,32 +312,38 @@ export const MemberProfilePage: React.FC = () => {
         )}
       </div>
 
-      {/* Assigned Robotics Projects */}
+      {/* Assigned Robotics Projects (Member Scoped) */}
       <div className="p-6 rounded-xl border border-border bg-card shadow-sm space-y-4">
         <h3 className="text-base font-bold text-foreground flex items-center gap-2">
           <FolderGit2 className="w-4 h-4 text-primary" />
-          <span>Active Robotics Projects Context</span>
+          <span>My Assigned Robotics Projects</span>
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {projects.map((proj) => (
-            <div
-              key={proj.id}
-              className="p-4 rounded-lg border border-border bg-muted/30 space-y-2 text-xs"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-foreground">{proj.code}</span>
-                <StatusBadge status="ACTIVE" label={proj.status} />
+        {myProjects.length === 0 ? (
+          <div className="p-4 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
+            You are not currently assigned to any active robotics projects by the Logistics Board.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {myProjects.map((proj) => (
+              <div
+                key={proj.id}
+                className="p-4 rounded-lg border border-border bg-muted/30 space-y-2 text-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-foreground">{proj.code}</span>
+                  <StatusBadge status="ACTIVE" label={proj.status} />
+                </div>
+                <p className="font-semibold text-foreground">{proj.name}</p>
+                <p className="text-muted-foreground line-clamp-2">{proj.description}</p>
+                <div className="pt-2 border-t border-border/60 text-muted-foreground flex items-center justify-between">
+                  <span>Lead: {proj.leadName}</span>
+                  <span>{proj.membersCount} members</span>
+                </div>
               </div>
-              <p className="font-semibold text-foreground">{proj.name}</p>
-              <p className="text-muted-foreground line-clamp-2">{proj.description}</p>
-              <div className="pt-2 border-t border-border/60 text-muted-foreground flex items-center justify-between">
-                <span>Lead: {proj.leadName}</span>
-                <span>{proj.membersCount} members</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </PageContainer>
   );

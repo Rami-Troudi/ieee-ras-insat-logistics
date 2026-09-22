@@ -3,10 +3,10 @@ import { inventoryService, favoritesService } from "@/services";
 import { QUERY_KEYS } from "@/app/query-client";
 import { InventoryQueryFilter } from "@/types";
 
-export function useInventoryItems(filters?: InventoryQueryFilter) {
+export function useInventoryItems(filters?: InventoryQueryFilter, userId?: string) {
   return useQuery({
-    queryKey: QUERY_KEYS.inventory.list(filters as Record<string, unknown>),
-    queryFn: () => inventoryService.listItems(filters),
+    queryKey: QUERY_KEYS.inventory.list({ ...(filters as Record<string, unknown>), userId }),
+    queryFn: () => inventoryService.listItems(filters, userId),
   });
 }
 
@@ -37,7 +37,24 @@ export function useToggleFavorite(userId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (itemId: string) => favoritesService.toggleFavorite(userId, itemId),
-    onSuccess: () => {
+    onMutate: async (itemId: string) => {
+      // Optimistic update
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.favorites.mine(userId) });
+      const previousFavorites =
+        queryClient.getQueryData<string[]>(QUERY_KEYS.favorites.mine(userId)) || [];
+      const isFav = previousFavorites.includes(itemId);
+      const nextFavorites = isFav
+        ? previousFavorites.filter((id) => id !== itemId)
+        : [...previousFavorites, itemId];
+      queryClient.setQueryData(QUERY_KEYS.favorites.mine(userId), nextFavorites);
+      return { previousFavorites };
+    },
+    onError: (_err, _itemId, context) => {
+      if (context?.previousFavorites) {
+        queryClient.setQueryData(QUERY_KEYS.favorites.mine(userId), context.previousFavorites);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.favorites.mine(userId) });
     },
   });

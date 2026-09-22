@@ -11,10 +11,10 @@ export function useUserRequests(userId: string) {
   });
 }
 
-export function useRequestDetail(id: string) {
+export function useRequestDetail(id: string, userId?: string) {
   return useQuery({
     queryKey: QUERY_KEYS.requests.detail(id),
-    queryFn: () => requestService.getRequest(id),
+    queryFn: () => requestService.getRequest(id, userId),
     enabled: !!id,
   });
 }
@@ -26,12 +26,22 @@ export function useActiveProjects() {
   });
 }
 
+export function useMyProjects(userId: string) {
+  return useQuery({
+    queryKey: ["projects", "mine", userId],
+    queryFn: () => projectService.listMine(userId),
+    enabled: !!userId,
+  });
+}
+
 export function useCreateRequest(userId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateBorrowRequestPayload) =>
       requestService.createRequest(userId, payload),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Pre-populate detail cache so the request detail page renders instantly
+      queryClient.setQueryData(QUERY_KEYS.requests.detail(data.id), data);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.requests.mine(userId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.profile.detail(userId) });
     },

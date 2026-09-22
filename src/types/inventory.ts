@@ -31,6 +31,8 @@ export interface InventoryItemSummary {
   specifications?: Record<string, string>;
   datasheetUrl?: string;
   assets?: IndividualAsset[];
+  aliases?: string[];
+  tags?: string[];
 }
 
 export interface InventoryQueryFilter {
@@ -38,4 +40,7 @@ export interface InventoryQueryFilter {
   category?: string;
   equipmentClass?: string;
   availableOnly?: boolean;
+  borrowableByMe?: boolean;
+  trackingMode?: TrackingMode;
+  favoritesOnly?: boolean;
 }

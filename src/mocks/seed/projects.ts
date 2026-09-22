@@ -10,6 +10,7 @@ export const INITIAL_PROJECTS: ProjectSummary[] = [
     status: "ACTIVE",
     leadName: "Rami Troudi",
     membersCount: 8,
+    memberIds: ["p-member-ieee", "p-member-eurobot"],
   },
   {
     id: "proj-ras-robocup",
@@ -19,6 +20,7 @@ export const INITIAL_PROJECTS: ProjectSummary[] = [
     status: "ACTIVE",
     leadName: "Mohamed Ben Ali",
     membersCount: 6,
+    memberIds: ["p-member-restricted"],
   },
   {
     id: "proj-aerobotix-drone",
@@ -28,5 +30,6 @@ export const INITIAL_PROJECTS: ProjectSummary[] = [
     status: "PLANNING",
     leadName: "Sarra Mansour",
     membersCount: 4,
+    memberIds: ["p-member-eurobot"],
   },
 ];

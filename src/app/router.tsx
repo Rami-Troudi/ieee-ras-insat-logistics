@@ -47,6 +47,27 @@ export const router = createBrowserRouter([
     element: <RootRedirect />,
   },
   {
+    path: "/auth/login",
+    async lazy() {
+      const { LoginPage } = await import("@/pages/auth/LoginPage");
+      return { Component: LoginPage };
+    },
+  },
+  {
+    path: "/auth/register",
+    async lazy() {
+      const { RegisterPage } = await import("@/pages/auth/RegisterPage");
+      return { Component: RegisterPage };
+    },
+  },
+  {
+    path: "/auth/forgot-password",
+    async lazy() {
+      const { ForgotPasswordPage } = await import("@/pages/auth/ForgotPasswordPage");
+      return { Component: ForgotPasswordPage };
+    },
+  },
+  {
     path: "/app",
     element: <MemberLayout />,
     children: [

@@ -1,6 +1,6 @@
 import React, { useReducer, useEffect } from "react";
 import { InventoryItemSummary } from "@/types";
-import { CartState, initialCartState, CartContext } from "./CartContext";
+import { CartState, CartContextValue, getInitialCartState, CartContext } from "./CartContext";
 
 type CartAction =
   | { type: "ADD_ITEM"; item: InventoryItemSummary; quantity?: number }
@@ -58,11 +58,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         items: state.items.filter((i) => i.item.id !== action.itemId),
       };
     case "CLEAR_CART":
-      return {
-        ...state,
-        items: [],
-        purpose: "",
-      };
+      return getInitialCartState();
     case "SET_PROJECT":
       return {
         ...state,
@@ -86,19 +82,17 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 }
 
 export const BorrowCartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(cartReducer, initialCartState);
-
-  useEffect(() => {
+  const [state, dispatch] = useReducer(cartReducer, undefined, () => {
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored);
-        dispatch({ type: "LOAD_STATE", state: parsed });
+        return JSON.parse(stored);
       }
-    } catch (e) {
-      console.warn("Failed to parse stored cart state", e);
+    } catch {
+      // ignore
     }
-  }, []);
+    return getInitialCartState();
+  });
 
   useEffect(() => {
     try {
@@ -108,51 +102,60 @@ export const BorrowCartProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [state]);
 
-  const addItem = (item: InventoryItemSummary, quantity?: number) => {
+  const addItem = React.useCallback((item: InventoryItemSummary, quantity?: number) => {
     dispatch({ type: "ADD_ITEM", item, quantity });
-  };
+  }, []);
 
-  const updateQuantity = (itemId: string, quantity: number) => {
+  const updateQuantity = React.useCallback((itemId: string, quantity: number) => {
     dispatch({ type: "UPDATE_QUANTITY", itemId, quantity });
-  };
+  }, []);
 
-  const removeItem = (itemId: string) => {
+  const removeItem = React.useCallback((itemId: string) => {
     dispatch({ type: "REMOVE_ITEM", itemId });
-  };
+  }, []);
 
-  const clearCart = () => {
+  const clearCart = React.useCallback(() => {
     dispatch({ type: "CLEAR_CART" });
-  };
+  }, []);
 
-  const setProject = (projectId?: string) => {
+  const setProject = React.useCallback((projectId?: string) => {
     dispatch({ type: "SET_PROJECT", projectId });
-  };
+  }, []);
 
-  const setPurpose = (purpose: string) => {
+  const setPurpose = React.useCallback((purpose: string) => {
     dispatch({ type: "SET_PURPOSE", purpose });
-  };
+  }, []);
 
-  const setReturnDate = (date: string) => {
+  const setReturnDate = React.useCallback((date: string) => {
     dispatch({ type: "SET_RETURN_DATE", date });
-  };
+  }, []);
 
   const totalItemCount = state.items.reduce((sum, item) => sum + item.quantity, 0);
 
-  return (
-    <CartContext.Provider
-      value={{
-        state,
-        addItem,
-        updateQuantity,
-        removeItem,
-        clearCart,
-        setProject,
-        setPurpose,
-        setReturnDate,
-        totalItemCount,
-      }}
-    >
-      {children}
-    </CartContext.Provider>
+  const contextValue = React.useMemo<CartContextValue>(
+    () => ({
+      state,
+      addItem,
+      updateQuantity,
+      removeItem,
+      clearCart,
+      setProject,
+      setPurpose,
+      setReturnDate,
+      totalItemCount,
+    }),
+    [
+      state,
+      addItem,
+      updateQuantity,
+      removeItem,
+      clearCart,
+      setProject,
+      setPurpose,
+      setReturnDate,
+      totalItemCount,
+    ]
   );
+
+  return <CartContext.Provider value={contextValue}>{children}</CartContext.Provider>;
 };

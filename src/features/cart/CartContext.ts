@@ -31,11 +31,14 @@ export const defaultReturnDate = () => {
   return d.toISOString().split("T")[0];
 };
 
-export const initialCartState: CartState = {
+export const getInitialCartState = (): CartState => ({
   items: [],
+  projectId: undefined,
   purpose: "",
   expectedReturnDate: defaultReturnDate(),
-};
+});
+
+export const initialCartState: CartState = getInitialCartState();
 
 export const fallbackCartValue: CartContextValue = {
   state: initialCartState,

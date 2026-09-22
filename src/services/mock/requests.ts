@@ -1,26 +1,35 @@
 import { IRequestService } from "../contracts/requests";
 import { BorrowRequest, CreateBorrowRequestPayload, RequestLineItem } from "@/types";
 import { mockDb } from "@/mocks/db";
+import { scenarioManager } from "./scenario";
 
 export class MockRequestService implements IRequestService {
   private defaultDelayMs = 250;
 
   private async simulateLatency(): Promise<void> {
-    await new Promise((res) => setTimeout(res, this.defaultDelayMs));
+    await scenarioManager.simulateLatency(this.defaultDelayMs);
   }
 
   async listUserRequests(userId: string): Promise<BorrowRequest[]> {
     await this.simulateLatency();
+    if (scenarioManager.isEmpty()) return [];
     const snapshot = mockDb.getSnapshot();
     return snapshot.requests
       .filter((r) => r.userId === userId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  async getRequest(id: string): Promise<BorrowRequest | null> {
+  async getRequest(id: string, userId?: string): Promise<BorrowRequest | null> {
     await this.simulateLatency();
+    if (scenarioManager.isEmpty()) return null;
     const snapshot = mockDb.getSnapshot();
-    return snapshot.requests.find((r) => r.id === id) || null;
+    const req = snapshot.requests.find((r) => r.id === id);
+    if (!req) return null;
+    // Ownership check if userId is provided
+    if (userId && req.userId !== userId) {
+      throw new Error("Unauthorized: You do not have permission to view this borrow request.");
+    }
+    return req;
   }
 
   async createRequest(userId: string, payload: CreateBorrowRequestPayload): Promise<BorrowRequest> {
@@ -47,6 +56,11 @@ export class MockRequestService implements IRequestService {
         category: invItem ? invItem.category : "General",
         equipmentClass: invItem ? invItem.equipmentClass : "E",
         requestedQuantity: item.quantity,
+        approvedQuantity: 0,
+        handedOverQuantity: 0,
+        returnedQuantity: 0,
+        damagedQuantity: 0,
+        lostQuantity: 0,
         status: "PENDING",
       };
     });
@@ -61,6 +75,9 @@ export class MockRequestService implements IRequestService {
       projectName: project ? project.name : undefined,
       purpose: payload.purpose,
       expectedReturnDate: payload.expectedReturnDate,
+      decisionStatus: "PENDING",
+      handoverStatus: "WAITING",
+      lifecycleStatus: "ACTIVE",
       status: "PENDING",
       items,
       createdAt: new Date().toISOString(),
@@ -99,6 +116,7 @@ export class MockRequestService implements IRequestService {
       }
 
       req.status = "CANCELLED";
+      req.lifecycleStatus = "CANCELLED";
       req.updatedAt = new Date().toISOString();
       req.rejectionReason = reason || "Cancelled by member";
       req.timeline.push({

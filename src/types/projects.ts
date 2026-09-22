@@ -8,4 +8,5 @@ export interface ProjectSummary {
   status: ProjectStatus;
   leadName: string;
   membersCount: number;
+  memberIds: string[];
 }

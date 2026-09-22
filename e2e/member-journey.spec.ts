@@ -27,10 +27,7 @@ test.describe("Member Complete Logistics Journey", () => {
     await expect(page.getByText("STM32F401RE Nucleo-64")).toBeVisible();
 
     // 4. Click Details of STM32
-    await page
-      .getByRole("link", { name: /Details/i })
-      .first()
-      .click();
+    await page.getByRole("link", { name: /View details of STM32F401RE Nucleo-64/i }).click();
     await expect(page).toHaveURL(/\/app\/inventory\/item-stm32-f4/);
     await expect(page.getByRole("heading", { name: "STM32F401RE Nucleo-64" })).toBeVisible();
     await expect(page.getByText("Technical Specifications")).toBeVisible();
@@ -54,10 +51,13 @@ test.describe("Member Complete Logistics Journey", () => {
     await submitBtn.click();
 
     // 8. Redirected to request detail page
-    await expect(page).toHaveURL(/\/app\/requests\/REQ-2026-/);
-    await expect(page.getByRole("heading", { name: "Borrow Request Summary" })).toBeVisible();
-    await expect(page.getByText("Line Item Decision Breakdown")).toBeVisible();
-    await expect(page.getByText("Request Activity Timeline")).toBeVisible();
+    await expect(page).toHaveURL(/\/app\/requests\/REQ-2026-/, { timeout: 10000 });
+    // Allow up to 15s for the detail page to render (covers mock latency + React Query resolution)
+    await expect(page.getByRole("heading", { name: "Borrow Request Summary" })).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.getByText("Line Item Decision Breakdown")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Request Activity Timeline")).toBeVisible({ timeout: 10000 });
   });
 
   test("Journey 2: Inspect partial approval and 48-hour collection window", async ({ page }) => {
@@ -73,7 +73,7 @@ test.describe("Member Complete Logistics Journey", () => {
     // Verify Line item approval vs rejection
     await expect(page.getByText("Line Item Decision Breakdown")).toBeVisible();
     await expect(
-      page.getByText("Rejection note: Requires active Level V supervisor on-site")
+      page.getByText(/Class F equipment requires verified Level V\+ supervisor/i)
     ).toBeVisible();
   });
 
@@ -122,5 +122,94 @@ test.describe("Member Complete Logistics Journey", () => {
       page.getByText("Return Declaration Awaiting Physical Custodian Confirmation")
     ).toBeVisible();
     await expect(page.getByText("Return Request Submissions")).toBeVisible();
+  });
+
+  test("Scenario 5: User-scoped project assignment in Cart", async ({ page }) => {
+    // Navigate to inventory, add an item
+    await page.goto("/app/inventory/item-stm32-f4");
+    await page.getByRole("button", { name: /Add.*to Borrow Cart/i }).click();
+    await expect(page.getByRole("button", { name: /Update in Cart/i })).toBeVisible();
+
+    // Navigate to cart via TopBar link (client-side nav preserves in-memory cart state)
+    await page.getByRole("link", { name: /View Borrow Cart/i }).click();
+    await expect(page).toHaveURL(/\/app\/cart/);
+    await expect(page.getByRole("heading", { name: "Borrow Request Cart" })).toBeVisible();
+
+    // Current persona is p-member-ieee (Rami Troudi, assigned to Eurobot Tunisia 2027)
+    const projectSelect = page.locator("#project-assignment");
+    await expect(projectSelect).toBeVisible();
+
+    // Verify Eurobot is listed as option
+    await expect(projectSelect.getByRole("option", { name: /Eurobot/i })).toBeAttached();
+    // Non-assigned project (e.g. Robot Cup Autonomous Drone) should NOT be listed
+    const droneOption = projectSelect.getByRole("option", { name: /RoboCup/i });
+    await expect(droneOption).not.toBeAttached();
+  });
+
+  test("Scenario 6: Double-submission / return quantity limit on active loan", async ({ page }) => {
+    // Navigate to active loan LN-2026-0089
+    await page.goto("/app/loans/LN-2026-0089");
+
+    // Line lline-2 has 2 borrowed, 0 returned, 0 pending initially
+    const returnBtn = page.getByRole("button", { name: /Initiate Return/i });
+    await returnBtn.click();
+
+    // Find the input for A4988 Stepper Motor Driver
+    const qtyInput = page.getByLabel(/Quantity to return for A4988 Stepper Motor Driver Carrier/i);
+    await expect(qtyInput).toHaveAttribute("max", "2");
+
+    // Declare return of 1 item
+    await qtyInput.fill("1");
+    const notesInput = page.getByPlaceholder(/Any component behavior or parts replaced/i);
+    await notesInput.fill("Returning first unit.");
+    await page.getByRole("button", { name: /Declare Return/i }).click();
+
+    // Now returnRequestedQuantity is 1. Maximum returnable remaining should be 1
+    await expect(page.getByText("Return Request Submissions")).toBeVisible();
+
+    // Click Initiate Return again
+    await page.getByRole("button", { name: /Initiate Return/i }).click();
+    const qtyInput2 = page.getByLabel(/Quantity to return for A4988 Stepper Motor Driver Carrier/i);
+    await expect(qtyInput2).toHaveAttribute("max", "1");
+  });
+
+  test("Scenario 7: Strike 2 Advisory on Cart", async ({ page }) => {
+    // Switch to restricted persona via dev switcher dropdown
+    const switcherTrigger = page.getByTitle("Switch Active Dev Persona");
+    await switcherTrigger.click();
+    await page.getByText("Borrower (Strike 2 Active)").click();
+    // Wait for persona navigation + React effects (localStorage write) to settle
+    await page.waitForLoadState("networkidle");
+
+    // Add eligible item (Class C — not blocked by Strike 2)
+    await page.goto("/app/inventory/item-lipo-battery");
+    await page.getByRole("button", { name: /Add.*to Borrow Cart/i }).click();
+    await expect(page.getByRole("button", { name: /Update in Cart/i })).toBeVisible();
+
+    // Navigate to cart via TopBar link (client-side nav preserves in-memory cart state)
+    await page.getByRole("link", { name: /View Borrow Cart/i }).click();
+    await expect(page).toHaveURL(/\/app\/cart/);
+    await expect(page.getByText(/Strike 2 Active/i)).toBeVisible();
+    await expect(page.getByText(/Classes F and G are unavailable/i)).toBeVisible();
+  });
+
+  test("Scenario 8: Provisional User Notice on Cart", async ({ page }) => {
+    // Switch to provisional persona via dev switcher dropdown
+    const switcherTrigger = page.getByTitle("Switch Active Dev Persona");
+    await switcherTrigger.click();
+    await page.getByText("New Student (Unprocessed)").click();
+    // Wait for persona navigation + React effects (localStorage write) to settle
+    await page.waitForLoadState("networkidle");
+
+    // Add eligible item (Class A)
+    await page.goto("/app/inventory/item-glue-sticks");
+    await page.getByRole("button", { name: /Add.*to Borrow Cart/i }).click();
+    await expect(page.getByRole("button", { name: /Update in Cart/i })).toBeVisible();
+
+    // Navigate to cart via TopBar link (client-side nav preserves in-memory cart state)
+    await page.getByRole("link", { name: /View Borrow Cart/i }).click();
+    await expect(page).toHaveURL(/\/app\/cart/);
+    await expect(page.getByText(/Provisional Membership Status/i)).toBeVisible();
+    await expect(page.getByText(/immediate request submission is permitted/i)).toBeVisible();
   });
 });

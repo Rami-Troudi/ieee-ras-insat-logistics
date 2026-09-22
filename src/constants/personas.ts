@@ -42,7 +42,7 @@ export const PRESET_PERSONAS: UserPersona[] = [
     clearance: "III",
     affiliation: "IEEE",
     isProcessed: true,
-    status: "RESTRICTED",
+    status: "ACTIVE",
     strikesCount: 2,
   },
   {

@@ -1,5 +1,9 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useQueryClient } from "@tanstack/react-query";
 import { PageContainer, PageHeader } from "@/components/shared/PageContainer";
 import { QuantitySelector } from "@/components/shared/QuantitySelector";
 import { PolicyNotice } from "@/components/shared/PolicyNotice";
@@ -7,11 +11,23 @@ import { EmptyState } from "@/components/shared/FeedbackStates";
 import { Button } from "@/components/ui/button";
 import { useBorrowCart, CartLineItem } from "@/features/cart";
 import { useSession } from "@/hooks/useSession";
-import { useActiveProjects, useCreateRequest } from "@/features/requests/hooks/useRequests";
+import { useMyProjects, useCreateRequest } from "@/features/requests/hooks/useRequests";
+import { QUERY_KEYS } from "@/app/query-client";
 import { Trash2, ArrowLeft, ArrowRight, ShieldCheck, AlertTriangle } from "lucide-react";
+
+const cartFormSchema = z.object({
+  projectId: z.string().optional(),
+  expectedReturnDate: z.string().min(1, "Please choose a proposed return date"),
+  purpose: z
+    .string()
+    .min(10, "Please provide a detailed borrowing purpose (at least 10 characters)"),
+});
+
+type CartFormData = z.infer<typeof cartFormSchema>;
 
 export const MemberCartPage: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { currentPersona } = useSession();
   const {
     state: cartState,
@@ -23,56 +39,103 @@ export const MemberCartPage: React.FC = () => {
     setReturnDate,
   } = useBorrowCart();
 
-  const { data: projects = [] } = useActiveProjects();
+  const { data: myProjects = [] } = useMyProjects(currentPersona.id);
   const createRequestMutation = useCreateRequest(currentPersona.id);
 
-  const [formError, setFormError] = useState<string | null>(null);
+  // Ref to suppress the empty-state guard while navigating away after submission,
+  // and to trigger cart clear on unmount. Using a ref avoids causing extra re-renders.
+  const isSubmittedRef = React.useRef(false);
+  const clearCartRef = React.useRef(clearCart);
+  clearCartRef.current = clearCart; // keep ref in sync with latest clearCart
 
-  const isRestricted = currentPersona.status === "RESTRICTED";
-  const isUnprocessed = !currentPersona.isProcessed;
+  // Clear the cart when this component unmounts after a successful submission.
+  React.useEffect(() => {
+    return () => {
+      if (isSubmittedRef.current) {
+        clearCartRef.current();
+      }
+    };
+  }, []); // intentionally empty — we use refs to avoid stale-closure issues
 
-  // Check if any cart item requires supervisor (Class F) or Class G
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<CartFormData>({
+    resolver: zodResolver(cartFormSchema),
+    defaultValues: {
+      projectId: cartState.projectId || "",
+      expectedReturnDate: cartState.expectedReturnDate,
+      purpose: cartState.purpose,
+    },
+  });
+
+  const selectedProjectId = watch("projectId");
+  const purposeValue = watch("purpose");
+  const returnDateValue = watch("expectedReturnDate");
+
+  // Keep cart context synchronized with form values only if value actually changed
+  React.useEffect(() => {
+    const val = selectedProjectId || undefined;
+    if (val !== cartState.projectId) {
+      setProject(val);
+    }
+  }, [selectedProjectId, cartState.projectId, setProject]);
+
+  React.useEffect(() => {
+    const val = purposeValue || "";
+    if (val !== cartState.purpose) {
+      setPurpose(val);
+    }
+  }, [purposeValue, cartState.purpose, setPurpose]);
+
+  React.useEffect(() => {
+    if (returnDateValue && returnDateValue !== cartState.expectedReturnDate) {
+      setReturnDate(returnDateValue);
+    }
+  }, [returnDateValue, cartState.expectedReturnDate, setReturnDate]);
+
+  const isBanned =
+    currentPersona.status === "BANNED" ||
+    currentPersona.status === "BLACKLISTED" ||
+    currentPersona.strikesCount >= 4;
+
+  const isProvisional = !currentPersona.isProcessed;
+  const isStrike2 = currentPersona.strikesCount >= 2;
+
+  // Check if any cart item requires Level V+ supervision (Class F) or Level VI authorization (Class G)
   const hasClassF = cartState.items.some((i: CartLineItem) => i.item.equipmentClass === "F");
   const hasClassG = cartState.items.some((i: CartLineItem) => i.item.equipmentClass === "G");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-
-    if (cartState.items.length === 0) {
-      setFormError("Your borrow cart is empty.");
-      return;
-    }
-
-    if (!cartState.purpose.trim() || cartState.purpose.trim().length < 10) {
-      setFormError("Please provide a detailed borrowing purpose (at least 10 characters).");
-      return;
-    }
-
-    if (!cartState.expectedReturnDate) {
-      setFormError("Please choose an expected return date.");
-      return;
-    }
+  const onSubmit = async (data: CartFormData) => {
+    if (cartState.items.length === 0) return;
 
     try {
       const created = await createRequestMutation.mutateAsync({
-        projectId: cartState.projectId || undefined,
-        purpose: cartState.purpose.trim(),
-        expectedReturnDate: cartState.expectedReturnDate,
+        projectId: data.projectId || undefined,
+        purpose: data.purpose.trim(),
+        expectedReturnDate: data.expectedReturnDate,
         items: cartState.items.map((i: CartLineItem) => ({
           itemId: i.item.id,
           quantity: i.quantity,
         })),
       });
 
-      clearCart();
-      navigate(`/app/requests/${created.id}`);
+      // Mark as submitted BEFORE navigate so the empty-state guard is suppressed
+      // even if React re-renders the cart component during the route transition.
+      isSubmittedRef.current = true;
+      // Pre-populate detail cache so the request detail page renders immediately.
+      queryClient.setQueryData(QUERY_KEYS.requests.detail(created.id), created);
+      navigate(`/app/requests/${created.id}`, { replace: true });
+      // Cart is cleared in the useEffect cleanup when this component unmounts.
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : "Failed to submit request.");
+      console.error("Submission failed:", err);
     }
   };
 
-  if (cartState.items.length === 0) {
+  // Suppress empty-state when a submission just navigated away
+  if (cartState.items.length === 0 && !isSubmittedRef.current) {
     return (
       <PageContainer>
         <PageHeader
@@ -81,7 +144,7 @@ export const MemberCartPage: React.FC = () => {
         />
         <EmptyState
           title="Your Borrow Cart is Empty"
-          description="You have not selected any equipment yet. Explore the inventory catalog to add boards, sensors, and components."
+          description="You have not selected any equipment yet. Explore the inventory catalog to add development boards, components, and tools."
           actionLabel="Browse Equipment Catalog"
           onAction={() => navigate("/app/inventory")}
         />
@@ -96,41 +159,49 @@ export const MemberCartPage: React.FC = () => {
         description="Review selected equipment, specify project justification, and submit for Logistics Board review."
       />
 
-      {/* Disqualification Banners */}
-      {isUnprocessed && (
-        <PolicyNotice
-          variant="warning"
-          title="Verification Required to Submit"
-          description="Your profile affiliation is not yet confirmed. You cannot submit borrow requests until you are verified by a Logistics Custodian."
-        />
-      )}
-
-      {isRestricted && (
+      {/* Disciplinary & Provisional Advisories */}
+      {isBanned && (
         <PolicyNotice
           variant="restricted"
-          title="Borrowing Suspended"
-          description="Your account currently has active strikes preventing request submission. Please resolve overdue loans first."
+          title="Borrowing Privileges Suspended"
+          description="Your account currently has active disciplinary restrictions preventing request submission."
         />
       )}
 
-      {/* Special Class Advisory */}
-      {hasClassF && (
+      {isProvisional && (
+        <PolicyNotice
+          variant="info"
+          title="Provisional Membership Status"
+          description="Your account is provisional pending full verification. Immediate request submission is permitted; the Logistics Board will process your identity confirmation during review."
+        />
+      )}
+
+      {isStrike2 && (
         <PolicyNotice
           variant="warning"
+          title="Explicit Board Review Required (Strike 2 Active)"
+          description="You have 2 active strikes. You can still submit requests for ordinary equipment, but every request requires explicit Board review and approval. Classes F and G are unavailable."
+        />
+      )}
+
+      {/* Special Class Advisories */}
+      {hasClassF && (
+        <PolicyNotice
+          variant="info"
           title="Class F Equipment in Cart"
-          description="Your request contains workshop tools (Class F). Please confirm that an approved Level V+ supervisor will be present during work."
+          description="Your request contains Heavy Equipment (Class F). Please confirm that an approved Level V+ supervisor will be present during work in the lab."
         />
       )}
 
       {hasClassG && (
         <PolicyNotice
           variant="warning"
-          title="Class G Hazardous Energy in Cart"
-          description="High-discharge LiPo battery checkout requires final Level VI Board approval and fireproof case inspection upon collection."
+          title="Class G High Value Electronics in Cart"
+          description="High-value calibration electronics require explicit Level VI authorization (RAS Chairman / Logistics Manager)."
         />
       )}
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Cart Line Items */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
@@ -214,30 +285,40 @@ export const MemberCartPage: React.FC = () => {
               <span>Borrowing Details</span>
             </h2>
 
-            {formError && (
+            {createRequestMutation.isError && (
               <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{formError}</span>
+                <span>
+                  {createRequestMutation.error instanceof Error
+                    ? createRequestMutation.error.message
+                    : "Failed to submit borrow request."}
+                </span>
               </div>
             )}
 
-            {/* Project Selection */}
+            {/* Project Selection (strictly scoped to user's assigned projects) */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
                 Assign to Project (Optional)
               </label>
               <select
-                value={cartState.projectId || ""}
-                onChange={(e) => setProject(e.target.value || undefined)}
+                id="project-assignment"
+                aria-label="Assign to Project"
+                {...register("projectId")}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px]"
               >
-                <option value="">No Project / General Prototyping</option>
-                {projects.map((proj) => (
+                <option value="">No Project / Personal Prototyping</option>
+                {myProjects.map((proj) => (
                   <option key={proj.id} value={proj.id}>
                     {proj.code} — {proj.name}
                   </option>
                 ))}
               </select>
+              {myProjects.length === 0 && (
+                <span className="text-[11px] text-muted-foreground block">
+                  You are not assigned to any active robotics projects.
+                </span>
+              )}
             </div>
 
             {/* Expected Return Date */}
@@ -247,14 +328,17 @@ export const MemberCartPage: React.FC = () => {
               </label>
               <input
                 type="date"
-                value={cartState.expectedReturnDate}
+                {...register("expectedReturnDate")}
                 min={new Date().toISOString().split("T")[0]}
-                onChange={(e) => setReturnDate(e.target.value)}
-                required
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px]"
               />
+              {errors.expectedReturnDate && (
+                <span className="text-xs text-destructive block">
+                  {errors.expectedReturnDate.message}
+                </span>
+              )}
               <span className="text-[11px] text-muted-foreground block">
-                Default loan period is 14 days per RAS bylaws.
+                Suggested default return date is 14 days from today.
               </span>
             </div>
 
@@ -264,13 +348,14 @@ export const MemberCartPage: React.FC = () => {
                 Borrowing Purpose & Justification *
               </label>
               <textarea
-                value={cartState.purpose}
-                onChange={(e) => setPurpose(e.target.value)}
+                {...register("purpose")}
                 rows={4}
-                required
                 placeholder="Explain the technical activity, test bench setup, or competition milestone..."
                 className="w-full rounded-md border border-input bg-background p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
+              {errors.purpose && (
+                <span className="text-xs text-destructive block">{errors.purpose.message}</span>
+              )}
               <span className="text-[11px] text-muted-foreground block">
                 Minimum 10 characters explaining your technical requirement.
               </span>
@@ -279,7 +364,7 @@ export const MemberCartPage: React.FC = () => {
             <Button
               type="submit"
               size="lg"
-              disabled={isRestricted || isUnprocessed || createRequestMutation.isPending}
+              disabled={isBanned || createRequestMutation.isPending}
               className="w-full min-h-[48px] gap-2 font-bold"
             >
               <span>

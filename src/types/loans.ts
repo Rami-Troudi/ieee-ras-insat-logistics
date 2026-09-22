@@ -1,5 +1,10 @@
 import { EquipmentClass, AssetCondition } from "./inventory";
 
+// Multi-dimensional loan statuses
+export type LoanLifecycleStatus = "ACTIVE" | "CLOSED";
+export type LoanDueStatus = "ON_TIME" | "DUE_SOON" | "OVERDUE";
+export type LoanReturnStatus = "NONE" | "PENDING_CONFIRMATION" | "PARTIAL" | "COMPLETE";
+
 export type LoanStatus =
   | "ACTIVE"
   | "DUE_SOON"
@@ -21,7 +26,7 @@ export interface LoanLineItem {
   returnedQuantity: number;
   conditionOnHandover: AssetCondition;
   serialNumbers?: string[];
-  returnRequestedQuantity?: number;
+  returnRequestedQuantity?: number; // quantity pending physical return confirmation
 }
 
 export interface ExtensionRequestRecord {
@@ -58,7 +63,10 @@ export interface LoanRecord {
   projectId?: string;
   projectName?: string;
   borrowDate: string;
-  dueDate: string;
+  dueDate: string; // official due date - not changed by pending extensions
+  lifecycleStatus: LoanLifecycleStatus;
+  dueStatus: LoanDueStatus;
+  returnStatus: LoanReturnStatus;
   status: LoanStatus;
   items: LoanLineItem[];
   extensionStatus: ExtensionStatus;
@@ -84,4 +92,20 @@ export interface RequestReturnPayload {
     conditionReport: string;
   }[];
   memberNotes?: string;
+}
+
+export function getLoanDisplayStatus(loan: {
+  status?: LoanStatus;
+  dueStatus?: LoanDueStatus;
+  returnStatus?: LoanReturnStatus;
+  lifecycleStatus?: LoanLifecycleStatus;
+}): LoanStatus {
+  if (loan.lifecycleStatus === "CLOSED") return "CLOSED";
+  if (loan.returnStatus === "COMPLETE") return "RETURNED";
+  if (loan.returnStatus === "PENDING_CONFIRMATION") return "RETURN_REQUESTED";
+  if (loan.returnStatus === "PARTIAL") return "PARTIALLY_RETURNED";
+  if (loan.dueStatus === "OVERDUE") return "OVERDUE";
+  if (loan.dueStatus === "DUE_SOON") return "DUE_SOON";
+  if (loan.status) return loan.status;
+  return "ACTIVE";
 }

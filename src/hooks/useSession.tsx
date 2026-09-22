@@ -7,9 +7,9 @@ export interface SessionContextType {
 }
 
 export const PROD_DEFAULT_PERSONA: UserPersona = {
-  id: "prod-session-user",
-  name: "IEEE Member",
-  email: "member@insat.u-carthage.tn",
+  id: "p-member-ieee",
+  name: "Rami Troudi (IEEE Member)",
+  email: "rami.ieee@insat.u-carthage.tn",
   role: "MEMBER",
   clearance: "III",
   affiliation: "IEEE",

@@ -19,7 +19,8 @@ import {
 import { useSession } from "@/hooks/useSession";
 import { useBorrowCart, CartLineItem } from "@/features/cart";
 import { evaluateItemEligibility } from "../utils/eligibility";
-import { Plus, Check, ShoppingBag, Eye, ShieldAlert } from "lucide-react";
+import { Plus, Check, ShoppingBag, Eye, ShieldAlert, Heart, Filter } from "lucide-react";
+import { TrackingMode } from "@/types";
 
 export const MemberInventoryPage: React.FC = () => {
   const { currentPersona } = useSession();
@@ -28,17 +29,23 @@ export const MemberInventoryPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedClass, setSelectedClass] = useState<string>("ALL");
+  const [selectedTracking, setSelectedTracking] = useState<string>("ALL");
   const [availableOnly, setAvailableOnly] = useState(false);
+  const [borrowableOnly, setBorrowableOnly] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
   const filters = {
     search: search.trim() || undefined,
     category: selectedCategory !== "ALL" ? selectedCategory : undefined,
     equipmentClass: selectedClass !== "ALL" ? selectedClass : undefined,
+    trackingMode: selectedTracking !== "ALL" ? (selectedTracking as TrackingMode) : undefined,
     availableOnly: availableOnly ? true : undefined,
+    borrowableByMe: borrowableOnly ? true : undefined,
+    favoritesOnly: favoritesOnly ? true : undefined,
   };
 
-  const { data: items, isLoading, error, refetch } = useInventoryItems(filters);
+  const { data: items, isLoading, error, refetch } = useInventoryItems(filters, currentPersona.id);
   const { data: categories = [] } = useInventoryCategories();
   const { data: favoriteIds = [] } = useUserFavorites(currentPersona.id);
   const toggleFavorite = useToggleFavorite(currentPersona.id);
@@ -46,12 +53,12 @@ export const MemberInventoryPage: React.FC = () => {
   const classOptions = [
     { value: "ALL", label: "All Classes" },
     { value: "A", label: "Class A (Consumables)" },
-    { value: "B", label: "Class B (Master Instruments)" },
-    { value: "C", label: "Class C (Modular Sensors)" },
-    { value: "D", label: "Class D (Heavy Capital)" },
-    { value: "E", label: "Class E (Dev Boards)" },
-    { value: "F", label: "Class F (Workshop Tools)" },
-    { value: "G", label: "Class G (Hazardous Energy)" },
+    { value: "B", label: "Class B (Expendable Resources)" },
+    { value: "C", label: "Class C (Light Resources)" },
+    { value: "D", label: "Class D (Light Equipment)" },
+    { value: "E", label: "Class E (Electronic Resources)" },
+    { value: "F", label: "Class F (Heavy Equipment)" },
+    { value: "G", label: "Class G (High Value Electronics)" },
   ];
 
   const categoryOptions = [
@@ -59,28 +66,50 @@ export const MemberInventoryPage: React.FC = () => {
     ...categories.map((c) => ({ value: c, label: c })),
   ];
 
+  const trackingOptions = [
+    { value: "ALL", label: "All Tracking" },
+    { value: "INDIVIDUAL_ASSET", label: "Individual Assets" },
+    { value: "QUANTITY", label: "Batch Quantity" },
+  ];
+
   const handleClearFilters = () => {
     setSearch("");
     setSelectedCategory("ALL");
     setSelectedClass("ALL");
+    setSelectedTracking("ALL");
     setAvailableOnly(false);
+    setBorrowableOnly(false);
+    setFavoritesOnly(false);
   };
 
-  // Convert state into FilterBar active filters
   const activeFilters = [
     ...(search.trim() ? [{ id: "search", label: "Query", value: search }] : []),
     ...(selectedCategory !== "ALL"
       ? [{ id: "cat", label: "Category", value: selectedCategory }]
       : []),
     ...(selectedClass !== "ALL" ? [{ id: "class", label: "Class", value: selectedClass }] : []),
+    ...(selectedTracking !== "ALL"
+      ? [
+          {
+            id: "track",
+            label: "Tracking",
+            value: selectedTracking === "INDIVIDUAL_ASSET" ? "Serial Asset" : "Batch",
+          },
+        ]
+      : []),
     ...(availableOnly ? [{ id: "avail", label: "Availability", value: "In Stock" }] : []),
+    ...(borrowableOnly ? [{ id: "borrow", label: "Eligibility", value: "Borrowable by Me" }] : []),
+    ...(favoritesOnly ? [{ id: "favs", label: "Favorites", value: "Starred Only" }] : []),
   ];
 
   const handleRemoveFilter = (id: string) => {
     if (id === "search") setSearch("");
     if (id === "cat") setSelectedCategory("ALL");
     if (id === "class") setSelectedClass("ALL");
+    if (id === "track") setSelectedTracking("ALL");
     if (id === "avail") setAvailableOnly(false);
+    if (id === "borrow") setBorrowableOnly(false);
+    if (id === "favs") setFavoritesOnly(false);
   };
 
   const desktopControls = (
@@ -88,7 +117,7 @@ export const MemberInventoryPage: React.FC = () => {
       <select
         value={selectedCategory}
         onChange={(e) => setSelectedCategory(e.target.value)}
-        className="rounded-md border border-input bg-background px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary h-9 min-h-[36px]"
+        className="rounded-md border border-input bg-background px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary h-9 min-h-[36px]"
       >
         {categoryOptions.map((c) => (
           <option key={c.value} value={c.value}>
@@ -100,11 +129,23 @@ export const MemberInventoryPage: React.FC = () => {
       <select
         value={selectedClass}
         onChange={(e) => setSelectedClass(e.target.value)}
-        className="rounded-md border border-input bg-background px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary h-9 min-h-[36px]"
+        className="rounded-md border border-input bg-background px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary h-9 min-h-[36px]"
       >
         {classOptions.map((c) => (
           <option key={c.value} value={c.value}>
             {c.label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={selectedTracking}
+        onChange={(e) => setSelectedTracking(e.target.value)}
+        className="rounded-md border border-input bg-background px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary h-9 min-h-[36px]"
+      >
+        {trackingOptions.map((t) => (
+          <option key={t.value} value={t.value}>
+            {t.label}
           </option>
         ))}
       </select>
@@ -116,7 +157,28 @@ export const MemberInventoryPage: React.FC = () => {
           onChange={(e) => setAvailableOnly(e.target.checked)}
           className="rounded border-input text-primary focus:ring-primary w-3.5 h-3.5"
         />
-        <span>In Stock Only</span>
+        <span>In Stock</span>
+      </label>
+
+      <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer ml-1">
+        <input
+          type="checkbox"
+          checked={borrowableOnly}
+          onChange={(e) => setBorrowableOnly(e.target.checked)}
+          className="rounded border-input text-primary focus:ring-primary w-3.5 h-3.5"
+        />
+        <span>Borrowable by Me</span>
+      </label>
+
+      <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer ml-1">
+        <input
+          type="checkbox"
+          checked={favoritesOnly}
+          onChange={(e) => setFavoritesOnly(e.target.checked)}
+          className="rounded border-input text-primary focus:ring-primary w-3.5 h-3.5"
+        />
+        <Heart className="w-3.5 h-3.5 text-rose-500 fill-current" />
+        <span>Favorites</span>
       </label>
     </div>
   );
@@ -142,17 +204,17 @@ export const MemberInventoryPage: React.FC = () => {
       {/* Account Eligibility Banner if Restricted or Unprocessed */}
       {!currentPersona.isProcessed && (
         <PolicyNotice
-          variant="warning"
-          title="Account Pending Board Verification"
-          description="Your profile is currently unverified. You may browse the equipment catalog, but submitting online requests requires in-person member onboarding at the RAS Workshop."
+          variant="info"
+          title="Affiliation Pending Physical Verification"
+          description="Your profile is currently unverified. You may browse and submit online borrow requests; the Logistics Board will verify and confirm your affiliation during review."
         />
       )}
 
-      {currentPersona.status === "RESTRICTED" && (
+      {currentPersona.strikesCount >= 2 && (
         <PolicyNotice
-          variant="restricted"
-          title="Borrowing Privileges Suspended"
-          description={`Your account has ${currentPersona.strikesCount} active strike(s). Online borrow cart submission is disabled until overdue equipment is returned.`}
+          variant="warning"
+          title="Explicit Board Review Required (Strike 2 Active)"
+          description={`Your account has ${currentPersona.strikesCount} active strike(s). You may request eligible equipment, but all requests require explicit Board review. Classes F and G are unavailable.`}
         />
       )}
 
@@ -164,11 +226,19 @@ export const MemberInventoryPage: React.FC = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onClear={() => setSearch("")}
-              placeholder="Search by name, category, or description..."
+              placeholder="Search by name, aliases (stm, rpi, uno), tags, or category..."
             />
           </div>
 
           <div className="sm:hidden">
+            <Button
+              variant="outline"
+              onClick={() => setIsFilterDrawerOpen(true)}
+              className="w-full gap-2 min-h-[44px]"
+            >
+              <Filter className="w-4 h-4" />
+              <span>Filters ({activeFilters.length})</span>
+            </Button>
             <FilterDrawer
               open={isFilterDrawerOpen}
               onOpenChange={setIsFilterDrawerOpen}
@@ -213,7 +283,7 @@ export const MemberInventoryPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-border">
+                <div className="pt-2 border-t border-border space-y-2">
                   <label className="flex items-center gap-2 text-sm font-medium cursor-pointer min-h-[44px]">
                     <input
                       type="checkbox"
@@ -221,7 +291,27 @@ export const MemberInventoryPage: React.FC = () => {
                       onChange={(e) => setAvailableOnly(e.target.checked)}
                       className="rounded border-input text-primary focus:ring-primary w-4 h-4"
                     />
-                    <span>Show Available Items Only</span>
+                    <span>Show In-Stock Items Only</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-sm font-medium cursor-pointer min-h-[44px]">
+                    <input
+                      type="checkbox"
+                      checked={borrowableOnly}
+                      onChange={(e) => setBorrowableOnly(e.target.checked)}
+                      className="rounded border-input text-primary focus:ring-primary w-4 h-4"
+                    />
+                    <span>Borrowable by Me Only</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-sm font-medium cursor-pointer min-h-[44px]">
+                    <input
+                      type="checkbox"
+                      checked={favoritesOnly}
+                      onChange={(e) => setFavoritesOnly(e.target.checked)}
+                      className="rounded border-input text-primary focus:ring-primary w-4 h-4"
+                    />
+                    <span>Favorites Only</span>
                   </label>
                 </div>
               </div>
@@ -264,7 +354,8 @@ export const MemberInventoryPage: React.FC = () => {
               currentPersona.clearance,
               currentPersona.status,
               currentPersona.isProcessed,
-              item.availableQuantity
+              item.availableQuantity,
+              currentPersona.strikesCount
             );
 
             return (
@@ -320,11 +411,8 @@ export const MemberInventoryPage: React.FC = () => {
                       label={
                         item.availableQuantity === 0
                           ? "Out of Stock"
-                          : item.equipmentClass === "B" || item.equipmentClass === "D"
-                            ? "Direct Board"
-                            : item.availableQuantity > 0
-                              ? "Available"
-                              : undefined
+                          : eligibility.statusLabel ||
+                            (item.availableQuantity > 0 ? "Available" : undefined)
                       }
                     />
                   </div>
@@ -333,13 +421,19 @@ export const MemberInventoryPage: React.FC = () => {
                   {(item.equipmentClass === "B" || item.equipmentClass === "D") && (
                     <div className="p-2 rounded bg-muted/70 text-[11px] text-muted-foreground border border-border/80 flex items-start gap-1.5">
                       <ShieldAlert className="w-3.5 h-3.5 text-secondary shrink-0 mt-0.5" />
-                      <span>Direct Board Request only; in-cart reservation disabled.</span>
+                      <span>Direct Board Request / Interaction; online reservation disabled.</span>
                     </div>
                   )}
                   {item.equipmentClass === "F" && (
                     <div className="p-2 rounded bg-muted/70 text-[11px] text-muted-foreground border border-border/80 flex items-start gap-1.5">
                       <ShieldAlert className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                      <span>Requires Level V+ supervision during utilization.</span>
+                      <span>Requires Level V+ (Board/Eurobot) supervision during usage.</span>
+                    </div>
+                  )}
+                  {item.equipmentClass === "G" && (
+                    <div className="p-2 rounded bg-muted/70 text-[11px] text-muted-foreground border border-border/80 flex items-start gap-1.5">
+                      <ShieldAlert className="w-3.5 h-3.5 text-secondary shrink-0 mt-0.5" />
+                      <span>High Value Electronics: Requires Level VI authorization.</span>
                     </div>
                   )}
                 </div>
@@ -347,7 +441,11 @@ export const MemberInventoryPage: React.FC = () => {
                 {/* Card Actions */}
                 <div className="pt-4 mt-3 border-t border-border/60 flex items-center justify-between gap-2">
                   <Button asChild variant="ghost" size="sm" className="text-xs min-h-[44px] px-2.5">
-                    <Link to={`/app/inventory/${item.id}`} className="gap-1.5">
+                    <Link
+                      to={`/app/inventory/${item.id}`}
+                      className="gap-1.5"
+                      aria-label={`View details of ${item.name}`}
+                    >
                       <Eye className="w-3.5 h-3.5" />
                       <span>Details</span>
                     </Link>
@@ -358,9 +456,6 @@ export const MemberInventoryPage: React.FC = () => {
                       variant={inCart ? "secondary" : "default"}
                       size="sm"
                       onClick={() => addItem(item, 1)}
-                      disabled={
-                        !currentPersona.isProcessed || currentPersona.status === "RESTRICTED"
-                      }
                       className="text-xs gap-1.5 min-h-[44px] px-3"
                     >
                       {inCart ? (
@@ -383,7 +478,7 @@ export const MemberInventoryPage: React.FC = () => {
                       className="text-xs opacity-60 min-h-[44px]"
                     >
                       {item.equipmentClass === "B" || item.equipmentClass === "D"
-                        ? "Board Direct"
+                        ? "Direct Board"
                         : "Unavailable"}
                     </Button>
                   )}

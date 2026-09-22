@@ -59,7 +59,8 @@ export const MemberItemDetailPage: React.FC = () => {
     currentPersona.clearance,
     currentPersona.status,
     currentPersona.isProcessed,
-    item.availableQuantity
+    item.availableQuantity,
+    currentPersona.strikesCount
   );
 
   return (
@@ -106,7 +107,8 @@ export const MemberItemDetailPage: React.FC = () => {
               label={
                 item.availableQuantity === 0
                   ? "0 Available"
-                  : `${item.availableQuantity} of ${item.totalQuantity} Available`
+                  : eligibility.statusLabel ||
+                    `${item.availableQuantity} of ${item.totalQuantity} Available`
               }
             />
           </div>
@@ -168,8 +170,12 @@ export const MemberItemDetailPage: React.FC = () => {
             <Button
               size="lg"
               onClick={() => addItem(item, quantity)}
-              disabled={!currentPersona.isProcessed || currentPersona.status === "RESTRICTED"}
-              className="w-full sm:w-auto min-h-[48px] gap-2 px-6"
+              disabled={
+                currentPersona.status === "BANNED" ||
+                currentPersona.status === "BLACKLISTED" ||
+                currentPersona.strikesCount >= 4
+              }
+              className="w-full sm:w-auto min-h-[48px] gap-2 px-6 font-bold"
             >
               {inCart ? (
                 <>
@@ -188,15 +194,16 @@ export const MemberItemDetailPage: React.FC = () => {
           <div className="p-4 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground space-y-2">
             <p className="font-semibold text-foreground">
               {item.equipmentClass === "B" || item.equipmentClass === "D"
-                ? "Physical Custodian Protocol Required"
+                ? "Direct Board Request / Interaction Required"
                 : "Cannot reserve item online"}
             </p>
             <p>
               {item.equipmentClass === "B"
-                ? "Class B Master Instruments require a direct reservation petition submitted to the Logistics Board Chair."
+                ? "Class B items (screws, LEDs, resistors, rods, cables) are expendable resources provided directly by the Board at the workshop."
                 : item.equipmentClass === "D"
-                  ? "Class D Rapid Prototyping equipment requires workshop safety authorization and scheduled laboratory slot."
-                  : "This item is either out of stock or your membership credentials currently restrict online checkouts."}
+                  ? "Class D tools (screwdrivers, hammers, keys, multimeters) are checked out via Direct Board interaction."
+                  : eligibility.reason ||
+                    "This item is either out of stock or your credentials restrict this request."}
             </p>
           </div>
         )}

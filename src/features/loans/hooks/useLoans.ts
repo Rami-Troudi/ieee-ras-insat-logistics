@@ -11,10 +11,10 @@ export function useUserLoans(userId: string) {
   });
 }
 
-export function useLoanDetail(id: string) {
+export function useLoanDetail(id: string, userId?: string) {
   return useQuery({
     queryKey: QUERY_KEYS.loans.detail(id),
-    queryFn: () => loanService.getLoan(id),
+    queryFn: () => loanService.getLoan(id, userId),
     enabled: !!id,
   });
 }

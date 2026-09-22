@@ -11,6 +11,9 @@ export const INITIAL_LOANS: LoanRecord[] = [
     projectName: "Eurobot Tunisia 2027 Autonomous Rover",
     borrowDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
     dueDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    lifecycleStatus: "ACTIVE",
+    dueStatus: "ON_TIME",
+    returnStatus: "NONE",
     status: "ACTIVE",
     items: [
       {
@@ -54,6 +57,9 @@ export const INITIAL_LOANS: LoanRecord[] = [
     projectName: "Eurobot Tunisia 2027 Autonomous Rover",
     borrowDate: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
     dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    lifecycleStatus: "ACTIVE",
+    dueStatus: "DUE_SOON",
+    returnStatus: "NONE",
     status: "DUE_SOON",
     items: [
       {
@@ -97,6 +103,9 @@ export const INITIAL_LOANS: LoanRecord[] = [
     projectName: "Eurobot Tunisia 2027 Autonomous Rover",
     borrowDate: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
     dueDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    lifecycleStatus: "CLOSED",
+    dueStatus: "ON_TIME",
+    returnStatus: "COMPLETE",
     status: "CLOSED",
     items: [
       {

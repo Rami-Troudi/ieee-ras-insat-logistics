@@ -27,6 +27,11 @@ export const MemberHomePage: React.FC = () => {
 
   const recentRequest = requests[0];
 
+  const isBanned =
+    currentPersona.status === "BANNED" ||
+    currentPersona.status === "BLACKLISTED" ||
+    currentPersona.strikesCount >= 4;
+
   return (
     <PageContainer>
       <PageHeader
@@ -45,17 +50,25 @@ export const MemberHomePage: React.FC = () => {
       {/* Disciplinary & Onboarding Banners */}
       {!currentPersona.isProcessed && (
         <PolicyNotice
-          variant="warning"
+          variant="info"
           title="Account Pending Physical Verification"
-          description="Your affiliation is currently unverified. Visit the RAS Workshop desk with your student card to enable equipment checkouts."
+          description="Your affiliation is currently unverified. You can browse and submit borrow requests; the Logistics Board will verify your identity during processing."
         />
       )}
 
-      {currentPersona.status === "RESTRICTED" && (
+      {isBanned && (
         <PolicyNotice
           variant="restricted"
           title="Borrowing Privileges Suspended"
-          description={`Your account has ${currentPersona.strikesCount} active strike(s). Settle overdue equipment to restore borrowing privileges.`}
+          description="Your account currently has active disciplinary restrictions preventing request submission."
+        />
+      )}
+
+      {currentPersona.strikesCount >= 2 && !isBanned && (
+        <PolicyNotice
+          variant="warning"
+          title="Explicit Board Review Required (Strike 2 Active)"
+          description={`Your account has ${currentPersona.strikesCount} active strike(s). All requests require explicit Board review. Classes F and G are unavailable.`}
         />
       )}
 

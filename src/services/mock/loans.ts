@@ -1,26 +1,35 @@
 import { ILoanService } from "../contracts/loans";
 import { LoanRecord, RequestExtensionPayload, RequestReturnPayload } from "@/types";
 import { mockDb } from "@/mocks/db";
+import { scenarioManager } from "./scenario";
 
 export class MockLoanService implements ILoanService {
   private defaultDelayMs = 250;
 
   private async simulateLatency(): Promise<void> {
-    await new Promise((res) => setTimeout(res, this.defaultDelayMs));
+    await scenarioManager.simulateLatency(this.defaultDelayMs);
   }
 
   async listUserLoans(userId: string): Promise<LoanRecord[]> {
     await this.simulateLatency();
+    if (scenarioManager.isEmpty()) return [];
     const snapshot = mockDb.getSnapshot();
     return snapshot.loans
       .filter((l) => l.userId === userId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  async getLoan(id: string): Promise<LoanRecord | null> {
+  async getLoan(id: string, userId?: string): Promise<LoanRecord | null> {
     await this.simulateLatency();
+    if (scenarioManager.isEmpty()) return null;
     const snapshot = mockDb.getSnapshot();
-    return snapshot.loans.find((l) => l.id === id) || null;
+    const loan = snapshot.loans.find((l) => l.id === id);
+    if (!loan) return null;
+    // Ownership check if userId is provided
+    if (userId && loan.userId !== userId) {
+      throw new Error("Unauthorized: You do not have permission to view this loan record.");
+    }
+    return loan;
   }
 
   async requestExtension(payload: RequestExtensionPayload, userId: string): Promise<LoanRecord> {
@@ -32,7 +41,11 @@ export class MockLoanService implements ILoanService {
       if (!loan) {
         throw new Error("Loan record not found or unauthorized");
       }
-      if (loan.status === "CLOSED" || loan.status === "RETURNED") {
+      if (
+        loan.status === "CLOSED" ||
+        loan.status === "RETURNED" ||
+        loan.lifecycleStatus === "CLOSED"
+      ) {
         throw new Error("Cannot request extension on closed loans");
       }
       if (loan.extensionStatus === "PENDING") {
@@ -47,6 +60,7 @@ export class MockLoanService implements ILoanService {
         status: "PENDING" as const,
       };
 
+      // Crucial: do NOT change loan.dueDate (official due date remains unchanged)
       loan.extensionStatus = "PENDING";
       loan.extensionRequests.unshift(extRecord);
       loan.updatedAt = new Date().toISOString();
@@ -74,13 +88,16 @@ export class MockLoanService implements ILoanService {
       payload.items.forEach((item) => {
         const line = loan.items.find((i) => i.id === item.lineItemId);
         if (line) {
-          const maxReturnable = line.borrowedQuantity - line.returnedQuantity;
+          // Authoritative returnable quantity formula:
+          // returnable = borrowedQuantity - returnedQuantity - (pending returnRequestedQuantity)
+          const alreadyPending = line.returnRequestedQuantity || 0;
+          const maxReturnable = line.borrowedQuantity - line.returnedQuantity - alreadyPending;
           if (item.quantity > maxReturnable) {
             throw new Error(
-              `Cannot return ${item.quantity} units; only ${maxReturnable} outstanding.`
+              `Cannot request return of ${item.quantity} units for ${line.itemName}; only ${maxReturnable} available to return (${alreadyPending} already pending confirmation).`
             );
           }
-          line.returnRequestedQuantity = (line.returnRequestedQuantity || 0) + item.quantity;
+          line.returnRequestedQuantity = alreadyPending + item.quantity;
         }
       });
 
@@ -94,6 +111,7 @@ export class MockLoanService implements ILoanService {
 
       loan.returnRequests.unshift(retRecord);
       loan.status = "RETURN_REQUESTED";
+      loan.returnStatus = "PENDING_CONFIRMATION";
       loan.updatedAt = new Date().toISOString();
 
       updatedLoan = { ...loan };

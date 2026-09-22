@@ -17,7 +17,12 @@ export const MemberRequestDetailPage: React.FC = () => {
   const { requestId = "" } = useParams<{ requestId: string }>();
   const { currentPersona } = useSession();
 
-  const { data: request, isLoading, error, refetch } = useRequestDetail(requestId);
+  const {
+    data: request,
+    isLoading,
+    error,
+    refetch,
+  } = useRequestDetail(requestId, currentPersona.id);
   const cancelMutation = useCancelRequest(currentPersona.id);
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
@@ -35,8 +40,8 @@ export const MemberRequestDetailPage: React.FC = () => {
     return (
       <PageContainer>
         <ErrorState
-          title="Request Not Found"
-          description="The requested borrow petition does not exist in the logistics records."
+          title="Request Not Found or Unauthorized"
+          description="The requested borrow petition does not exist in your logistics records or you lack authorization to view it."
         />
         <div className="mt-4">
           <Button asChild variant="outline" className="min-h-[44px]">
@@ -50,7 +55,7 @@ export const MemberRequestDetailPage: React.FC = () => {
     );
   }
 
-  const isPending = request.status === "PENDING";
+  const isPending = request.status === "PENDING" || request.decisionStatus === "PENDING";
   const pickupWindow = request.pickupDeadline
     ? calculatePickupWindow(request.reviewedAt || request.updatedAt)
     : null;
@@ -149,6 +154,36 @@ export const MemberRequestDetailPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Multi-Dimensional State Verification */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-border/60 text-xs">
+          <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
+            <span className="text-muted-foreground block text-[10px] uppercase font-bold">
+              Decision Status
+            </span>
+            <span className="font-semibold text-foreground mt-0.5 block">
+              {request.decisionStatus || request.status}
+            </span>
+          </div>
+          <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
+            <span className="text-muted-foreground block text-[10px] uppercase font-bold">
+              Handover Status
+            </span>
+            <span className="font-semibold text-foreground mt-0.5 block">
+              {request.handoverStatus === "HANDED_OVER"
+                ? "Handed Over (Active Loan)"
+                : "Waiting for Handover"}
+            </span>
+          </div>
+          <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
+            <span className="text-muted-foreground block text-[10px] uppercase font-bold">
+              Lifecycle Status
+            </span>
+            <span className="font-semibold text-foreground mt-0.5 block">
+              {request.lifecycleStatus || "ACTIVE"}
+            </span>
+          </div>
+        </div>
+
         {/* Purpose */}
         <div className="pt-2 text-xs">
           <span className="font-semibold text-muted-foreground block mb-1">
@@ -212,13 +247,18 @@ export const MemberRequestDetailPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <div className="text-right">
+                  <div className="text-right space-y-0.5">
                     <span className="text-muted-foreground block">
-                      Requested: {line.requestedQuantity}
+                      Requested: <strong>{line.requestedQuantity}</strong>
                     </span>
                     {line.approvedQuantity !== undefined && (
                       <span className="font-bold text-foreground block">
-                        Approved: {line.approvedQuantity}
+                        Approved: <strong>{line.approvedQuantity}</strong>
+                      </span>
+                    )}
+                    {line.handedOverQuantity > 0 && (
+                      <span className="text-emerald-600 block text-[11px]">
+                        Handed Over: {line.handedOverQuantity}
                       </span>
                     )}
                   </div>

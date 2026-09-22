@@ -17,7 +17,9 @@ export function useMediaQuery(query: string): boolean {
       setMatches(event.matches);
     };
 
-    setMatches(mediaQueryList.matches);
+    // Only sync if different from current state (avoids spurious re-render)
+    const current = mediaQueryList.matches;
+    setMatches((prev) => (prev !== current ? current : prev));
 
     if (mediaQueryList.addEventListener) {
       mediaQueryList.addEventListener("change", listener);

@@ -35,6 +35,12 @@ export const DevPersonaProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const handleSetPersona = React.useCallback(
     (persona: UserPersona) => {
       if (isDev) {
+        // Write synchronously so any subsequent page navigation reads the correct ID
+        try {
+          localStorage.setItem("ras_dev_persona_id", persona.id);
+        } catch {
+          // ignore
+        }
         setCurrentPersona(persona);
       }
     },

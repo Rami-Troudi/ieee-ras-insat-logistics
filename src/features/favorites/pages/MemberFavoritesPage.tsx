@@ -13,6 +13,7 @@ import {
 } from "@/features/inventory/hooks/useInventory";
 import { useSession } from "@/hooks/useSession";
 import { useBorrowCart, CartLineItem } from "@/features/cart";
+import { evaluateItemEligibility } from "@/features/inventory/utils/eligibility";
 import { Plus, Eye, ShoppingBag } from "lucide-react";
 
 export const MemberFavoritesPage: React.FC = () => {
@@ -54,10 +55,14 @@ export const MemberFavoritesPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {favoriteItems.map((item) => {
             const inCart = cartState.items.some((i: CartLineItem) => i.item.id === item.id);
-            const canAdd =
-              item.availableQuantity > 0 &&
-              item.equipmentClass !== "B" &&
-              item.equipmentClass !== "D";
+            const eligibility = evaluateItemEligibility(
+              item.equipmentClass,
+              currentPersona.clearance,
+              currentPersona.status,
+              currentPersona.isProcessed,
+              item.availableQuantity,
+              currentPersona.strikesCount
+            );
 
             return (
               <div
@@ -96,8 +101,19 @@ export const MemberFavoritesPage: React.FC = () => {
                       {item.totalQuantity}
                     </span>
                     <StatusBadge
-                      status={item.availableQuantity > 0 ? "AVAILABLE" : "BORROWED"}
-                      label={item.availableQuantity > 0 ? "Available" : "Out of Stock"}
+                      status={
+                        item.availableQuantity === 0
+                          ? "BORROWED"
+                          : eligibility.badgeType === "SUCCESS"
+                            ? "AVAILABLE"
+                            : eligibility.badgeType
+                      }
+                      label={
+                        item.availableQuantity === 0
+                          ? "Out of Stock"
+                          : eligibility.statusLabel ||
+                            (item.availableQuantity > 0 ? "Available" : undefined)
+                      }
                     />
                   </div>
                 </div>
@@ -110,7 +126,7 @@ export const MemberFavoritesPage: React.FC = () => {
                     </Link>
                   </Button>
 
-                  {canAdd ? (
+                  {eligibility.canBorrowOnline && item.availableQuantity > 0 ? (
                     <Button
                       variant={inCart ? "secondary" : "default"}
                       size="sm"
@@ -128,7 +144,7 @@ export const MemberFavoritesPage: React.FC = () => {
                       className="text-xs opacity-60 min-h-[44px]"
                     >
                       {item.equipmentClass === "B" || item.equipmentClass === "D"
-                        ? "Board Direct"
+                        ? "Direct Board"
                         : "Unavailable"}
                     </Button>
                   )}

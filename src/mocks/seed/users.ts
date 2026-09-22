@@ -40,7 +40,7 @@ export const INITIAL_USER_PROFILES: Record<string, UserProfile> = {
     name: "Eurobot Team Lead",
     email: "eurobot.lead@insat.u-carthage.tn",
     role: "MEMBER",
-    clearance: "V",
+    clearance: "V", // Eurobot membership implies minimum Level V
     affiliation: "EUROBOT",
     isProcessed: true,
     status: "ACTIVE",
@@ -60,7 +60,7 @@ export const INITIAL_USER_PROFILES: Record<string, UserProfile> = {
     clearance: "III",
     affiliation: "IEEE",
     isProcessed: true,
-    status: "RESTRICTED",
+    status: "ACTIVE", // Able to borrow ordinary items with explicit Board approval!
     strikesCount: 2,
     phone: "+216 99 876 543",
     studentId: "INSAT-2023-0871",
@@ -69,14 +69,15 @@ export const INITIAL_USER_PROFILES: Record<string, UserProfile> = {
       {
         id: "strk-1",
         date: "2025-11-10T14:00:00.000Z",
-        reason: "Unreturned battery pack past 14 days without notice",
+        reason: "Unreturned battery pack past 2 weeks without notice (Strike 1 Warning)",
         severity: "WARNING",
         resolved: true,
       },
       {
         id: "strk-2",
         date: "2026-02-04T10:30:00.000Z",
-        reason: "Late return of oscilloscope (> 7 days overdue). Borrowing restricted.",
+        reason:
+          "Late return of development board > 2 weeks overdue. Second warning (Strike 2): all requests require explicit Board approval, Classes F/G unavailable.",
         severity: "RESTRICTION",
         resolved: false,
       },

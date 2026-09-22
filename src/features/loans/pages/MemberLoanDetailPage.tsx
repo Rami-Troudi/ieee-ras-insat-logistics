@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { PageContainer } from "@/components/shared/PageContainer";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { PolicyNotice } from "@/components/shared/PolicyNotice";
@@ -13,27 +16,39 @@ import { formatDate, formatDateTime, isDatePast } from "@/lib/dates";
 import { ArrowLeft, Calendar, CheckCircle2, RotateCcw, AlertTriangle } from "lucide-react";
 import { LoanStatus } from "@/types";
 
+const extensionSchema = z.object({
+  proposedReturnDate: z.string().min(1, "Please choose a proposed return date"),
+  reason: z.string().min(10, "Please provide an explanation (at least 10 characters)"),
+});
+
+type ExtensionFormData = z.infer<typeof extensionSchema>;
+
 export const MemberLoanDetailPage: React.FC = () => {
   const { loanId = "" } = useParams<{ loanId: string }>();
   const { currentPersona } = useSession();
 
-  const { data: loan, isLoading, error, refetch } = useLoanDetail(loanId);
+  const { data: loan, isLoading, error, refetch } = useLoanDetail(loanId, currentPersona.id);
   const extensionMutation = useRequestExtension(currentPersona.id);
   const returnMutation = useRequestReturn(currentPersona.id);
 
   // Extension Modal State
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
-  const [proposedDate, setProposedDate] = useState("");
-  const [extensionReason, setExtensionReason] = useState("");
-  const [extensionError, setExtensionError] = useState<string | null>(null);
 
   // Return Modal State
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
-  const [returnItems, setReturnItems] = useState<
-    Record<string, { quantity: number; condition: string }>
-  >({});
+  const [returnQuantities, setReturnQuantities] = useState<Record<string, number>>({});
+  const [returnConditions, setReturnConditions] = useState<Record<string, string>>({});
   const [memberNotes, setMemberNotes] = useState("");
   const [returnError, setReturnError] = useState<string | null>(null);
+
+  const {
+    register: registerExt,
+    handleSubmit: handleSubmitExt,
+    reset: resetExt,
+    formState: { errors: errorsExt },
+  } = useForm<ExtensionFormData>({
+    resolver: zodResolver(extensionSchema),
+  });
 
   if (isLoading) {
     return (
@@ -47,7 +62,7 @@ export const MemberLoanDetailPage: React.FC = () => {
     return (
       <PageContainer>
         <ErrorState
-          title="Loan Record Not Found"
+          title="Loan Record Not Found or Unauthorized"
           description="The requested loan identifier could not be retrieved from custody records."
         />
         <div className="mt-4">
@@ -66,17 +81,19 @@ export const MemberLoanDetailPage: React.FC = () => {
     isDatePast(loan.dueDate) && loan.status !== "CLOSED" && loan.status !== "RETURNED";
   const isClosed = loan.status === "CLOSED" || loan.status === "RETURNED";
 
-  // Open Return Dialog & Init quantities
+  // Open Return Dialog & Init quantities according to strict formula:
+  // maxReturnable = borrowedQuantity - returnedQuantity - (pending returnRequestedQuantity)
   const handleOpenReturn = () => {
-    const init: Record<string, { quantity: number; condition: string }> = {};
+    const initQty: Record<string, number> = {};
+    const initCond: Record<string, string> = {};
     loan.items.forEach((item) => {
-      const remaining = item.borrowedQuantity - item.returnedQuantity;
-      init[item.id] = {
-        quantity: remaining,
-        condition: "Good condition, no visible damage",
-      };
+      const alreadyPending = item.returnRequestedQuantity || 0;
+      const maxReturnable = item.borrowedQuantity - item.returnedQuantity - alreadyPending;
+      initQty[item.id] = Math.max(0, maxReturnable);
+      initCond[item.id] = "Good condition, verified functional";
     });
-    setReturnItems(init);
+    setReturnQuantities(initQty);
+    setReturnConditions(initCond);
     setMemberNotes("");
     setReturnError(null);
     setIsReturnModalOpen(true);
@@ -85,34 +102,24 @@ export const MemberLoanDetailPage: React.FC = () => {
   const handleOpenExtension = () => {
     const d = new Date(loan.dueDate);
     d.setDate(d.getDate() + 7);
-    setProposedDate(d.toISOString().split("T")[0]);
-    setExtensionReason("");
-    setExtensionError(null);
+    resetExt({
+      proposedReturnDate: d.toISOString().split("T")[0],
+      reason: "",
+    });
     setIsExtensionModalOpen(true);
   };
 
-  const submitExtension = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setExtensionError(null);
-    if (!proposedDate) {
-      setExtensionError("Please specify a proposed return date.");
-      return;
-    }
-    if (!extensionReason.trim() || extensionReason.trim().length < 10) {
-      setExtensionError("Please provide an explanation (at least 10 characters).");
-      return;
-    }
-
+  const onExtensionSubmit = async (data: ExtensionFormData) => {
     try {
       await extensionMutation.mutateAsync({
         loanId: loan.id,
-        proposedReturnDate: proposedDate,
-        reason: extensionReason.trim(),
+        proposedReturnDate: data.proposedReturnDate,
+        reason: data.reason.trim(),
       });
       setIsExtensionModalOpen(false);
       refetch();
     } catch (err: unknown) {
-      setExtensionError(err instanceof Error ? err.message : "Failed to submit extension");
+      console.error("Extension error:", err);
     }
   };
 
@@ -120,13 +127,14 @@ export const MemberLoanDetailPage: React.FC = () => {
     e.preventDefault();
     setReturnError(null);
 
-    const itemsToReturn = Object.entries(returnItems)
-      .filter(([, val]) => val.quantity > 0)
-      .map(([lineItemId, val]) => ({
-        lineItemId,
-        quantity: val.quantity,
-        conditionReport: val.condition,
-      }));
+    const itemsToReturn: { lineItemId: string; quantity: number; conditionReport: string }[] =
+      Object.entries(returnQuantities)
+        .filter(([, qty]) => Number(qty) > 0)
+        .map(([lineItemId, qty]) => ({
+          lineItemId,
+          quantity: Number(qty),
+          conditionReport: returnConditions[lineItemId] || "Good condition",
+        }));
 
     if (itemsToReturn.length === 0) {
       setReturnError("Please select at least 1 unit to return.");
@@ -219,7 +227,7 @@ export const MemberLoanDetailPage: React.FC = () => {
           </div>
 
           <div>
-            <span className="text-muted-foreground block">Authoritative Due Date</span>
+            <span className="text-muted-foreground block">Official Due Date</span>
             <span
               className={`font-bold mt-0.5 block ${isOverdue ? "text-destructive" : "text-foreground"}`}
             >
@@ -252,7 +260,7 @@ export const MemberLoanDetailPage: React.FC = () => {
         <PolicyNotice
           variant="restricted"
           title="Equipment Overdue"
-          description={`This equipment was scheduled to be returned on ${formatDate(loan.dueDate)}. Failure to return equipment results in borrowing strikes and account restriction.`}
+          description={`This equipment was scheduled to be returned on ${formatDate(loan.dueDate)}. Items overdue by 2 weeks result in strike recommendations.`}
         />
       )}
 
@@ -270,7 +278,7 @@ export const MemberLoanDetailPage: React.FC = () => {
         <PolicyNotice
           variant="warning"
           title="Return Declaration Awaiting Physical Custodian Confirmation"
-          description="You have submitted a return request. Stock quantities are NOT restored until the physical equipment has been inspected and confirmed by the Logistics Custodian at the RAS Workshop."
+          description="You have declared equipment for return. Note that returning equipment does NOT increment stock or close loans until physically inspected and confirmed by the Logistics Custodian at the RAS Workshop."
         />
       )}
 
@@ -280,7 +288,8 @@ export const MemberLoanDetailPage: React.FC = () => {
 
         <div className="divide-y divide-border">
           {loan.items.map((line) => {
-            const remaining = line.borrowedQuantity - line.returnedQuantity;
+            const alreadyPending = line.returnRequestedQuantity || 0;
+            const inCustody = line.borrowedQuantity - line.returnedQuantity;
             return (
               <div
                 key={line.id}
@@ -309,11 +318,16 @@ export const MemberLoanDetailPage: React.FC = () => {
 
                 <div className="text-right space-y-1">
                   <div className="font-semibold text-foreground">
-                    Borrowed: {line.borrowedQuantity} | Returned: {line.returnedQuantity}
+                    Borrowed: {line.borrowedQuantity} | Confirmed Returned: {line.returnedQuantity}
                   </div>
                   <div className="text-muted-foreground font-medium">
-                    Outstanding in custody: <strong>{remaining} unit(s)</strong>
+                    Still in custody: <strong>{inCustody} unit(s)</strong>
                   </div>
+                  {alreadyPending > 0 && (
+                    <div className="text-amber-600 font-medium text-[11px]">
+                      {alreadyPending} unit(s) awaiting physical confirmation
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -389,18 +403,22 @@ export const MemberLoanDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Extension Modal */}
+      {/* Extension Modal with RHF + Zod */}
       <ResponsiveDialog
         open={isExtensionModalOpen}
         onOpenChange={setIsExtensionModalOpen}
         title="Request Due Date Extension"
         description="Submit a justification to extend the return deadline of this equipment."
       >
-        <form onSubmit={submitExtension} className="space-y-4 pt-2">
-          {extensionError && (
+        <form onSubmit={handleSubmitExt(onExtensionSubmit)} className="space-y-4 pt-2">
+          {extensionMutation.isError && (
             <div className="p-3 rounded bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{extensionError}</span>
+              <span>
+                {extensionMutation.error instanceof Error
+                  ? extensionMutation.error.message
+                  : "Failed to submit extension"}
+              </span>
             </div>
           )}
 
@@ -410,12 +428,15 @@ export const MemberLoanDetailPage: React.FC = () => {
             </label>
             <input
               type="date"
-              value={proposedDate}
+              {...registerExt("proposedReturnDate")}
               min={new Date().toISOString().split("T")[0]}
-              onChange={(e) => setProposedDate(e.target.value)}
-              required
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px]"
             />
+            {errorsExt.proposedReturnDate && (
+              <span className="text-xs text-destructive block">
+                {errorsExt.proposedReturnDate.message}
+              </span>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -423,13 +444,14 @@ export const MemberLoanDetailPage: React.FC = () => {
               Reason & Project Justification *
             </label>
             <textarea
-              value={extensionReason}
-              onChange={(e) => setExtensionReason(e.target.value)}
+              {...registerExt("reason")}
               rows={3}
-              required
               placeholder="Why is an extension needed? (e.g. testing postponed, troubleshooting motor driver)"
               className="w-full rounded-md border border-input bg-background p-2.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             />
+            {errorsExt.reason && (
+              <span className="text-xs text-destructive block">{errorsExt.reason.message}</span>
+            )}
           </div>
 
           <div className="p-3 rounded bg-muted/60 text-[11px] text-muted-foreground">
@@ -470,9 +492,11 @@ export const MemberLoanDetailPage: React.FC = () => {
 
           <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
             {loan.items.map((item) => {
-              const maxUnits = item.borrowedQuantity - item.returnedQuantity;
+              const alreadyPending = item.returnRequestedQuantity || 0;
+              const maxUnits = item.borrowedQuantity - item.returnedQuantity - alreadyPending;
               if (maxUnits <= 0) return null;
-              const currentVal = returnItems[item.id] || { quantity: maxUnits, condition: "Good" };
+              const currentQty = returnQuantities[item.id] ?? maxUnits;
+              const currentCond = returnConditions[item.id] ?? "Good condition";
 
               return (
                 <div
@@ -481,7 +505,7 @@ export const MemberLoanDetailPage: React.FC = () => {
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-foreground">{item.itemName}</span>
-                    <span className="text-muted-foreground">Max: {maxUnits}</span>
+                    <span className="text-muted-foreground">Available to Return: {maxUnits}</span>
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -490,17 +514,12 @@ export const MemberLoanDetailPage: React.FC = () => {
                       type="number"
                       min={0}
                       max={maxUnits}
-                      value={currentVal.quantity}
+                      aria-label={`Quantity to return for ${item.itemName}`}
+                      value={currentQty}
                       onChange={(e) =>
-                        setReturnItems({
-                          ...returnItems,
-                          [item.id]: {
-                            ...currentVal,
-                            quantity: Math.min(
-                              maxUnits,
-                              Math.max(0, parseInt(e.target.value) || 0)
-                            ),
-                          },
+                        setReturnQuantities({
+                          ...returnQuantities,
+                          [item.id]: Math.min(maxUnits, Math.max(0, parseInt(e.target.value) || 0)),
                         })
                       }
                       className="w-20 rounded border border-input bg-background px-2 py-1 text-xs text-center min-h-[36px]"
@@ -509,12 +528,12 @@ export const MemberLoanDetailPage: React.FC = () => {
 
                   <input
                     type="text"
-                    value={currentVal.condition}
+                    value={currentCond}
                     placeholder="Condition note (e.g. clean, no defects)"
                     onChange={(e) =>
-                      setReturnItems({
-                        ...returnItems,
-                        [item.id]: { ...currentVal, condition: e.target.value },
+                      setReturnConditions({
+                        ...returnConditions,
+                        [item.id]: e.target.value,
                       })
                     }
                     className="w-full rounded border border-input bg-background px-2 py-1 text-xs min-h-[36px]"
