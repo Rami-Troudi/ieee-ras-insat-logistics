@@ -4,11 +4,11 @@ import { SearchInput } from "@/components/shared/SearchInput";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { EmptyState, ErrorState } from "@/components/shared/FeedbackStates";
 import { Button } from "@/components/ui/button";
-import { useInventoryItems, useInventoryCategories } from "../hooks/useInventory";
+import { useInventoryItems } from "../hooks/useInventory";
 import { useSession } from "@/hooks/useSession";
 import { useBorrowCart } from "@/features/cart";
 import { EquipmentCard } from "../components/EquipmentCard";
-import { ShoppingBag, SlidersHorizontal, ArrowRight } from "lucide-react";
+import { ShoppingBag, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const MemberInventoryPage: React.FC = () => {
@@ -18,7 +18,6 @@ export const MemberInventoryPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [availableOnly, setAvailableOnly] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
 
   const filters = {
     search: search.trim() || undefined,
@@ -27,7 +26,6 @@ export const MemberInventoryPage: React.FC = () => {
   };
 
   const { data: items, isLoading, error, refetch } = useInventoryItems(filters, currentPersona.id);
-  const { data: rawCategories = [] } = useInventoryCategories();
 
   // Filter out inaccessible/restricted items from normal browsing if user doesn't have clearance
   const displayItems = (items || []).filter((item) => {
@@ -37,11 +35,6 @@ export const MemberInventoryPage: React.FC = () => {
     }
     return true;
   });
-
-  const categories = [
-    { id: "ALL", label: "All" },
-    ...rawCategories.map((c) => ({ id: c, label: c })),
-  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
@@ -76,7 +69,7 @@ export const MemberInventoryPage: React.FC = () => {
       </div>
 
       {/* Prominent Search Bar */}
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         <div className="flex items-center gap-2">
           <div className="flex-1">
             <SearchInput
@@ -86,52 +79,58 @@ export const MemberInventoryPage: React.FC = () => {
               placeholder="Search equipment (STM32, sensors, motors, batteries)..."
             />
           </div>
-          <Button
+
+          {/* Quick "In stock only" Toggle pill */}
+          <button
             type="button"
-            variant={showFilters ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className="sm:hidden h-10 px-3 gap-1.5"
-            aria-label="Toggle filters"
+            onClick={() => setAvailableOnly(!availableOnly)}
+            className={cn(
+              "h-10 px-3.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 active:scale-95",
+              availableOnly
+                ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-bold"
+                : "bg-card border-input text-muted-foreground hover:text-foreground"
+            )}
+            aria-pressed={availableOnly}
           >
-            <SlidersHorizontal className="w-4 h-4" />
-          </Button>
+            <span
+              className={cn(
+                "w-2 h-2 rounded-full",
+                availableOnly ? "bg-emerald-500" : "bg-muted-foreground/40"
+              )}
+            />
+            <span className="hidden xs:inline">In stock</span>
+          </button>
         </div>
 
-        {/* Compact Horizontal Category Scroller */}
-        <div
-          className={cn("flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none", {
-            "hidden sm:flex": !showFilters,
-          })}
-        >
-          {categories.map((c) => {
-            const isSelected = selectedCategory === c.id;
+        {/* Clean, Modern Quick Filter Tags */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+          {[
+            { id: "ALL", label: "All Items", icon: "✨" },
+            { id: "Development Boards", label: "Dev Boards & STM32", icon: "⚡" },
+            { id: "Single Board Computers", label: "SBCs & Pi", icon: "🧠" },
+            { id: "Actuators & Drivers", label: "Motors & Drivers", icon: "⚙️" },
+            { id: "Power Systems", label: "Batteries & Power", icon: "🔋" },
+            { id: "Measurement & Hand Tools", label: "Tools", icon: "🔧" },
+            { id: "Passive Components", label: "Components", icon: "📦" },
+          ].map((tag) => {
+            const isSelected = selectedCategory === tag.id;
             return (
               <button
-                key={c.id}
+                key={tag.id}
                 type="button"
-                onClick={() => setSelectedCategory(c.id)}
+                onClick={() => setSelectedCategory(tag.id)}
                 className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all focus:outline-none focus:ring-1 focus:ring-primary min-h-[32px]",
+                  "h-8 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 border active:scale-95",
                   isSelected
-                    ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                    : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                    : "bg-card border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted/40"
                 )}
               >
-                {c.label}
+                <span>{tag.icon}</span>
+                <span>{tag.label}</span>
               </button>
             );
           })}
-
-          <label className="flex items-center gap-1.5 ml-auto text-xs text-muted-foreground font-medium cursor-pointer shrink-0 pl-2">
-            <input
-              type="checkbox"
-              checked={availableOnly}
-              onChange={(e) => setAvailableOnly(e.target.checked)}
-              className="rounded border-input text-primary focus:ring-primary w-3.5 h-3.5"
-            />
-            <span>In stock only</span>
-          </label>
         </div>
       </div>
 

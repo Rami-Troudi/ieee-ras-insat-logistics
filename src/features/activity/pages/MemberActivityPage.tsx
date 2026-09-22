@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useUserRequests } from "@/features/requests/hooks/useRequests";
+import { useUserRequests, useCancelRequest } from "@/features/requests/hooks/useRequests";
 import { useUserLoans } from "@/features/loans/hooks/useLoans";
 import { useInventoryItems } from "@/features/inventory/hooks/useInventory";
 import { useSession } from "@/hooks/useSession";
@@ -8,11 +8,12 @@ import { useBorrowCart } from "@/features/cart";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/dates";
-import { Package, RotateCcw, Plus } from "lucide-react";
+import { Package, RotateCcw, Plus, X, Clock } from "lucide-react";
 
 export const MemberActivityPage: React.FC = () => {
   const { currentPersona } = useSession();
   const { addItem } = useBorrowCart();
+  const cancelRequestMutation = useCancelRequest(currentPersona.id);
 
   const { data: requests = [], isLoading: loadingReqs } = useUserRequests(currentPersona.id);
   const { data: loans = [], isLoading: loadingLoans } = useUserLoans(currentPersona.id);
@@ -101,31 +102,47 @@ export const MemberActivityPage: React.FC = () => {
             </h2>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {readyToPickUp.map((req) => (
               <div
                 key={req.id}
-                className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs space-y-3"
+                className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs space-y-3.5"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-0.5">
-                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                      Approved • Pick up from RAS workspace
+                {/* Visual Status Stepper */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold">
+                    <span className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Approved & Ready for Pickup
                     </span>
-                    <div className="text-xs text-muted-foreground">
-                      {req.pickupDeadline && (
-                        <span>Please pick up before {formatDate(req.pickupDeadline)}</span>
-                      )}
+                    <span className="text-muted-foreground font-normal">
+                      {req.pickupDeadline ? `Before ${formatDate(req.pickupDeadline)}` : "At RAS desk"}
+                    </span>
+                  </div>
+
+                  {/* 3-Step Visual Progress Bar */}
+                  <div className="grid grid-cols-3 gap-1.5 pt-1">
+                    <div className="space-y-1">
+                      <div className="h-1.5 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">1. Sent</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-1.5 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">2. Approved</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold block">3. Pickup Now</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Items */}
-                <div className="divide-y divide-border/60 bg-background/80 rounded-lg p-2.5 border border-border/60 text-xs space-y-1">
+                <div className="divide-y divide-border/60 bg-background/80 rounded-xl p-3 border border-border/60 text-xs space-y-1.5">
                   {req.items.map((item) => (
                     <div
                       key={item.id}
-                      className="pt-1 first:pt-0 flex items-center justify-between"
+                      className="pt-1.5 first:pt-0 flex items-center justify-between"
                     >
                       <span className="font-semibold text-foreground">{item.itemName}</span>
                       <span className="font-bold text-foreground">
@@ -204,33 +221,77 @@ export const MemberActivityPage: React.FC = () => {
             </h2>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {waiting.map((req) => (
               <div
                 key={req.id}
-                className="p-4 rounded-xl border border-border bg-card shadow-xs space-y-3"
+                className="p-4 rounded-2xl border border-amber-500/30 bg-amber-50/20 dark:bg-amber-950/10 shadow-xs space-y-3.5"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-                      Request submitted
+                {/* Visual Status Stepper */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold">
+                    <span className="text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-500 animate-spin" />
+                      Under Review by Logistics Team
                     </span>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Sent on {formatDate(req.createdAt)}
-                    </p>
+                    <span className="text-muted-foreground font-normal">
+                      Sent {formatDate(req.createdAt)}
+                    </span>
+                  </div>
+
+                  {/* 3-Step Visual Progress Bar */}
+                  <div className="grid grid-cols-3 gap-1.5 pt-1">
+                    <div className="space-y-1">
+                      <div className="h-1.5 rounded-full bg-amber-500" />
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold block">1. Sent</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-1.5 rounded-full bg-amber-500/40 animate-pulse" />
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold block">2. In Review</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-1.5 rounded-full bg-muted" />
+                      <span className="text-[10px] text-muted-foreground font-medium block">3. Pickup</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="divide-y divide-border/60 bg-muted/20 rounded-lg p-2.5 border border-border/60 text-xs space-y-1">
+                {/* Items */}
+                <div className="divide-y divide-border/60 bg-background/80 rounded-xl p-3 border border-border/60 text-xs space-y-1.5">
                   {req.items.map((item) => (
                     <div
                       key={item.id}
-                      className="pt-1 first:pt-0 flex items-center justify-between"
+                      className="pt-1.5 first:pt-0 flex items-center justify-between"
                     >
-                      <span className="text-foreground">{item.itemName}</span>
+                      <span className="text-foreground font-medium">{item.itemName}</span>
                       <span className="font-bold text-foreground">×{item.requestedQuantity}</span>
                     </div>
                   ))}
+                </div>
+
+                {/* Direct 1-tap Cancel Action */}
+                <div className="flex items-center justify-between pt-1 text-xs">
+                  <p className="text-[11px] text-muted-foreground">
+                    Changed your mind? You can cancel before approval.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={cancelRequestMutation.isPending}
+                    onClick={() => {
+                      if (window.confirm("Cancel this equipment request?")) {
+                        cancelRequestMutation.mutate({
+                          requestId: req.id,
+                          reason: "Cancelled by student",
+                        });
+                      }
+                    }}
+                    className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5 shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Cancel Request</span>
+                  </Button>
                 </div>
               </div>
             ))}
