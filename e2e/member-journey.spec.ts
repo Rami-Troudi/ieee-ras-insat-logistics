@@ -32,30 +32,62 @@ test.describe("Member Complete Logistics Journey", () => {
     await expect(page.getByRole("heading", { name: "STM32F401RE Nucleo-64" })).toBeVisible();
     await expect(page.getByText("Technical Specifications")).toBeVisible();
 
-    // 5. Add to cart from detail page
+    // 5. Favorite item
+    const favBtn = page.getByRole("button", { name: /Add STM32F401RE Nucleo-64 to favorites/i });
+    await favBtn.click();
+    await expect(
+      page.getByRole("button", { name: /Remove STM32F401RE Nucleo-64 from favorites/i })
+    ).toBeVisible();
+
+    // 6. Increase quantity to 2 and add to cart from detail page
+    const increaseBtn = page.getByRole("button", { name: "Increase quantity" });
+    await increaseBtn.click();
     const addToCartBtn = page.getByRole("button", { name: /Add.*to Borrow Cart/i });
     await addToCartBtn.click();
     await expect(page.getByRole("button", { name: /Update in Cart/i })).toBeVisible();
 
-    // 6. Navigate to cart via link in TopBar
+    // 7. Add second item (navigate back to inventory, add A4988)
+    await page.getByRole("link", { name: /Back to Equipment Catalog/i }).click();
+    await expect(page).toHaveURL(/\/app\/inventory/);
+    const searchInput2 = page.getByPlaceholder(/Search by name/i);
+    await searchInput2.fill("A4988");
+    await expect(page.getByText("A4988 Stepper Motor Driver Carrier")).toBeVisible();
+    await page
+      .getByRole("button", { name: /Add to Cart/i })
+      .first()
+      .click();
+
+    // 8. Navigate to cart via link in TopBar
     await page.getByRole("link", { name: /View Borrow Cart/i }).click();
     await expect(page).toHaveURL(/\/app\/cart/);
     await expect(page.getByRole("heading", { name: "Borrow Request Cart" })).toBeVisible();
     await expect(page.getByText("STM32F401RE Nucleo-64")).toBeVisible();
+    await expect(page.getByText("A4988 Stepper Motor Driver Carrier")).toBeVisible();
 
-    // 7. Fill in purpose and submit
+    // 9. Select assigned project (EUR-27)
+    const projectSelect = page.locator("#project-assignment");
+    await projectSelect.selectOption({ label: "EUR-27 — Eurobot Tunisia 2027 Autonomous Rover" });
+
+    // 10. Fill return date and purpose
+    const returnDateInput = page.locator('input[type="date"]');
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+    const dateString = futureDate.toISOString().split("T")[0];
+    await returnDateInput.fill(dateString);
+
     const purposeTextarea = page.getByPlaceholder(/Explain the technical activity/i);
     await purposeTextarea.fill("Autonomous rover CAN-bus motor control profiling for cup.");
 
+    // 11. Submit borrow request
     const submitBtn = page.getByRole("button", { name: /Submit Borrow Request/i });
     await submitBtn.click();
 
-    // 8. Redirected to request detail page
+    // 12. Redirected to PENDING request detail page
     await expect(page).toHaveURL(/\/app\/requests\/REQ-2026-/, { timeout: 10000 });
-    // Allow up to 15s for the detail page to render (covers mock latency + React Query resolution)
     await expect(page.getByRole("heading", { name: "Borrow Request Summary" })).toBeVisible({
       timeout: 15000,
     });
+    await expect(page.getByText("PENDING").first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Line Item Decision Breakdown")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Request Activity Timeline")).toBeVisible({ timeout: 10000 });
   });

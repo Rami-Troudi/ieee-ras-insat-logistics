@@ -14,7 +14,7 @@ import { useLoanDetail, useRequestExtension, useRequestReturn } from "../hooks/u
 import { useSession } from "@/hooks/useSession";
 import { formatDate, formatDateTime, isDatePast } from "@/lib/dates";
 import { ArrowLeft, Calendar, CheckCircle2, RotateCcw, AlertTriangle } from "lucide-react";
-import { LoanStatus } from "@/types";
+import { getLoanDisplayStatus } from "@/types";
 
 const extensionSchema = z.object({
   proposedReturnDate: z.string().min(1, "Please choose a proposed return date"),
@@ -22,6 +22,14 @@ const extensionSchema = z.object({
 });
 
 type ExtensionFormData = z.infer<typeof extensionSchema>;
+
+const returnRequestSchema = z.object({
+  quantities: z.record(z.string(), z.number()),
+  conditions: z.record(z.string(), z.string()),
+  memberNotes: z.string().optional(),
+});
+
+type ReturnRequestFormData = z.infer<typeof returnRequestSchema>;
 
 export const MemberLoanDetailPage: React.FC = () => {
   const { loanId = "" } = useParams<{ loanId: string }>();
@@ -36,9 +44,6 @@ export const MemberLoanDetailPage: React.FC = () => {
 
   // Return Modal State
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
-  const [returnQuantities, setReturnQuantities] = useState<Record<string, number>>({});
-  const [returnConditions, setReturnConditions] = useState<Record<string, string>>({});
-  const [memberNotes, setMemberNotes] = useState("");
   const [returnError, setReturnError] = useState<string | null>(null);
 
   const {
@@ -49,6 +54,24 @@ export const MemberLoanDetailPage: React.FC = () => {
   } = useForm<ExtensionFormData>({
     resolver: zodResolver(extensionSchema),
   });
+
+  const {
+    handleSubmit: handleSubmitReturn,
+    setValue: setReturnVal,
+    watch: watchReturn,
+    reset: resetReturn,
+  } = useForm<ReturnRequestFormData>({
+    resolver: zodResolver(returnRequestSchema),
+    defaultValues: {
+      quantities: {},
+      conditions: {},
+      memberNotes: "",
+    },
+  });
+
+  const watchedQuantities = watchReturn("quantities") || {};
+  const watchedConditions = watchReturn("conditions") || {};
+  const watchedMemberNotes = watchReturn("memberNotes") || "";
 
   if (isLoading) {
     return (
@@ -63,13 +86,13 @@ export const MemberLoanDetailPage: React.FC = () => {
       <PageContainer>
         <ErrorState
           title="Loan Record Not Found or Unauthorized"
-          description="The requested loan identifier could not be retrieved from custody records."
+          description="The requested loan record does not exist in your active borrowing history or you lack authorization to inspect it."
         />
         <div className="mt-4">
           <Button asChild variant="outline" className="min-h-[44px]">
             <Link to="/app/loans" className="gap-2">
               <ArrowLeft className="w-4 h-4" />
-              <span>Back to Active Loans</span>
+              <span>Back to My Loans</span>
             </Link>
           </Button>
         </div>
@@ -80,6 +103,9 @@ export const MemberLoanDetailPage: React.FC = () => {
   const isOverdue =
     isDatePast(loan.dueDate) && loan.status !== "CLOSED" && loan.status !== "RETURNED";
   const isClosed = loan.status === "CLOSED" || loan.status === "RETURNED";
+  const isReturnPending =
+    loan.returnStatus === "PENDING_CONFIRMATION" || loan.status === "RETURN_REQUESTED";
+  const displayStatus = getLoanDisplayStatus(loan);
 
   // Open Return Dialog & Init quantities according to strict formula:
   // maxReturnable = borrowedQuantity - returnedQuantity - (pending returnRequestedQuantity)
@@ -92,9 +118,11 @@ export const MemberLoanDetailPage: React.FC = () => {
       initQty[item.id] = Math.max(0, maxReturnable);
       initCond[item.id] = "Good condition, verified functional";
     });
-    setReturnQuantities(initQty);
-    setReturnConditions(initCond);
-    setMemberNotes("");
+    resetReturn({
+      quantities: initQty,
+      conditions: initCond,
+      memberNotes: "",
+    });
     setReturnError(null);
     setIsReturnModalOpen(true);
   };
@@ -123,17 +151,16 @@ export const MemberLoanDetailPage: React.FC = () => {
     }
   };
 
-  const submitReturn = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onReturnSubmit = async (data: ReturnRequestFormData) => {
     setReturnError(null);
 
     const itemsToReturn: { lineItemId: string; quantity: number; conditionReport: string }[] =
-      Object.entries(returnQuantities)
+      Object.entries(data.quantities)
         .filter(([, qty]) => Number(qty) > 0)
         .map(([lineItemId, qty]) => ({
           lineItemId,
           quantity: Number(qty),
-          conditionReport: returnConditions[lineItemId] || "Good condition",
+          conditionReport: data.conditions[lineItemId] || "Good condition",
         }));
 
     if (itemsToReturn.length === 0) {
@@ -145,7 +172,7 @@ export const MemberLoanDetailPage: React.FC = () => {
       await returnMutation.mutateAsync({
         loanId: loan.id,
         items: itemsToReturn,
-        memberNotes: memberNotes.trim() || undefined,
+        memberNotes: data.memberNotes?.trim() || undefined,
       });
       setIsReturnModalOpen(false);
       refetch();
@@ -192,17 +219,21 @@ export const MemberLoanDetailPage: React.FC = () => {
             </Button>
           </div>
         )}
+
+        {isReturnPending && (
+          <div className="flex items-center gap-1.5 text-xs text-secondary font-semibold bg-secondary/10 px-3 py-1.5 rounded-full border border-secondary/20">
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Return Confirmation Pending</span>
+          </div>
+        )}
       </div>
 
-      {/* Main Loan Info Card */}
+      {/* Main Loan Summary Card */}
       <div className="p-6 rounded-xl border border-border bg-card shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-xs font-mono font-bold text-foreground">{loan.id}</span>
-              <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">
-                Ref: {loan.requestId}
-              </span>
               {loan.projectName && (
                 <span className="text-xs px-2.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">
                   {loan.projectName}
@@ -213,7 +244,7 @@ export const MemberLoanDetailPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <StatusBadge status={isOverdue ? "OVERDUE" : (loan.status as LoanStatus)} />
+            <StatusBadge status={displayStatus} />
           </div>
         </div>
 
@@ -482,7 +513,7 @@ export const MemberLoanDetailPage: React.FC = () => {
         title="Initiate Equipment Return"
         description="Select line items and quantities you are bringing back to the RAS Workshop."
       >
-        <form onSubmit={submitReturn} className="space-y-4 pt-2">
+        <form onSubmit={handleSubmitReturn(onReturnSubmit)} className="space-y-4 pt-2">
           {returnError && (
             <div className="p-3 rounded bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -495,8 +526,8 @@ export const MemberLoanDetailPage: React.FC = () => {
               const alreadyPending = item.returnRequestedQuantity || 0;
               const maxUnits = item.borrowedQuantity - item.returnedQuantity - alreadyPending;
               if (maxUnits <= 0) return null;
-              const currentQty = returnQuantities[item.id] ?? maxUnits;
-              const currentCond = returnConditions[item.id] ?? "Good condition";
+              const currentQty = watchedQuantities[item.id] ?? maxUnits;
+              const currentCond = watchedConditions[item.id] ?? "Good condition";
 
               return (
                 <div
@@ -517,12 +548,12 @@ export const MemberLoanDetailPage: React.FC = () => {
                       aria-label={`Quantity to return for ${item.itemName}`}
                       value={currentQty}
                       onChange={(e) =>
-                        setReturnQuantities({
-                          ...returnQuantities,
+                        setReturnVal("quantities", {
+                          ...watchedQuantities,
                           [item.id]: Math.min(maxUnits, Math.max(0, parseInt(e.target.value) || 0)),
                         })
                       }
-                      className="w-20 rounded border border-input bg-background px-2 py-1 text-xs text-center min-h-[36px]"
+                      className="w-20 rounded border border-input bg-background px-2 py-1 text-xs text-center min-h-[44px]"
                     />
                   </div>
 
@@ -531,12 +562,12 @@ export const MemberLoanDetailPage: React.FC = () => {
                     value={currentCond}
                     placeholder="Condition note (e.g. clean, no defects)"
                     onChange={(e) =>
-                      setReturnConditions({
-                        ...returnConditions,
+                      setReturnVal("conditions", {
+                        ...watchedConditions,
                         [item.id]: e.target.value,
                       })
                     }
-                    className="w-full rounded border border-input bg-background px-2 py-1 text-xs min-h-[36px]"
+                    className="w-full rounded border border-input bg-background px-3 py-2 text-xs min-h-[44px]"
                   />
                 </div>
               );
@@ -548,11 +579,11 @@ export const MemberLoanDetailPage: React.FC = () => {
               Additional Member Notes (Optional)
             </label>
             <textarea
-              value={memberNotes}
-              onChange={(e) => setMemberNotes(e.target.value)}
+              value={watchedMemberNotes}
+              onChange={(e) => setReturnVal("memberNotes", e.target.value)}
               rows={2}
               placeholder="Any component behavior or parts replaced..."
-              className="w-full rounded-md border border-input bg-background p-2.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="w-full rounded-md border border-input bg-background p-2.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px]"
             />
           </div>
 

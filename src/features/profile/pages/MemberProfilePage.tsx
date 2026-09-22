@@ -72,7 +72,6 @@ export const MemberProfilePage: React.FC = () => {
 
   const isBanned = p.status === "BANNED" || p.status === "BLACKLISTED" || p.strikesCount >= 5;
   const isSuspendedSemester = p.strikesCount === 4;
-  const isStrike2Or3 = p.strikesCount >= 2 && p.strikesCount < 4;
 
   return (
     <PageContainer>
@@ -120,11 +119,19 @@ export const MemberProfilePage: React.FC = () => {
         />
       )}
 
-      {isStrike2Or3 && (
+      {p.strikesCount === 2 && (
         <PolicyNotice
           variant="warning"
-          title={`Disciplinary Standing: Strike ${p.strikesCount} Active`}
+          title="Disciplinary Standing: Strike 2 Active"
           description="Second warning standing: all borrow requests require explicit Board review and approval. Heavy Equipment (Class F) and High Value Electronics (Class G) are unavailable."
+        />
+      )}
+
+      {p.strikesCount === 3 && (
+        <PolicyNotice
+          variant="warning"
+          title="Disciplinary Standing: Strike 3 Active"
+          description="Third warning standing: all requests require explicit Board approval. Class E items may only be used under supervision, and Classes F and G remain strictly unavailable."
         />
       )}
 
@@ -202,10 +209,12 @@ export const MemberProfilePage: React.FC = () => {
               </span>
               <span className="text-xs font-bold text-foreground font-mono">{p.affiliation}</span>
             </div>
-            <span className="text-2xl font-bold text-foreground">{p.strikesCount} Strikes</span>
+            <span className="text-2xl font-bold text-foreground">
+              {p.strikesCount} Active Strike{p.strikesCount !== 1 ? "s" : ""}
+            </span>
             <p className="text-[11px] text-muted-foreground">
-              Strike 1: Warning · Strike 2: Board approval req. · Strike 4: Semester suspension ·
-              Strike 5: Blacklist.
+              Strike 1: Warning · Strike 2: Board approval req. · Strike 3: Class E supervised ·
+              Strike 4: Semester suspension · Strike 5: Blacklist.
             </p>
           </div>
         </div>
@@ -238,7 +247,7 @@ export const MemberProfilePage: React.FC = () => {
                   setPhoneNumber(p.phone || "");
                   setIsEditingPhone(!isEditingPhone);
                 }}
-                className="text-xs h-7 min-h-[36px]"
+                className="text-xs min-h-[44px] px-3"
               >
                 {isEditingPhone ? "Cancel" : "Edit"}
               </Button>
@@ -252,9 +261,9 @@ export const MemberProfilePage: React.FC = () => {
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="+216 XX XXX XXX"
-                className="rounded border border-input bg-background px-3 py-1.5 text-xs flex-1 min-h-[36px]"
+                className="rounded border border-input bg-background px-3 py-2 text-xs flex-1 min-h-[44px]"
               />
-              <Button type="submit" size="sm" className="text-xs min-h-[36px]">
+              <Button type="submit" size="sm" className="text-xs min-h-[44px] px-4">
                 Save
               </Button>
             </form>

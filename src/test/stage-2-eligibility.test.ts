@@ -110,4 +110,57 @@ describe("evaluateItemEligibility Clearance & Policy Matrix", () => {
     expect(level6.canBorrowOnline).toBe(true);
     expect(level6.badgeType).toBe("SUCCESS");
   });
+
+  it("enforces clearance eligibility BEFORE Direct Board classification for Class D", () => {
+    // Level I + B -> Direct Board (since Level I is eligible for A and B)
+    const level1B = evaluateItemEligibility("B", "I", "ACTIVE", true, 10, 0);
+    expect(level1B.badgeType).toBe("INFO");
+    expect(level1B.statusLabel).toBe("Direct Board");
+
+    // Level I + D -> Insufficient clearance (Level I only eligible for A and B)
+    const level1D = evaluateItemEligibility("D", "I", "ACTIVE", true, 5, 0);
+    expect(level1D.badgeType).toBe("WARNING");
+    expect(level1D.statusLabel).toBe("Clearance Req.");
+    expect(level1D.reason).toContain("Insufficient clearance");
+
+    // Level II + D -> Insufficient clearance (Level II only eligible for A, B, C)
+    const level2D = evaluateItemEligibility("D", "II", "ACTIVE", true, 5, 0);
+    expect(level2D.badgeType).toBe("WARNING");
+    expect(level2D.statusLabel).toBe("Clearance Req.");
+    expect(level2D.reason).toContain("Insufficient clearance");
+
+    // Level III + D -> Direct Board (Level III eligible for A-E)
+    const level3D = evaluateItemEligibility("D", "III", "ACTIVE", true, 5, 0);
+    expect(level3D.badgeType).toBe("INFO");
+    expect(level3D.statusLabel).toBe("Direct Board");
+  });
+
+  it("enforces Strike 3 rules: Class E under supervision only, F and G unavailable", () => {
+    // Class E with Strike 3 -> Supervised usage required
+    const strike3E = evaluateItemEligibility("E", "III", "ACTIVE", true, 5, 3);
+    expect(strike3E.canBorrowOnline).toBe(true);
+    expect(strike3E.canRequest).toBe(true);
+    expect(strike3E.badgeType).toBe("WARNING");
+    expect(strike3E.statusLabel).toBe("Supervised (Strike 3)");
+    expect(strike3E.reason).toContain("used under supervision");
+
+    // Class F with Strike 3 -> Strictly unavailable (Restricted)
+    const strike3F = evaluateItemEligibility("F", "III", "ACTIVE", true, 2, 3);
+    expect(strike3F.canBorrowOnline).toBe(false);
+    expect(strike3F.canRequest).toBe(false);
+    expect(strike3F.badgeType).toBe("RESTRICTED");
+
+    // Class G with Strike 3 -> Strictly unavailable (Restricted)
+    const strike3G = evaluateItemEligibility("G", "VI", "ACTIVE", true, 1, 3);
+    expect(strike3G.canBorrowOnline).toBe(false);
+    expect(strike3G.canRequest).toBe(false);
+    expect(strike3G.badgeType).toBe("RESTRICTED");
+
+    // Class A with Strike 3 -> Eligible under Board review
+    const strike3A = evaluateItemEligibility("A", "III", "ACTIVE", true, 10, 3);
+    expect(strike3A.canBorrowOnline).toBe(true);
+    expect(strike3A.canRequest).toBe(true);
+    expect(strike3A.badgeType).toBe("WARNING");
+    expect(strike3A.statusLabel).toBe("Board Review (Strike 3)");
+  });
 });

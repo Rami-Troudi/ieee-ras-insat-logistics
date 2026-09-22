@@ -8,6 +8,10 @@ import { AppBrand } from "@/components/shared/AppBrand";
 import { PolicyNotice } from "@/components/shared/PolicyNotice";
 import { UserPlus } from "lucide-react";
 
+import { useDevPersona } from "@/hooks/useDevPersona";
+import { mockDb } from "@/mocks/db";
+import { UserPersona } from "@/types";
+
 const registerSchema = z.object({
   name: z.string().min(3, "Full name must be at least 3 characters"),
   email: z.string().email("Please enter a valid institutional email"),
@@ -20,6 +24,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
+  const { setPersona } = useDevPersona();
   const [isSuccess, setIsSuccess] = useState(false);
 
   const {
@@ -30,9 +35,36 @@ export const RegisterPage: React.FC = () => {
     resolver: zodResolver(registerSchema),
   });
 
-  const onSubmit = async (_data: RegisterFormData) => {
+  const onSubmit = async (data: RegisterFormData) => {
     // Mock registration producing MEMBER role with provisional/unprocessed affiliation
     await new Promise((res) => setTimeout(res, 400));
+
+    const newPersona: UserPersona = {
+      id: "p-member-unprocessed",
+      name: data.name,
+      email: data.email,
+      role: "MEMBER",
+      clearance: "I",
+      affiliation: "EXTERNAL",
+      isProcessed: false,
+      status: "ACTIVE",
+      strikesCount: 0,
+    };
+
+    // Store profile in mockDb so profile page reflects the registered member details
+    mockDb.mutate((draft) => {
+      draft.userProfiles[newPersona.id] = {
+        ...newPersona,
+        phone: data.phone,
+        studentId: data.studentId,
+        joinedDate: new Date().toISOString(),
+        strikes: [],
+        activeLoansCount: 0,
+        totalRequestsCount: 0,
+      };
+    });
+
+    setPersona(newPersona);
     setIsSuccess(true);
     setTimeout(() => {
       navigate("/app");

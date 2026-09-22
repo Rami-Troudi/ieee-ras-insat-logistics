@@ -69,9 +69,9 @@ export const INITIAL_USER_PROFILES: Record<string, UserProfile> = {
       {
         id: "strk-1",
         date: "2025-11-10T14:00:00.000Z",
-        reason: "Unreturned battery pack past 2 weeks without notice (Strike 1 Warning)",
+        reason: "Unreturned battery pack past 2 weeks without notice (Strike 1 First Warning)",
         severity: "WARNING",
-        resolved: true,
+        resolved: false,
       },
       {
         id: "strk-2",

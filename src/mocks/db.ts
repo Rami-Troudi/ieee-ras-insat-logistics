@@ -41,7 +41,7 @@ class MockDatabase {
       notifications: JSON.parse(JSON.stringify(INITIAL_NOTIFICATIONS)),
       userProfiles: JSON.parse(JSON.stringify(INITIAL_USER_PROFILES)),
       favorites: {
-        "p-member-ieee": ["item-stm32-f4", "item-pololu-driver", "item-keysight-dso", "item-rpi-4"],
+        "p-member-ieee": [],
       },
     };
   }

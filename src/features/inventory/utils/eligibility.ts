@@ -90,7 +90,59 @@ export function evaluateItemEligibility(
     };
   }
 
+  // Strike 2 & 3: Classes F and G are strictly unavailable
+  if (strikesCount >= 2 && (equipmentClass === "F" || equipmentClass === "G")) {
+    return {
+      canBorrowOnline: false,
+      canRequest: false,
+      badgeType: "RESTRICTED",
+      statusLabel: "Restricted",
+      reason:
+        "Classes F and G are unavailable due to active disciplinary strike standing (Strike 2+).",
+      noticeTitle: "Equipment Class Restricted",
+      noticeMessage:
+        "Members with 2 or more active strikes cannot request Heavy Equipment (Class F) or High-Value Electronics (Class G).",
+    };
+  }
+
+  // Clearance Matrix Evaluation
+  const clNum = clearanceToNumber(userClearance);
+
+  // Level I: External Individuals -> Only Class A & B. (C, D, E, F, G -> Insufficient clearance)
+  if (clNum === 1) {
+    if (equipmentClass !== "A" && equipmentClass !== "B") {
+      return {
+        canBorrowOnline: false,
+        canRequest: false,
+        badgeType: "WARNING",
+        statusLabel: "Clearance Req.",
+        reason: "Insufficient clearance: Level I individuals are only eligible for Class A & B.",
+        noticeTitle: "Clearance Level I Limitation",
+        noticeMessage:
+          "External individuals (Level I) are restricted to Class A (Consumables) and Class B (Expendable Resources).",
+      };
+    }
+  }
+
+  // Level II: Aerobotix -> Allowed A, B, C. (D, E, F, G -> Insufficient clearance)
+  if (clNum === 2) {
+    if (equipmentClass !== "A" && equipmentClass !== "B" && equipmentClass !== "C") {
+      return {
+        canBorrowOnline: false,
+        canRequest: false,
+        badgeType: "WARNING",
+        statusLabel: "Clearance Req.",
+        reason:
+          "Insufficient clearance: Aerobotix members (Level II) are eligible for Classes A, B, and C.",
+        noticeTitle: "Clearance Level II Limitation",
+        noticeMessage:
+          "Aerobotix clearance allows Class A, B, and C equipment. Tools (Class D), Electronic Resources (Class E), and Heavy Equipment (Class F) require Level III+ clearance.",
+      };
+    }
+  }
+
   // Classes B and D: Direct Board Request / Interaction (Off-online-workflow)
+  // Evaluated ONLY AFTER clearance eligibility is established
   if (equipmentClass === "B") {
     return {
       canBorrowOnline: false,
@@ -115,57 +167,6 @@ export function evaluateItemEligibility(
       noticeMessage:
         "Class D tools (screwdrivers, hammers, keys, multimeters) are available via Direct Board interaction at the workshop counter.",
     };
-  }
-
-  // Strike 2 & 3: Classes F and G are strictly unavailable
-  if (strikesCount >= 2 && (equipmentClass === "F" || equipmentClass === "G")) {
-    return {
-      canBorrowOnline: false,
-      canRequest: false,
-      badgeType: "RESTRICTED",
-      statusLabel: "Restricted",
-      reason:
-        "Classes F and G are unavailable due to active disciplinary strike standing (Strike 2+).",
-      noticeTitle: "Equipment Class Restricted",
-      noticeMessage:
-        "Members with 2 or more active strikes cannot request Heavy Equipment (Class F) or High-Value Electronics (Class G).",
-    };
-  }
-
-  // Clearance Matrix Evaluation
-  const clNum = clearanceToNumber(userClearance);
-
-  // Level I: Only A and B. For C, E, F, G -> Insufficient clearance
-  if (clNum === 1) {
-    if (equipmentClass !== "A") {
-      return {
-        canBorrowOnline: false,
-        canRequest: false,
-        badgeType: "WARNING",
-        statusLabel: "Clearance Req.",
-        reason: "Insufficient clearance: Level I individuals are only eligible for Class A & B.",
-        noticeTitle: "Clearance Level I Limitation",
-        noticeMessage:
-          "External individuals (Level I) are restricted to Class A (Consumables) and Class B (Expendable Resources).",
-      };
-    }
-  }
-
-  // Level II: Allowed A, B, C. For E, F, G -> Insufficient clearance
-  if (clNum === 2) {
-    if (equipmentClass !== "A" && equipmentClass !== "C") {
-      return {
-        canBorrowOnline: false,
-        canRequest: false,
-        badgeType: "WARNING",
-        statusLabel: "Clearance Req.",
-        reason:
-          "Insufficient clearance: Aerobotix members (Level II) are eligible for Classes A, B, and C.",
-        noticeTitle: "Clearance Level II Limitation",
-        noticeMessage:
-          "Aerobotix clearance allows Class A, B, and C equipment. Electronic Resources (Class E) and Heavy Equipment (Class F) require Level III+ clearance.",
-      };
-    }
   }
 
   // Level III: Allowed A-E. F only under Level V+ supervision. G requires Level VI.
@@ -255,8 +256,37 @@ export function evaluateItemEligibility(
     };
   }
 
-  // Strike 2 Warning notice (still eligible for ordinary equipment, but requires explicit approval)
-  if (strikesCount >= 2) {
+  // Strike 3: Class E may only be used under supervision (and F/G remain unavailable)
+  if (strikesCount === 3 && equipmentClass === "E") {
+    return {
+      canBorrowOnline: true,
+      canRequest: true,
+      badgeType: "WARNING",
+      statusLabel: "Supervised (Strike 3)",
+      reason:
+        "Class E electronic resources may only be used under supervision (Strike 3 standing).",
+      noticeTitle: "Supervised Usage Required (Strike 3)",
+      noticeMessage:
+        "Under active Strike 3 standing, Class E development boards and electronic resources may only be used under active supervision in the lab.",
+    };
+  }
+
+  // Strike 2 & 3 Warning notice for other ordinary equipment
+  if (strikesCount === 3) {
+    return {
+      canBorrowOnline: true,
+      canRequest: true,
+      badgeType: "WARNING",
+      statusLabel: "Board Review (Strike 3)",
+      reason:
+        "Eligible; all requests require explicit Board approval and Class E requires supervision (Strike 3).",
+      noticeTitle: "Disciplinary Standing: Strike 3 Active",
+      noticeMessage:
+        "Due to active Strike 3 standing, all requests require explicit Board approval. Class E items require supervision, and Classes F and G are strictly unavailable.",
+    };
+  }
+
+  if (strikesCount === 2) {
     return {
       canBorrowOnline: true,
       canRequest: true,

@@ -2,27 +2,29 @@
 
 ## 1. Domain Entities & Type Modularization
 
-To support the complete Member logistics journey while keeping Stage 1 boundaries intact, the domain types were modularized cleanly under `src/types/`:
+To support the complete Member logistics journey while keeping Stage 1 boundaries intact, the domain types are modularized cleanly under `src/types/`:
 
 - **`src/types/common.ts`**:
   - Re-exports `ClearanceLevel` (`I` through `VI`), `UserRole` (`MEMBER`, `BOARD`, `SUPERADMIN`), `EquipmentCategory`, `ItemClass` (`A` through `G`), and `DomainStatus`.
-  - Added domain statuses: `CANCELLED` and `RETURN_REQUESTED` to support member-side cancellation of pending requests and partial return declarations before physical board verification.
+  - Multidimensional operational statuses:
+    - Requests: `overallStatus`, `approvalStatus` (`PENDING`, `APPROVED`, `PARTIALLY_APPROVED`, `REJECTED`), `fulfillmentStatus` (`AWAITING_PICKUP`, `FULFILLED`, `EXPIRED`, `CANCELLED`). Display status is derived via `getRequestDisplayStatus(request)`.
+    - Loans: `custodyStatus` (`ACTIVE`, `CLOSED`), `returnStatus` (`NONE`, `PENDING_CONFIRMATION`, `CONFIRMED_PARTIAL`, `CONFIRMED_FULL`), `overdueStatus` (`ON_TIME`, `DUE_SOON`, `OVERDUE`). Display status is derived via `getLoanDisplayStatus(loan)`.
 - **`src/types/users.ts`**:
-  - `UserClearanceInfo`, `StrikeRecord` (reason, date, cleared status), `UserProfile`, and `MemberSession`.
+  - `UserClearanceInfo`, `StrikeRecord` (`id`, `issuedAt`, `reason`, `resolved`, `notes`), `UserProfile` (`strikesCount` represents count of active unresolved strikes), `MemberSession`, and `RegistrationFormValues`.
 - **`src/types/projects.ts`**:
   - `Project` entity (`id`, `name`, `code`, `description`, `status`, `leadId`, `memberIds`).
 - **`src/types/inventory.ts`**:
   - `SerializedUnit` (status, condition, serialNumber, qrCode, notes).
-  - `InventoryItem` (specs, consumables, requiredClearance, minimumClass, itemClass, loanRule: direct vs project-linked, isConsumable).
+  - `InventoryItem` (specs, requiredClearance, minimumClass, itemClass, loanRule, isConsumable).
   - `ItemClassPolicy` definition with clear handling rules for Class A through Class G.
 - **`src/types/requests.ts`**:
   - `RequestLineItem` (itemId, itemName, itemThumbnail, itemClass, requestedQuantity, approvedQuantity, allocatedSerialNumbers, rejectionReason).
-  - `BorrowRequest` (id, requestNumber, requester, projectId, purpose, estimatedReturnDate, status: `PENDING` | `APPROVED` | `PARTIALLY_APPROVED` | `REJECTED` | `EXPIRED` | `CANCELLED`, pickupDeadline, timeline).
+  - `BorrowRequest` (id, requestNumber, requester, projectId, purpose, estimatedReturnDate, status, overallStatus, approvalStatus, fulfillmentStatus, pickupDeadline, timeline).
   - `CreateBorrowRequestInput`.
 - **`src/types/loans.ts`**:
-  - `LoanItem` (itemId, itemName, itemThumbnail, serialNumber, conditionAtDispatch).
-  - `ActiveLoan` (id, loanNumber, requestId, borrower, projectId, purpose, checkoutDate, originalDueDate, currentDueDate, status: `ACTIVE` | `RETURN_REQUESTED` | `RETURNED` | `PARTIALLY_RETURNED` | `OVERDUE` | `DUE_SOON`, items, extensionRequests, returnDeclarations).
-  - `ExtensionRequestInput`, `ReturnDeclarationInput`.
+  - `LoanItem` (id, itemId, itemName, itemThumbnail, serialNumbers, conditionOnHandover, borrowedQuantity, returnedQuantity, returnRequestedQuantity).
+  - `ActiveLoan` (id, loanNumber, requestId, borrower, projectId, projectName, purpose, borrowDate, dueDate, status, custodyStatus, returnStatus, overdueStatus, items, extensionRequests, returnSubmissions).
+  - `ExtensionRequestInput`, `ReturnSubmissionInput`.
 - **`src/types/notifications.ts`**:
   - `MemberNotification` (id, userId, title, message, type, isRead, link, createdAt).
 
@@ -32,45 +34,53 @@ To support the complete Member logistics journey while keeping Stage 1 boundarie
 
 Implemented in `src/mocks/db.ts` with transparent `localStorage` persistence and reset capability:
 
-- **Isolated Scenarios**:
-  - Pre-seeded with 12 diverse inventory items spanning Classes A to G (e.g., Class A STM32/RPi, Class B Heavy Actuators, Class D Lithium Polymer Battery Packs, Class F Soldering Iron, Class G Resin SLA 3D Printer).
-  - Pre-seeded requests: Pending (`REQ-2025-001`), Approved with 48-Hour Pickup Window Countdown (`REQ-2025-002`), Partially Approved with line item details (`REQ-2025-003`).
-  - Pre-seeded loans: Active loan on track (`LOAN-2025-001`), Overdue high-risk loan (`LOAN-2025-002`), Active loan with pending extension (`LOAN-2025-003`), Loan with pending partial return declaration (`LOAN-2025-004`).
-  - Pre-seeded notifications: 4 initial notifications linking directly to requests and loans.
+- **Isolated Scenarios & Seed Entities**:
+  - Pre-seeded inventory spanning Classes A through G (e.g., `item-stm32-f4` [Class A], `item-dynamixel-xm` [Class B], `item-lipo-battery` [Class C], `item-nema17` [Class C], `item-rpi4` [Class D], `item-fluke-87v` [Class E], `item-soldering-ts101` [Class F], `item-elegoo-mars` [Class G]).
+  - Pre-seeded requests: `REQ-2026-0001` (Pending review), `REQ-2026-0045` (Approved with active 48-Hour pickup window), `REQ-2026-0142` (Partially approved with line item decision breakdown), `REQ-2026-0201` (Cancelled).
+  - Pre-seeded loans: `LN-2026-0089` (Active loan on track with custody items), `LN-2026-0042` (Overdue high-risk custody loan), `LN-2026-0015` (Active loan with pending due date extension), `LN-2026-0003` (Active loan with pending partial return declaration).
+  - Pre-seeded users: Standard IEEE Member (`p-member-ieee`), Restricted Strike 2 Borrower (`p-member-strike2` with 2 active unresolved strikes), Provisional Unprocessed Registrant (`p-member-unprocessed`).
 - **Transactional State Management**:
   - Cart operations persist in `localStorage['ieee_ras_borrow_cart']`.
   - Favorites persist in `localStorage['ieee_ras_member_favorites']`.
-  - Demo reset button available in `MemberProfilePage` wipes and re-seeds cleanly.
+  - Reset Demo Data restores database to canonical seed fixtures.
 
 ---
 
-## 3. Policy & Eligibility Rule Engine
+## 3. Authoritative Policy & Eligibility Engine
 
 Implemented in `src/features/inventory/utils/eligibility.ts`:
 
-- **Clearance Level Hierarchy**: Clearance rank comparison (I=1 through VI=6). Members cannot borrow items exceeding their clearance.
-- **Strike System & Account Restrictions**:
-  - Active strikes counted from user profile.
-  - $\ge 2$ active strikes $\to$ Borrowing privileges suspended (`RESTRICTED` status).
+- **Clearance Level Hierarchy**: Clearance rank comparison (I=1 through VI=6).
+- **Clearance Precedence for Direct/Off-Workflow Classes (Class B & Class D)**:
+  - Clearance eligibility is evaluated **first**:
+    - Level I + Class B $\to$ Clearance satisfied, eligible for Direct Board off-workflow review.
+    - Level I + Class D $\to$ **Insufficient clearance** (Class D requires Level III+).
+    - Level II + Class D $\to$ **Insufficient clearance** (Class D requires Level III+).
+    - Level III + Class D $\to$ Clearance satisfied, eligible for Direct Board off-workflow review.
+- **Strike System & Cumulative Restrictions**:
+  - Active strikes (`resolved === false`) dictate sanctions:
+    - **Strike 1**: Formal advisory / warning recorded; standard borrowing remains permitted.
+    - **Strike 2**: Borrowing restricted — Class C and above blocked for standard members.
+    - **Strike 3**: Cumulative sanctions maintained; Class E equipment may only be used **under direct supervision**; Classes F and G remain unavailable.
 - **Overdue Loans Gate**:
-  - Any loan with status `OVERDUE` immediately blocks new request submissions.
-- **Item Class Directives**:
-  - **Class B / Class D**: Must be associated with an active IEEE RAS registered project (standalone personal requests blocked).
-  - **Class F**: Permanent lab use only; cannot be taken off-campus.
-  - **Class G**: Supervised access required; direct checkout prohibited.
-- **Borrow Limits**:
-  - General members: Max 3 concurrent active loans, max 14 days standard duration.
+  - Any loan with status `OVERDUE` immediately blocks new borrow request submissions.
+- **Class Directives**:
+  - **Class A**: High availability, general member access.
+  - **Class B**: Direct Board / off-workflow review once Level I+ clearance is established.
+  - **Class C**: Project-linked, requires active assigned IEEE RAS project.
+  - **Class D**: Direct Board / off-workflow review once Level III+ clearance is established.
+  - **Class E**: Precision lab instrumentation; under Strike 3 requires direct supervision.
+  - **Class F**: Permanent lab use only; strictly non-removable from premises.
+  - **Class G**: Hazardous / specialized equipment; strictly supervised workshop access only.
 
 ---
 
 ## 4. Public Service Boundaries
 
-All features consume public domain services from `src/services/` backed by contract interfaces:
+All Member UI features consume domain services through clean public module exports:
 
 - `inventoryService`: `getItems`, `getItemById`, `getCategories`, `toggleFavorite`, `getFavorites`
 - `requestsService`: `getRequests`, `getRequestById`, `createRequest`, `cancelRequest`
 - `loansService`: `getLoans`, `getLoanById`, `requestExtension`, `declareReturn`
 - `notificationsService`: `getNotifications`, `markAsRead`, `markAllAsRead`
 - `profileService`: `getProfile`, `updateProfile`, `resetDemoData`
-
-In Stage 4, these contracts can be swapped for Hono/Drizzle REST API implementations without altering UI component imports.

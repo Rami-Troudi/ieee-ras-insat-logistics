@@ -102,9 +102,11 @@ export const MemberCartPage: React.FC = () => {
     currentPersona.strikesCount >= 4;
 
   const isProvisional = !currentPersona.isProcessed;
-  const isStrike2 = currentPersona.strikesCount >= 2;
+  const isStrike2 = currentPersona.strikesCount === 2;
+  const isStrike3 = currentPersona.strikesCount === 3;
 
-  // Check if any cart item requires Level V+ supervision (Class F) or Level VI authorization (Class G)
+  // Check if any cart item requires Level V+ supervision (Class F), Level VI authorization (Class G), or Strike 3 Class E supervision
+  const hasClassE = cartState.items.some((i: CartLineItem) => i.item.equipmentClass === "E");
   const hasClassF = cartState.items.some((i: CartLineItem) => i.item.equipmentClass === "F");
   const hasClassG = cartState.items.some((i: CartLineItem) => i.item.equipmentClass === "G");
 
@@ -181,6 +183,22 @@ export const MemberCartPage: React.FC = () => {
           variant="warning"
           title="Explicit Board Review Required (Strike 2 Active)"
           description="You have 2 active strikes. You can still submit requests for ordinary equipment, but every request requires explicit Board review and approval. Classes F and G are unavailable."
+        />
+      )}
+
+      {isStrike3 && (
+        <PolicyNotice
+          variant="warning"
+          title="Disciplinary Standing: Strike 3 Active"
+          description="You have 3 active strikes. All requests require explicit Board review and approval. Classes F and G remain unavailable, and Class E items may only be used under supervision."
+        />
+      )}
+
+      {isStrike3 && hasClassE && (
+        <PolicyNotice
+          variant="warning"
+          title="Class E Equipment Requires Supervision (Strike 3 Standing)"
+          description="Under active Strike 3 restrictions, Class E development boards may only be operated under active supervision in the workshop."
         />
       )}
 

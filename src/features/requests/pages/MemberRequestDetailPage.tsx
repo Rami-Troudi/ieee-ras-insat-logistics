@@ -11,7 +11,7 @@ import { useRequestDetail, useCancelRequest } from "../hooks/useRequests";
 import { useSession } from "@/hooks/useSession";
 import { formatDate, formatDateTime, calculatePickupWindow } from "@/lib/dates";
 import { ArrowLeft, Clock, XCircle, CheckCircle2, User, Calendar, AlertCircle } from "lucide-react";
-import { RequestStatus } from "@/types";
+import { getRequestDisplayStatus } from "@/types";
 
 export const MemberRequestDetailPage: React.FC = () => {
   const { requestId = "" } = useParams<{ requestId: string }>();
@@ -55,7 +55,8 @@ export const MemberRequestDetailPage: React.FC = () => {
     );
   }
 
-  const isPending = request.status === "PENDING" || request.decisionStatus === "PENDING";
+  const displayStatus = getRequestDisplayStatus(request);
+  const isPending = request.decisionStatus === "PENDING" && request.lifecycleStatus === "ACTIVE";
   const pickupWindow = request.pickupDeadline
     ? calculatePickupWindow(request.reviewedAt || request.updatedAt)
     : null;
@@ -114,7 +115,7 @@ export const MemberRequestDetailPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <StatusBadge status={request.status as RequestStatus} />
+            <StatusBadge status={displayStatus} />
           </div>
         </div>
 
@@ -139,7 +140,7 @@ export const MemberRequestDetailPage: React.FC = () => {
           </div>
 
           <div>
-            <span className="text-muted-foreground block">Expected Return Date</span>
+            <span className="text-muted-foreground block">Proposed Return Date</span>
             <span className="font-semibold text-foreground flex items-center gap-1 mt-0.5">
               <Calendar className="w-3.5 h-3.5 text-secondary" />
               <span>{formatDate(request.expectedReturnDate)}</span>
@@ -196,28 +197,27 @@ export const MemberRequestDetailPage: React.FC = () => {
       </div>
 
       {/* 48h Collection Window Banner */}
-      {pickupWindow &&
-        (request.status === "APPROVED" || request.status === "PARTIALLY_APPROVED") && (
-          <PolicyNotice
-            variant={
-              pickupWindow.isExpired
-                ? "restricted"
-                : pickupWindow.status === "URGENT"
-                  ? "warning"
-                  : "info"
-            }
-            title={
-              pickupWindow.isExpired
-                ? "Collection Window Expired"
-                : `48-Hour Collection Window: ${pickupWindow.hoursRemaining} Hours Remaining`
-            }
-            description={
-              pickupWindow.isExpired
-                ? "The 48-hour reservation window has elapsed. Uncollected items have been released back to general inventory."
-                : `Your equipment is staged at the RAS Logistics desk until ${formatDateTime(pickupWindow.deadline)}. Present your student card to finalize handover.`
-            }
-          />
-        )}
+      {pickupWindow && (displayStatus === "APPROVED" || displayStatus === "PARTIALLY_APPROVED") && (
+        <PolicyNotice
+          variant={
+            pickupWindow.isExpired
+              ? "restricted"
+              : pickupWindow.status === "URGENT"
+                ? "warning"
+                : "info"
+          }
+          title={
+            pickupWindow.isExpired
+              ? "Collection Window Expired"
+              : `48-Hour Collection Window: ${pickupWindow.hoursRemaining} Hours Remaining`
+          }
+          description={
+            pickupWindow.isExpired
+              ? "The 48-hour reservation window has elapsed. Uncollected items have been released back to general inventory."
+              : `Your equipment is staged at the RAS Logistics desk until ${formatDateTime(pickupWindow.deadline)}. Present your student card to finalize handover.`
+          }
+        />
+      )}
 
       {/* Line Item Granular Approval Breakdown */}
       <div className="p-6 rounded-xl border border-border bg-card shadow-sm space-y-4">
