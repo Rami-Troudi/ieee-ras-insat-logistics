@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { useBoardRequests } from "../hooks/useBoardRequests";
-import { Search, Eye, PackageCheck } from "lucide-react";
+import { Search, Eye, PackageCheck, Clock, Calendar } from "lucide-react";
 import { getRequestDisplayStatus } from "@/types";
 
 export const BoardRequestsPage: React.FC = () => {
@@ -183,6 +183,21 @@ export const BoardRequestsPage: React.FC = () => {
                           <div className="text-[11px] text-muted-foreground">
                             Clearance: Level {req.userClearance}
                           </div>
+                          {req.scheduledPickup && (
+                            <div className="flex items-center gap-1 mt-1 text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 w-fit">
+                              <Calendar className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                              <span>
+                                Pickup: {new Date(req.scheduledPickup).toLocaleDateString([], { month: "short", day: "numeric" })}{" "}
+                                {new Date(req.scheduledPickup).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                          )}
+                          {req.borrowerPickupAvailability && !req.scheduledPickup && (
+                            <div className="flex items-center gap-1 mt-1 text-[10px] text-primary font-medium bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 w-fit">
+                              <Clock className="w-3 h-3 text-primary" />
+                              <span>Avail: {req.borrowerPickupAvailability}</span>
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-4 max-w-[200px]">
                           <div className="font-medium text-foreground truncate">

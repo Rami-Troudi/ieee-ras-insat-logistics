@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/hooks/useSession";
+import { authService } from "@/services";
 import { User, Bell, LogOut, ChevronDown } from "lucide-react";
 
 export interface UserMenuProps {
@@ -17,6 +18,7 @@ export interface UserMenuProps {
 }
 
 export const UserMenu: React.FC<UserMenuProps> = ({ isBoard = false }) => {
+  const navigate = useNavigate();
   const { currentPersona } = useSession();
   const isBoardRole =
     isBoard || currentPersona.role === "BOARD" || currentPersona.role === "SUPERADMIN";
@@ -85,11 +87,14 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isBoard = false }) => {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          disabled
-          className="flex items-center gap-2 text-muted-foreground opacity-60 min-h-[44px] sm:min-h-[36px]"
+          onClick={() => {
+            authService.clearSession();
+            navigate("/auth/login");
+          }}
+          className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer min-h-[44px] sm:min-h-[36px]"
         >
           <LogOut className="w-4 h-4" />
-          <span>Sign Out (Stage 4)</span>
+          <span>Sign Out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

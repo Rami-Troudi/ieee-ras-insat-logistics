@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { AppBrand } from "@/components/shared/AppBrand";
 import { UserMenu } from "@/components/shared/UserMenu";
 import { DevPersonaSwitcher } from "@/components/shared/DevPersonaSwitcher";
-import { Bell, Search, ShieldCheck, ShoppingBag } from "lucide-react";
+import { Bell, ShieldCheck, ShoppingBag } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
 import { useBorrowCart } from "@/features/cart";
 import { useUserNotifications } from "@/features/profile/hooks/useProfile";
@@ -31,7 +31,7 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
         <AppBrand to={isBoard ? "/board" : "/app"} />
       </div>
 
-      {/* Desktop Search / Operational Context Indicator */}
+      {/* Desktop Operational Context Indicator */}
       <div className="hidden lg:flex items-center gap-3">
         {isBoard ? (
           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-md border border-border">
@@ -43,13 +43,12 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
             </span>
           </div>
         ) : (
-          <Link
-            to="/app/inventory"
-            className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 hover:bg-muted px-3 py-1.5 rounded-md border border-border w-64 transition-colors min-h-[36px]"
-          >
-            <Search className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>Search equipment catalog...</span>
-          </Link>
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-md border border-border">
+            <span className="w-2 h-2 rounded-full bg-primary" />
+            <span>Robotics Logistics Desk</span>
+            <span>•</span>
+            <span className="text-foreground font-semibold">INSAT Student Workspace</span>
+          </div>
         )}
       </div>
 

@@ -167,7 +167,7 @@ class MockBoardActionCenterService implements IBoardActionCenterService {
           type: "USER_UNPROCESSED",
           priority: "MEDIUM",
           title: `New Account Verification: ${u.name}`,
-          description: `Claimed Affiliation: ${u.claimedAffiliation || u.affiliation}. Student ID: ${u.studentId || "N/A"}. Verify card and assign clearance.`,
+          description: `Claimed Affiliation: ${u.claimedAffiliation || u.affiliation}. Membership: ${u.studentId ? `ID ${u.studentId}` : "Pending assignment"}. Verify affiliation and assign clearance.`,
           entityType: "USER",
           entityId: u.id,
           createdAt: u.joinedDate,

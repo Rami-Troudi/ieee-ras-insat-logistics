@@ -285,7 +285,7 @@ export const BoardUserDetailPage: React.FC = () => {
                 <div>
                   <label className="text-muted-foreground block mb-1">Approval Notes:</label>
                   <Input
-                    placeholder="Student ID verified..."
+                    placeholder="Membership verified..."
                     value={approvalNotes}
                     onChange={(e) => setApprovalNotes(e.target.value)}
                     className="h-8 text-xs"

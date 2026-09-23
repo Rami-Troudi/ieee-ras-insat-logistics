@@ -1,11 +1,8 @@
 export { MemberHomePage } from "@/features/home/pages/MemberHomePage";
 export { MemberInventoryPage } from "@/features/inventory/pages/MemberInventoryPage";
 export { MemberItemDetailPage } from "@/features/inventory/pages/MemberItemDetailPage";
-export { MemberRequestsPage } from "@/features/requests/pages/MemberRequestsPage";
 export { MemberRequestDetailPage } from "@/features/requests/pages/MemberRequestDetailPage";
-export { MemberLoansPage } from "@/features/loans/pages/MemberLoansPage";
 export { MemberLoanDetailPage } from "@/features/loans/pages/MemberLoanDetailPage";
-export { MemberFavoritesPage } from "@/features/favorites/pages/MemberFavoritesPage";
 export { MemberNotificationsPage } from "@/features/notifications/pages/MemberNotificationsPage";
 export { MemberProfilePage } from "@/features/profile/pages/MemberProfilePage";
 export { MemberCartPage } from "@/features/cart/pages/MemberCartPage";

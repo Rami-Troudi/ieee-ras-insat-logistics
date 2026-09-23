@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import { MemberLayout } from "@/layouts/MemberLayout";
 import { BoardLayout } from "@/layouts/BoardLayout";
 import { RootRedirect } from "@/app/RootRedirect";
@@ -6,11 +6,8 @@ import {
   MemberInventoryPage,
   MemberItemDetailPage,
   MemberCartPage,
-  MemberRequestsPage,
   MemberRequestDetailPage,
-  MemberLoansPage,
   MemberLoanDetailPage,
-  MemberFavoritesPage,
   MemberNotificationsPage,
   MemberProfilePage,
   MemberActivityPage,
@@ -87,11 +84,11 @@ export const router = createBrowserRouter([
       { path: "inventory/:itemId", element: <MemberItemDetailPage /> },
       { path: "cart", element: <MemberCartPage /> },
       { path: "activity", element: <MemberActivityPage /> },
-      { path: "requests", element: <MemberRequestsPage /> },
+      { path: "requests", element: <Navigate to="/app/activity" replace /> },
       { path: "requests/:requestId", element: <MemberRequestDetailPage /> },
-      { path: "loans", element: <MemberLoansPage /> },
+      { path: "loans", element: <Navigate to="/app/activity" replace /> },
       { path: "loans/:loanId", element: <MemberLoanDetailPage /> },
-      { path: "favorites", element: <MemberFavoritesPage /> },
+      { path: "favorites", element: <Navigate to="/app/inventory" replace /> },
       { path: "notifications", element: <MemberNotificationsPage /> },
       { path: "profile", element: <MemberProfilePage /> },
     ],

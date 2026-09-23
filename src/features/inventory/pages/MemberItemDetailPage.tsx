@@ -2,17 +2,16 @@ import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { PageContainer } from "@/components/shared/PageContainer";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { PolicyNotice } from "@/components/shared/PolicyNotice";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/FeedbackStates";
 import { QuantitySelector } from "@/components/shared/QuantitySelector";
 import { Button } from "@/components/ui/button";
-import { useInventoryItem, useUserFavorites, useToggleFavorite } from "../hooks/useInventory";
+import { useInventoryItem } from "../hooks/useInventory";
 import { useSession } from "@/hooks/useSession";
 import { useBorrowCart, CartLineItem } from "@/features/cart";
 import { evaluateItemEligibility } from "../utils/eligibility";
-import { ArrowLeft, ShoppingBag, Check, MapPin, Layers } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Check, MapPin } from "lucide-react";
 
 export const MemberItemDetailPage: React.FC = () => {
   const { itemId = "" } = useParams<{ itemId: string }>();
@@ -20,8 +19,6 @@ export const MemberItemDetailPage: React.FC = () => {
   const { addItem, state: cartState } = useBorrowCart();
 
   const { data: item, isLoading, error } = useInventoryItem(itemId);
-  const { data: favoriteIds = [] } = useUserFavorites(currentPersona.id);
-  const toggleFavorite = useToggleFavorite(currentPersona.id);
 
   const [quantity, setQuantity] = useState(1);
 
@@ -52,7 +49,6 @@ export const MemberItemDetailPage: React.FC = () => {
     );
   }
 
-  const isFav = favoriteIds.includes(item.id);
   const inCart = cartState.items.find((i: CartLineItem) => i.item.id === item.id);
   const eligibility = evaluateItemEligibility(
     item.equipmentClass,
@@ -74,11 +70,6 @@ export const MemberItemDetailPage: React.FC = () => {
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back to Equipment Catalog</span>
         </Link>
-        <FavoriteButton
-          isFavorite={isFav}
-          onToggle={() => toggleFavorite.mutate(item.id)}
-          itemName={item.name}
-        />
       </div>
 
       {/* Hero Photo & Header Card */}
@@ -127,24 +118,15 @@ export const MemberItemDetailPage: React.FC = () => {
 
           <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
 
-          {/* Location & Tracking Details */}
-          <div className="flex flex-wrap gap-4 pt-2 text-xs text-muted-foreground border-t border-border/60">
-            {item.location && (
+          {/* Storage Location */}
+          {item.location && (
+            <div className="flex flex-wrap gap-4 pt-2 text-xs text-muted-foreground border-t border-border/60">
               <div className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-primary" />
-                <span>Storage: {item.location}</span>
+                <span>Storage Location: {item.location}</span>
               </div>
-            )}
-            <div className="flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-secondary" />
-              <span>
-                Tracking Mode:{" "}
-                {item.trackingMode === "INDIVIDUAL_ASSET"
-                  ? "Individual Serial Numbers"
-                  : "Batch Quantity"}
-              </span>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

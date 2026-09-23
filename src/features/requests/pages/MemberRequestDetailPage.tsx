@@ -45,9 +45,9 @@ export const MemberRequestDetailPage: React.FC = () => {
         />
         <div className="mt-4">
           <Button asChild variant="outline" className="min-h-[44px]">
-            <Link to="/app/requests" className="gap-2">
+            <Link to="/app/activity" className="gap-2">
               <ArrowLeft className="w-4 h-4" />
-              <span>Back to Requests</span>
+              <span>Back to Activity</span>
             </Link>
           </Button>
         </div>
@@ -79,11 +79,11 @@ export const MemberRequestDetailPage: React.FC = () => {
       {/* Navigation Header */}
       <div className="flex items-center justify-between pb-2">
         <Link
-          to="/app/requests"
+          to="/app/activity"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors min-h-[44px]"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back to Requests List</span>
+          <span>Back to Activity</span>
         </Link>
 
         {isPending && (
@@ -151,36 +151,6 @@ export const MemberRequestDetailPage: React.FC = () => {
             <span className="text-muted-foreground block">Review Custodian</span>
             <span className="font-semibold text-foreground mt-0.5 block">
               {request.reviewedBy || "Pending Review"}
-            </span>
-          </div>
-        </div>
-
-        {/* Multi-Dimensional State Verification */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-border/60 text-xs">
-          <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
-            <span className="text-muted-foreground block text-[10px] uppercase font-bold">
-              Decision Status
-            </span>
-            <span className="font-semibold text-foreground mt-0.5 block">
-              {request.decisionStatus}
-            </span>
-          </div>
-          <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
-            <span className="text-muted-foreground block text-[10px] uppercase font-bold">
-              Handover Status
-            </span>
-            <span className="font-semibold text-foreground mt-0.5 block">
-              {request.handoverStatus === "HANDED_OVER"
-                ? "Handed Over (Active Loan)"
-                : "Waiting for Handover"}
-            </span>
-          </div>
-          <div className="p-2.5 rounded-lg bg-muted/30 border border-border/60">
-            <span className="text-muted-foreground block text-[10px] uppercase font-bold">
-              Lifecycle Status
-            </span>
-            <span className="font-semibold text-foreground mt-0.5 block">
-              {request.lifecycleStatus}
             </span>
           </div>
         </div>

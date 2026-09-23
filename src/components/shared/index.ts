@@ -5,7 +5,6 @@ export * from "./MobileBottomNav";
 export * from "./MobileBoardBottomNav";
 export * from "./TopBar";
 export * from "./PageContainer";
-export * from "./PlaceholderScaffold";
 export * from "./StatusBadge";
 export * from "./QuantitySelector";
 export * from "./SearchInput";

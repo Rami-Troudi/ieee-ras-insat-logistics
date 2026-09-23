@@ -172,6 +172,12 @@ export const MemberActivityPage: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                <div className="flex items-center justify-end pt-1">
+                  <Button asChild variant="outline" size="sm" className="h-8 text-xs">
+                    <Link to={`/app/requests/${req.id}`}>View Details & Collection</Link>
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -224,6 +230,15 @@ export const MemberActivityPage: React.FC = () => {
                         <span className="font-bold text-foreground">×{item.borrowedQuantity}</span>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      {loan.id}
+                    </span>
+                    <Button asChild variant="outline" size="sm" className="h-8 text-xs">
+                      <Link to={`/app/loans/${loan.id}`}>Loan Details / Extension</Link>
+                    </Button>
                   </div>
                 </div>
               );
@@ -299,11 +314,11 @@ export const MemberActivityPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Direct 1-tap Cancel Action */}
+                {/* Actions */}
                 <div className="flex items-center justify-between pt-1 text-xs">
-                  <p className="text-[11px] text-muted-foreground">
-                    Changed your mind? You can cancel before approval.
-                  </p>
+                  <Button asChild variant="outline" size="sm" className="h-8 text-xs">
+                    <Link to={`/app/requests/${req.id}`}>View Details</Link>
+                  </Button>
                   <Button
                     type="button"
                     variant="ghost"

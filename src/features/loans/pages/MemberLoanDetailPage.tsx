@@ -59,9 +59,9 @@ export const MemberLoanDetailPage: React.FC = () => {
         />
         <div className="mt-4">
           <Button asChild variant="outline" className="min-h-[44px]">
-            <Link to="/app/loans" className="gap-2">
+            <Link to="/app/activity" className="gap-2">
               <ArrowLeft className="w-4 h-4" />
-              <span>Back to My Loans</span>
+              <span>Back to Activity</span>
             </Link>
           </Button>
         </div>
@@ -106,11 +106,11 @@ export const MemberLoanDetailPage: React.FC = () => {
       {/* Header Navigation */}
       <div className="flex items-center justify-between pb-2">
         <Link
-          to="/app/loans"
+          to="/app/activity"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors min-h-[44px]"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back to My Loans</span>
+          <span>Back to Activity</span>
         </Link>
 
         {!isClosed && (
