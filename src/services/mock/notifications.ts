@@ -27,7 +27,8 @@ export class MockNotificationService implements INotificationService {
           // If board member, ensure overdue alert exists for them
           if (isBoard) {
             const exists = draft.notifications.some(
-              (n) => n.userId === userId && n.metadata?.loanId === loan.id && n.type === "LOAN_OVERDUE"
+              (n) =>
+                n.userId === userId && n.metadata?.loanId === loan.id && n.type === "LOAN_OVERDUE"
             );
             if (!exists) {
               draft.notifications.unshift({
@@ -45,7 +46,8 @@ export class MockNotificationService implements INotificationService {
           } else if (loan.userId === userId) {
             // For the borrower themselves
             const exists = draft.notifications.some(
-              (n) => n.userId === userId && n.metadata?.loanId === loan.id && n.type === "LOAN_OVERDUE"
+              (n) =>
+                n.userId === userId && n.metadata?.loanId === loan.id && n.type === "LOAN_OVERDUE"
             );
             if (!exists) {
               draft.notifications.unshift({

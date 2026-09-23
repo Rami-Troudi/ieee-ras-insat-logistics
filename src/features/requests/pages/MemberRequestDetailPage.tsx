@@ -169,7 +169,8 @@ export const MemberRequestDetailPage: React.FC = () => {
           <div className="p-3 rounded-lg bg-muted/40 border border-border/60 text-xs flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary shrink-0" />
             <span>
-              Your Suggested Availability: <strong className="text-foreground">{request.borrowerPickupAvailability}</strong>
+              Your Suggested Availability:{" "}
+              <strong className="text-foreground">{request.borrowerPickupAvailability}</strong>
             </span>
           </div>
         )}

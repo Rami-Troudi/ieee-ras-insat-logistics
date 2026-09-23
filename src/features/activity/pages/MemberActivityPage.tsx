@@ -116,7 +116,9 @@ export const MemberActivityPage: React.FC = () => {
                       Approved & Ready for Pickup
                     </span>
                     <span className="text-muted-foreground font-normal">
-                      {req.pickupDeadline ? `Before ${formatDate(req.pickupDeadline)}` : "At RAS desk"}
+                      {req.pickupDeadline
+                        ? `Before ${formatDate(req.pickupDeadline)}`
+                        : "At RAS desk"}
                     </span>
                   </div>
 
@@ -124,15 +126,21 @@ export const MemberActivityPage: React.FC = () => {
                   <div className="grid grid-cols-3 gap-1.5 pt-1">
                     <div className="space-y-1">
                       <div className="h-1.5 rounded-full bg-emerald-500" />
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">1. Sent</span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">
+                        1. Sent
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <div className="h-1.5 rounded-full bg-emerald-500" />
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">2. Approved</span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">
+                        2. Approved
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <div className="h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold block">3. Pickup Now</span>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold block">
+                        3. Pickup Now
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -233,9 +241,7 @@ export const MemberActivityPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      {loan.id}
-                    </span>
+                    <span className="text-[11px] text-muted-foreground font-mono">{loan.id}</span>
                     <Button asChild variant="outline" size="sm" className="h-8 text-xs">
                       <Link to={`/app/loans/${loan.id}`}>Loan Details / Extension</Link>
                     </Button>
@@ -279,15 +285,21 @@ export const MemberActivityPage: React.FC = () => {
                   <div className="grid grid-cols-3 gap-1.5 pt-1">
                     <div className="space-y-1">
                       <div className="h-1.5 rounded-full bg-amber-500" />
-                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold block">1. Sent</span>
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold block">
+                        1. Sent
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <div className="h-1.5 rounded-full bg-amber-500/40 animate-pulse" />
-                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold block">2. In Review</span>
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold block">
+                        2. In Review
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <div className="h-1.5 rounded-full bg-muted" />
-                      <span className="text-[10px] text-muted-foreground font-medium block">3. Pickup</span>
+                      <span className="text-[10px] text-muted-foreground font-medium block">
+                        3. Pickup
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -309,7 +321,8 @@ export const MemberActivityPage: React.FC = () => {
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/50 p-2 rounded-lg border border-border/40">
                     <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     <span>
-                      Your suggested availability: <strong className="text-foreground">{req.borrowerPickupAvailability}</strong>
+                      Your suggested availability:{" "}
+                      <strong className="text-foreground">{req.borrowerPickupAvailability}</strong>
                     </span>
                   </div>
                 )}

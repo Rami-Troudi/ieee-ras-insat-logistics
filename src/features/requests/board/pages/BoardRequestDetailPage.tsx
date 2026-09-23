@@ -665,7 +665,8 @@ export const BoardRequestDetailPage: React.FC = () => {
                     </Button>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    The member will be notified with this date and time to collect their items at the RAS workspace counter.
+                    The member will be notified with this date and time to collect their items at
+                    the RAS workspace counter.
                   </p>
                 </div>
 

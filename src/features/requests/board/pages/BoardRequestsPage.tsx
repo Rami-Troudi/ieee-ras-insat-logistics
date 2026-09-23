@@ -187,8 +187,15 @@ export const BoardRequestsPage: React.FC = () => {
                             <div className="flex items-center gap-1 mt-1 text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 w-fit">
                               <Calendar className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                               <span>
-                                Pickup: {new Date(req.scheduledPickup).toLocaleDateString([], { month: "short", day: "numeric" })}{" "}
-                                {new Date(req.scheduledPickup).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                Pickup:{" "}
+                                {new Date(req.scheduledPickup).toLocaleDateString([], {
+                                  month: "short",
+                                  day: "numeric",
+                                })}{" "}
+                                {new Date(req.scheduledPickup).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
                               </span>
                             </div>
                           )}

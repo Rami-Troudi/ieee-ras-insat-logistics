@@ -212,7 +212,9 @@ class MockBoardRequestService implements IBoardRequestService {
       req.pickupDeadline =
         decisionOutcome === "APPROVED" || decisionOutcome === "PARTIALLY_APPROVED"
           ? payload.scheduledPickup
-            ? new Date(new Date(payload.scheduledPickup).getTime() + 24 * 60 * 60 * 1000).toISOString()
+            ? new Date(
+                new Date(payload.scheduledPickup).getTime() + 24 * 60 * 60 * 1000
+              ).toISOString()
             : new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
           : undefined;
 

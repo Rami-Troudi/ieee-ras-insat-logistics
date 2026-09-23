@@ -1,5 +1,5 @@
 import { IAuthService, RegisterMemberInput, RegisterResult } from "../contracts/auth";
-import { UserPersona } from "@/types";
+import { UserPersona, Affiliation } from "@/types";
 import { mockDb } from "@/mocks/db";
 import { PROD_DEFAULT_PERSONA } from "@/hooks/useSession";
 
@@ -21,7 +21,7 @@ class MockAuthService implements IAuthService {
   async registerMember(input: RegisterMemberInput): Promise<RegisterResult> {
     await new Promise((res) => setTimeout(res, 200));
 
-    const affiliation = input.membership || (input.affiliation as any) || "EXTERNAL";
+    const affiliation = (input.membership || input.affiliation || "EXTERNAL") as Affiliation;
     const newPersona: UserPersona = {
       id: "p-member-unprocessed",
       name: input.name.trim(),

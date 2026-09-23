@@ -222,7 +222,9 @@ export const MemberLoanDetailPage: React.FC = () => {
             <span>How to Return Equipment</span>
           </div>
           <p className="text-muted-foreground leading-relaxed">
-            Return handling is done <strong>in-person</strong>. Simply bring your equipment back to the IEEE RAS desk at the robotics lab. The logistics manager will inspect the gear and immediately check it back into the inventory system.
+            Return handling is done <strong>in-person</strong>. Simply bring your equipment back to
+            the IEEE RAS desk at the robotics lab. The logistics manager will inspect the gear and
+            immediately check it back into the inventory system.
           </p>
         </div>
       )}

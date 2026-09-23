@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DevPersonaProvider } from "@/dev/DevPersonaProvider";
 import { MemberLayout } from "@/layouts/MemberLayout";
 import { BoardLayout } from "@/layouts/BoardLayout";
-import { MemberHomePage } from "@/pages/member";
+import { MemberInventoryPage } from "@/pages/member";
 import { BoardActionCenterPage } from "@/pages/board";
 
 describe("Dev Persona Switching & Shell Transition", () => {
@@ -20,7 +20,7 @@ describe("Dev Persona Switching & Shell Transition", () => {
           path: "/app",
           element: <MemberLayout />,
           children: [
-            { index: true, element: <MemberHomePage /> },
+            { index: true, element: <MemberInventoryPage /> },
             { path: "requests/:requestId", element: <div>Member Request Detail View</div> },
           ],
         },
@@ -57,7 +57,7 @@ describe("Dev Persona Switching & Shell Transition", () => {
     const trigger = screen.getByTitle("Switch Active Dev Persona");
     expect(trigger).toBeInTheDocument();
     expect(screen.getByText("MEMBER")).toBeInTheDocument();
-    expect(screen.getByText("Find & Request Equipment")).toBeInTheDocument();
+    expect(screen.getByText("Equipment Catalogue")).toBeInTheDocument();
 
     // 2. Open switcher dropdown using Radix trigger interaction
     fireEvent.pointerDown(trigger);
@@ -85,7 +85,7 @@ describe("Dev Persona Switching & Shell Transition", () => {
     // 6. Verify Member shell is restored at /app
     expect(await screen.findByText("MEMBER")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/app");
-    expect(screen.getByText("Find & Request Equipment")).toBeInTheDocument();
+    expect(screen.getByText("Equipment Catalogue")).toBeInTheDocument();
 
     // 7. Open switcher again and select Superadmin
     const memberTrigger = screen.getByTitle("Switch Active Dev Persona");

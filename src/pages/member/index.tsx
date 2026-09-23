@@ -1,4 +1,3 @@
-export { MemberHomePage } from "@/features/home/pages/MemberHomePage";
 export { MemberInventoryPage } from "@/features/inventory/pages/MemberInventoryPage";
 export { MemberItemDetailPage } from "@/features/inventory/pages/MemberItemDetailPage";
 export { MemberRequestDetailPage } from "@/features/requests/pages/MemberRequestDetailPage";

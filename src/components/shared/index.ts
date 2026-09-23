@@ -12,7 +12,6 @@ export * from "./ResponsiveDialog";
 export * from "./FeedbackStates";
 export * from "./AlertBanner";
 export * from "./PolicyNotice";
-export * from "./ResponsiveStack";
 export * from "./FilterChip";
 export * from "./FilterBar";
 export * from "./FilterDrawer";

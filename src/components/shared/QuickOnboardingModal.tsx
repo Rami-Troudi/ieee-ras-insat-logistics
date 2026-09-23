@@ -58,7 +58,11 @@ export const QuickOnboardingModal: React.FC = () => {
     defaultValues: {
       name: currentPersona.name.includes("(") ? "" : currentPersona.name,
       email: currentPersona.email.includes("rami.ieee") ? "" : currentPersona.email,
-      membership: (profile?.affiliation === "AEROBOTIX" ? "AEROBOTIX" : profile?.affiliation === "EXTERNAL" ? "EXTERNAL" : "IEEE") as "IEEE" | "AEROBOTIX" | "EXTERNAL",
+      membership: (profile?.affiliation === "AEROBOTIX"
+        ? "AEROBOTIX"
+        : profile?.affiliation === "EXTERNAL"
+          ? "EXTERNAL"
+          : "IEEE") as "IEEE" | "AEROBOTIX" | "EXTERNAL",
       phone: profile?.phone || "",
     },
   });
