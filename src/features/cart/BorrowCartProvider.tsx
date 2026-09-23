@@ -1,27 +1,25 @@
 import React, { useReducer, useEffect } from "react";
-import { InventoryItemSummary } from "@/types";
+import { BorrowerCatalogItem } from "@/types";
 import { CartState, CartContextValue, getInitialCartState, CartContext } from "./CartContext";
 
 type CartAction =
-  | { type: "ADD_ITEM"; item: InventoryItemSummary; quantity?: number }
+  | { type: "ADD_ITEM"; item: BorrowerCatalogItem; quantity?: number }
   | { type: "UPDATE_QUANTITY"; itemId: string; quantity: number }
   | { type: "REMOVE_ITEM"; itemId: string }
   | { type: "CLEAR_CART" }
-  | { type: "SET_PROJECT"; projectId?: string }
-  | { type: "SET_PURPOSE"; purpose: string }
-  | { type: "SET_RETURN_DATE"; date: string }
-  | { type: "SET_PICKUP_AVAILABILITY"; availability: string }
-  | { type: "LOAD_STATE"; state: CartState };
+  | { type: "SET_NOTE"; note: string }
+  | { type: "SET_RETURN_DATE"; date: string };
 
-const CART_STORAGE_KEY = "ras_insat_cart_draft_v1";
+const CART_STORAGE_KEY = "ras_insat_cart_draft_v2";
 
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case "ADD_ITEM": {
+      if (action.item.action !== "REQUEST") return state;
       const existing = state.items.find((i) => i.item.id === action.item.id);
-      const addQty = action.quantity || 1;
+      const addQty = Math.min(99, Math.max(1, action.quantity || 1));
       if (existing) {
-        const newQty = Math.min(existing.quantity + addQty, action.item.availableQuantity);
+        const newQty = Math.min(99, existing.quantity + addQty);
         return {
           ...state,
           items: state.items.map((i) =>
@@ -31,10 +29,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       }
       return {
         ...state,
-        items: [
-          ...state.items,
-          { item: action.item, quantity: Math.min(addQty, action.item.availableQuantity) },
-        ],
+        items: [...state.items, { item: action.item, quantity: addQty }],
       };
     }
     case "UPDATE_QUANTITY": {
@@ -47,9 +42,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return {
         ...state,
         items: state.items.map((i) =>
-          i.item.id === action.itemId
-            ? { ...i, quantity: Math.min(action.quantity, i.item.availableQuantity) }
-            : i
+          i.item.id === action.itemId ? { ...i, quantity: Math.min(99, action.quantity) } : i
         ),
       };
     }
@@ -60,28 +53,16 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       };
     case "CLEAR_CART":
       return getInitialCartState();
-    case "SET_PROJECT":
+    case "SET_NOTE":
       return {
         ...state,
-        projectId: action.projectId,
-      };
-    case "SET_PURPOSE":
-      return {
-        ...state,
-        purpose: action.purpose,
+        note: action.note,
       };
     case "SET_RETURN_DATE":
       return {
         ...state,
         expectedReturnDate: action.date,
       };
-    case "SET_PICKUP_AVAILABILITY":
-      return {
-        ...state,
-        borrowerPickupAvailability: action.availability,
-      };
-    case "LOAD_STATE":
-      return action.state;
     default:
       return state;
   }
@@ -92,7 +73,20 @@ export const BorrowCartProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored) as CartState;
+        if (Array.isArray(parsed.items)) {
+          return {
+            items: parsed.items.filter(
+              (line) =>
+                line.item?.action === "REQUEST" &&
+                Number.isInteger(line.quantity) &&
+                line.quantity > 0
+            ),
+            note: typeof parsed.note === "string" ? parsed.note : "",
+            expectedReturnDate:
+              parsed.expectedReturnDate || getInitialCartState().expectedReturnDate,
+          };
+        }
       }
     } catch {
       // ignore
@@ -108,7 +102,7 @@ export const BorrowCartProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [state]);
 
-  const addItem = React.useCallback((item: InventoryItemSummary, quantity?: number) => {
+  const addItem = React.useCallback((item: BorrowerCatalogItem, quantity?: number) => {
     dispatch({ type: "ADD_ITEM", item, quantity });
   }, []);
 
@@ -124,20 +118,12 @@ export const BorrowCartProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     dispatch({ type: "CLEAR_CART" });
   }, []);
 
-  const setProject = React.useCallback((projectId?: string) => {
-    dispatch({ type: "SET_PROJECT", projectId });
-  }, []);
-
-  const setPurpose = React.useCallback((purpose: string) => {
-    dispatch({ type: "SET_PURPOSE", purpose });
+  const setNote = React.useCallback((note: string) => {
+    dispatch({ type: "SET_NOTE", note });
   }, []);
 
   const setReturnDate = React.useCallback((date: string) => {
     dispatch({ type: "SET_RETURN_DATE", date });
-  }, []);
-
-  const setPickupAvailability = React.useCallback((availability: string) => {
-    dispatch({ type: "SET_PICKUP_AVAILABILITY", availability });
   }, []);
 
   const totalItemCount = state.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -149,24 +135,11 @@ export const BorrowCartProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       updateQuantity,
       removeItem,
       clearCart,
-      setProject,
-      setPurpose,
+      setNote,
       setReturnDate,
-      setPickupAvailability,
       totalItemCount,
     }),
-    [
-      state,
-      addItem,
-      updateQuantity,
-      removeItem,
-      clearCart,
-      setProject,
-      setPurpose,
-      setReturnDate,
-      setPickupAvailability,
-      totalItemCount,
-    ]
+    [state, addItem, updateQuantity, removeItem, clearCart, setNote, setReturnDate, totalItemCount]
   );
 
   return <CartContext.Provider value={contextValue}>{children}</CartContext.Provider>;

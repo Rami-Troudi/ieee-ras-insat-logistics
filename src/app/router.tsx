@@ -13,7 +13,6 @@ import {
   MemberActivityPage,
 } from "@/pages/member";
 import {
-  BoardActionCenterPage,
   BoardDashboardPage,
   BoardBorrowedPage,
   BoardPeoplePage,
@@ -22,11 +21,9 @@ import {
   BoardItemDetailPage,
   BoardRequestsPage,
   BoardRequestDetailPage,
-  BoardLoansPage,
   BoardLoanDetailPage,
   BoardProjectsPage,
   BoardProjectDetailPage,
-  BoardUsersPage,
   BoardUserDetailPage,
   BoardAuditsPage,
   BoardAuditDetailPage,
@@ -38,16 +35,7 @@ import {
   BoardNotificationsPage,
   BoardAuditLogPage,
 } from "@/pages/board";
-import React from "react";
 import { NotFoundPage } from "@/pages/system/NotFoundPage";
-
-const isDev = import.meta.env.DEV;
-
-const DesignLabPage = isDev
-  ? React.lazy(() =>
-      import("@/pages/system/DesignLabPage").then((m) => ({ default: m.DesignLabPage }))
-    )
-  : null;
 
 export const router = createBrowserRouter([
   {
@@ -99,19 +87,20 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <BoardDashboardPage /> },
       { path: "dashboard", element: <BoardDashboardPage /> },
-      { path: "action-center", element: <BoardActionCenterPage /> },
       { path: "requests", element: <BoardRequestsPage /> },
       { path: "requests/:requestId", element: <BoardRequestDetailPage /> },
       { path: "borrowed", element: <BoardBorrowedPage /> },
-      { path: "loans", element: <BoardLoansPage /> },
+      { path: "borrowed/:loanId", element: <BoardLoanDetailPage /> },
+      { path: "loans", element: <Navigate to="/board/borrowed" replace /> },
       { path: "loans/:loanId", element: <BoardLoanDetailPage /> },
       { path: "inventory", element: <BoardInventoryPage /> },
       { path: "inventory/:itemId", element: <BoardItemDetailPage /> },
       { path: "people", element: <BoardPeoplePage /> },
+      { path: "people/:userId", element: <BoardUserDetailPage /> },
       { path: "more", element: <BoardMorePage /> },
       { path: "projects", element: <BoardProjectsPage /> },
       { path: "projects/:projectId", element: <BoardProjectDetailPage /> },
-      { path: "users", element: <BoardUsersPage /> },
+      { path: "users", element: <Navigate to="/board/people" replace /> },
       { path: "users/:userId", element: <BoardUserDetailPage /> },
       { path: "audits", element: <BoardAuditsPage /> },
       { path: "audits/:auditId", element: <BoardAuditDetailPage /> },
@@ -124,18 +113,6 @@ export const router = createBrowserRouter([
       { path: "notifications", element: <BoardNotificationsPage /> },
     ],
   },
-  ...(isDev && DesignLabPage
-    ? [
-        {
-          path: "/_dev/design",
-          element: (
-            <React.Suspense fallback={null}>
-              <DesignLabPage />
-            </React.Suspense>
-          ),
-        },
-      ]
-    : []),
   {
     path: "*",
     element: <NotFoundPage />,

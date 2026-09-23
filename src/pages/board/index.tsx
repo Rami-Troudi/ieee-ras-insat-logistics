@@ -1,13 +1,10 @@
-export { BoardActionCenterPage } from "@/features/action-center/board/pages/BoardActionCenterPage";
 export { BoardRequestsPage } from "@/features/requests/board/pages/BoardRequestsPage";
 export { BoardRequestDetailPage } from "@/features/requests/board/pages/BoardRequestDetailPage";
-export { BoardLoansPage } from "@/features/loans/board/pages/BoardLoansPage";
 export { BoardLoanDetailPage } from "@/features/loans/board/pages/BoardLoanDetailPage";
 export { BoardInventoryPage } from "@/features/inventory/board/pages/BoardInventoryPage";
 export { BoardItemDetailPage } from "@/features/inventory/board/pages/BoardItemDetailPage";
 export { BoardProjectsPage } from "@/features/projects/board/pages/BoardProjectsPage";
 export { BoardProjectDetailPage } from "@/features/projects/board/pages/BoardProjectDetailPage";
-export { BoardUsersPage } from "@/features/users/board/pages/BoardUsersPage";
 export { BoardUserDetailPage } from "@/features/users/board/pages/BoardUserDetailPage";
 export { BoardAuditsPage } from "@/features/audits/board/pages/BoardAuditsPage";
 export { BoardAuditDetailPage } from "@/features/audits/board/pages/BoardAuditDetailPage";

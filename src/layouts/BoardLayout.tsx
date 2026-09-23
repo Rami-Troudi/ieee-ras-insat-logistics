@@ -2,9 +2,13 @@ import React from "react";
 import { DesktopBoardSidebar } from "@/components/shared/DesktopBoardSidebar";
 import { MobileBoardBottomNav } from "@/components/shared/MobileBoardBottomNav";
 import { TopBar } from "@/components/shared/TopBar";
-import { Outlet } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
+import { useSession } from "@/hooks/useSession";
 
 export const BoardLayout: React.FC = () => {
+  const { currentPersona } = useSession();
+  if (currentPersona.role === "MEMBER") return <Navigate to="/app" replace />;
+
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       {/* High-density Desktop Board Sidebar */}

@@ -37,15 +37,8 @@ export const QUERY_KEYS = {
   projects: {
     active: ["projects", "active"] as const,
   },
-  favorites: {
-    mine: (userId: string) => ["favorites", "mine", userId] as const,
-  },
 
   // Board / Admin namespaces
-  boardActionCenter: {
-    all: ["board", "actionCenter"] as const,
-    queue: ["board", "actionCenter", "queue"] as const,
-  },
   boardRequests: {
     all: ["board", "requests"] as const,
     list: (filters?: unknown) => ["board", "requests", "list", filters] as const,

@@ -1,29 +1,25 @@
 import { createContext } from "react";
-import { InventoryItemSummary } from "@/types";
+import { BorrowerCatalogItem } from "@/types";
 
 export interface CartLineItem {
-  item: InventoryItemSummary;
+  item: BorrowerCatalogItem;
   quantity: number;
 }
 
 export interface CartState {
   items: CartLineItem[];
-  projectId?: string;
-  purpose: string;
+  note: string;
   expectedReturnDate: string;
-  borrowerPickupAvailability?: string;
 }
 
 export interface CartContextValue {
   state: CartState;
-  addItem: (item: InventoryItemSummary, quantity?: number) => void;
+  addItem: (item: BorrowerCatalogItem, quantity?: number) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   removeItem: (itemId: string) => void;
   clearCart: () => void;
-  setProject: (projectId?: string) => void;
-  setPurpose: (purpose: string) => void;
+  setNote: (note: string) => void;
   setReturnDate: (date: string) => void;
-  setPickupAvailability: (val: string) => void;
   totalItemCount: number;
 }
 
@@ -35,8 +31,7 @@ export const defaultReturnDate = () => {
 
 export const getInitialCartState = (): CartState => ({
   items: [],
-  projectId: undefined,
-  purpose: "",
+  note: "",
   expectedReturnDate: defaultReturnDate(),
 });
 
@@ -48,10 +43,8 @@ export const fallbackCartValue: CartContextValue = {
   updateQuantity: () => {},
   removeItem: () => {},
   clearCart: () => {},
-  setProject: () => {},
-  setPurpose: () => {},
+  setNote: () => {},
   setReturnDate: () => {},
-  setPickupAvailability: () => {},
   totalItemCount: 0,
 };
 

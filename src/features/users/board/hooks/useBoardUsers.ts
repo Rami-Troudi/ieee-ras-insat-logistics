@@ -69,7 +69,6 @@ export function useProcessUser() {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.boardUsers.detail(variables.payload.userId),
       });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardActionCenter.all });
     },
   });
 }
@@ -85,7 +84,6 @@ export function useUpdateUserClearance() {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.boardUsers.detail(variables.payload.userId),
       });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardActionCenter.all });
     },
   });
 }
@@ -101,7 +99,6 @@ export function useUpdateUserRole() {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.boardUsers.detail(variables.payload.userId),
       });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardActionCenter.all });
     },
   });
 }
@@ -117,7 +114,6 @@ export function useUpdateUserStatus() {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.boardUsers.detail(variables.payload.userId),
       });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardActionCenter.all });
     },
   });
 }

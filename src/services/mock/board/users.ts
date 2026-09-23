@@ -8,23 +8,12 @@ import {
 import { UserProfile, ClearanceLevel, Affiliation, Role, UserStatus } from "@/types";
 import { mockDb } from "@/mocks/db";
 import { mockBoardAuditLogService } from "./audit-log";
-
-function deriveClearanceFromAffiliation(aff: Affiliation): ClearanceLevel {
-  switch (aff) {
-    case "EXTERNAL":
-      return "I";
-    case "AEROBOTIX":
-      return "II";
-    case "IEEE":
-      return "III";
-    case "EUROBOT":
-      return "V";
-    case "RAS_BOARD":
-      return "V";
-    default:
-      return "I";
-  }
-}
+import {
+  canonicalClearance,
+  memberClearance,
+  requireOperator,
+  requireSuperadmin,
+} from "../authorization";
 
 class MockBoardUserService implements IBoardUserService {
   private async simulateLatency(): Promise<void> {
@@ -82,23 +71,29 @@ class MockBoardUserService implements IBoardUserService {
   async processUser(
     payload: ProcessUserPayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<UserProfile> {
     await this.simulateLatency();
+    const actor = requireOperator(actorUserId);
     let updatedUser: UserProfile | null = null;
 
     mockDb.mutate((draft) => {
       const user = draft.userProfiles[payload.userId];
       if (!user) throw new Error("User not found");
 
-      const derivedClearance = deriveClearanceFromAffiliation(payload.verifiedAffiliation);
+      const privilegedAffiliation = ["EUROBOT", "RAS_BOARD"].includes(payload.verifiedAffiliation);
+      if (privilegedAffiliation && user.role === "MEMBER") requireSuperadmin(actorUserId);
 
       user.isProcessed = true;
       user.verifiedAffiliation = payload.verifiedAffiliation;
       user.affiliation = payload.verifiedAffiliation;
-      user.clearance = derivedClearance;
-      user.clearanceSource = "AFFILIATION";
-      user.verifiedBy = actorRole === "SUPERADMIN" ? "RAS Chairman" : "Logistics Board";
+      if (privilegedAffiliation && user.role === "MEMBER") user.role = "OPERATOR";
+      if (user.role === "MEMBER" && user.clearanceSource !== "MANUAL_LEVEL_IV") {
+        user.clearanceSource = "AFFILIATION";
+      }
+      if (user.role === "OPERATOR") user.clearanceSource = "OPERATOR_ROLE";
+      user.clearance = canonicalClearance(user);
+      user.verifiedBy = actor.name;
       user.verifiedAt = new Date().toISOString();
       if (payload.notes) user.notes = payload.notes;
 
@@ -109,7 +104,7 @@ class MockBoardUserService implements IBoardUserService {
       await mockBoardAuditLogService.logEvent({
         actorUserId,
         actorName: "Board Custodian",
-        actorRole: actorRole as Role,
+        actorRole: actor.role,
         action: "USER_PROCESSED",
         entityType: "USER",
         entityId: payload.userId,
@@ -125,25 +120,27 @@ class MockBoardUserService implements IBoardUserService {
   async updateClearance(
     payload: UpdateUserClearancePayload,
     actorUserId: string,
-    actorRole: string,
-    actorClearance: string
+    _actorRole: string,
+    _actorClearance: string
   ): Promise<UserProfile> {
     await this.simulateLatency();
+    const actor = requireOperator(actorUserId);
     let updatedUser: UserProfile | null = null;
 
     mockDb.mutate((draft) => {
       const user = draft.userProfiles[payload.userId];
       if (!user) throw new Error("User not found");
 
-      // Level IV is Superadmin only
-      if (payload.newClearance === "IV" && actorClearance !== "VI") {
-        throw new Error(
-          "Unauthorized: Granting or managing Level IV (Trusted Individual) clearance requires explicit Level VI authority (Superadmin)."
-        );
+      if (user.role !== "MEMBER") throw new Error("Operator clearance is role-derived");
+      if (payload.newClearance === "IV" || user.clearance === "IV") requireSuperadmin(actorUserId);
+      if (
+        payload.newClearance !== "IV" &&
+        payload.newClearance !== memberClearance(user.affiliation)
+      ) {
+        throw new Error("Member clearance must match verified affiliation");
       }
-
       user.clearance = payload.newClearance;
-      user.clearanceSource = payload.source;
+      user.clearanceSource = payload.newClearance === "IV" ? "MANUAL_LEVEL_IV" : "AFFILIATION";
 
       updatedUser = { ...user };
     });
@@ -152,7 +149,7 @@ class MockBoardUserService implements IBoardUserService {
       await mockBoardAuditLogService.logEvent({
         actorUserId,
         actorName: "Board Custodian",
-        actorRole: actorRole as Role,
+        actorRole: actor.role,
         action: "CLEARANCE_CHANGED",
         entityType: "USER",
         entityId: payload.userId,
@@ -168,41 +165,36 @@ class MockBoardUserService implements IBoardUserService {
   async updateRole(
     payload: UpdateUserRolePayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<UserProfile> {
     await this.simulateLatency();
+    const actor = requireSuperadmin(actorUserId);
     let updatedUser: UserProfile | null = null;
 
     mockDb.mutate((draft) => {
       const user = draft.userProfiles[payload.userId];
       if (!user) throw new Error("User not found");
 
-      // Managing privileged administrative roles (BOARD / SUPERADMIN) requires Superadmin
       if (
-        (payload.newRole === "BOARD" ||
-          payload.newRole === "SUPERADMIN" ||
-          user.role === "BOARD" ||
-          user.role === "SUPERADMIN") &&
-        actorRole !== "SUPERADMIN"
-      ) {
-        throw new Error(
-          "Unauthorized: Assigning or revoking privileged roles (BOARD / SUPERADMIN) is restricted to Superadmin."
-        );
-      }
+        payload.newRole === "OPERATOR" &&
+        user.affiliation !== "EUROBOT" &&
+        user.affiliation !== "RAS_BOARD"
+      )
+        throw new Error("Operator role requires verified Eurobot or RAS Board affiliation");
+      if (
+        payload.newRole === "MEMBER" &&
+        (user.affiliation === "EUROBOT" || user.affiliation === "RAS_BOARD")
+      )
+        throw new Error("Verify a member affiliation before demotion");
 
       user.role = payload.newRole;
-
-      if (payload.newRole === "SUPERADMIN") {
-        user.clearance = "VI";
-        user.clearanceSource = "SUPERADMIN_ROLE";
-      } else if (payload.newRole === "BOARD") {
-        user.clearance = "V";
-        user.clearanceSource = "BOARD_ROLE";
-      } else {
-        // Recalculate clearance for standard MEMBER based on affiliation
-        user.clearance = deriveClearanceFromAffiliation(user.affiliation);
-        user.clearanceSource = "AFFILIATION";
-      }
+      user.clearanceSource =
+        payload.newRole === "SUPERADMIN"
+          ? "SUPERADMIN_ROLE"
+          : payload.newRole === "OPERATOR"
+            ? "OPERATOR_ROLE"
+            : "AFFILIATION";
+      user.clearance = canonicalClearance(user);
 
       updatedUser = { ...user };
     });
@@ -210,8 +202,8 @@ class MockBoardUserService implements IBoardUserService {
     if (updatedUser) {
       await mockBoardAuditLogService.logEvent({
         actorUserId,
-        actorName: actorRole === "SUPERADMIN" ? "RAS Chairman" : "Board Custodian",
-        actorRole: actorRole as Role,
+        actorName: actor.name,
+        actorRole: actor.role,
         action: "ROLE_CHANGED",
         entityType: "USER",
         entityId: payload.userId,
@@ -227,17 +219,18 @@ class MockBoardUserService implements IBoardUserService {
   async updateStatus(
     payload: UpdateUserStatusPayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<UserProfile> {
     await this.simulateLatency();
+    const actor = requireOperator(actorUserId);
     let updatedUser: UserProfile | null = null;
 
     mockDb.mutate((draft) => {
       const user = draft.userProfiles[payload.userId];
       if (!user) throw new Error("User not found");
 
-      if (payload.status === "BLACKLISTED" && actorRole !== "SUPERADMIN") {
-        throw new Error("Unauthorized: Permanent blacklisting is restricted to Superadmin.");
+      if (payload.status === "BLACKLISTED" || user.status === "BLACKLISTED") {
+        requireSuperadmin(actorUserId);
       }
 
       user.status = payload.status;
@@ -248,7 +241,7 @@ class MockBoardUserService implements IBoardUserService {
       await mockBoardAuditLogService.logEvent({
         actorUserId,
         actorName: "Board Custodian",
-        actorRole: actorRole as Role,
+        actorRole: actor.role,
         action: "STATUS_CHANGED",
         entityType: "USER",
         entityId: payload.userId,

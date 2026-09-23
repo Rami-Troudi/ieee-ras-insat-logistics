@@ -10,21 +10,17 @@ import {
 export interface ReviewBorrowRequestParams {
   payload: ReviewRequestPayload;
   actorUserId: string;
-  actorRole: string;
-  actorClearance: string;
 }
 
 export interface RejectEntireRequestParams {
   requestId: string;
   reason: string;
   actorUserId: string;
-  actorRole: string;
 }
 
 export interface ConfirmHandoverParams {
   payload: HandoverPayload;
   actorUserId: string;
-  actorRole: string;
 }
 
 export function useBoardRequests(filters?: RequestFilterParams) {
@@ -46,8 +42,8 @@ export function useReviewBorrowRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ payload, actorUserId, actorRole, actorClearance }: ReviewBorrowRequestParams) =>
-      boardRequestService.reviewRequest(payload, actorUserId, actorRole, actorClearance),
+    mutationFn: ({ payload, actorUserId }: ReviewBorrowRequestParams) =>
+      boardRequestService.reviewRequest(payload, actorUserId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardRequests.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.requests.all });
@@ -56,7 +52,6 @@ export function useReviewBorrowRequest() {
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardInventory.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.inventory.all });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardActionCenter.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardAllocations.all });
     },
   });
@@ -66,15 +61,14 @@ export function useRejectEntireRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ requestId, reason, actorUserId, actorRole }: RejectEntireRequestParams) =>
-      boardRequestService.rejectEntireRequest(requestId, reason, actorUserId, actorRole),
+    mutationFn: ({ requestId, reason, actorUserId }: RejectEntireRequestParams) =>
+      boardRequestService.rejectEntireRequest(requestId, reason, actorUserId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardRequests.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.requests.all });
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.boardRequests.detail(variables.requestId),
       });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardActionCenter.all });
     },
   });
 }
@@ -83,8 +77,8 @@ export function useConfirmHandover() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ payload, actorUserId, actorRole }: ConfirmHandoverParams) =>
-      boardRequestService.confirmHandover(payload, actorUserId, actorRole),
+    mutationFn: ({ payload, actorUserId }: ConfirmHandoverParams) =>
+      boardRequestService.confirmHandover(payload, actorUserId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardRequests.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.requests.all });
@@ -95,7 +89,6 @@ export function useConfirmHandover() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.loans.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardInventory.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.inventory.all });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardActionCenter.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardAllocations.all });
     },
   });

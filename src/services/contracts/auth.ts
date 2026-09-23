@@ -5,9 +5,7 @@ export type MembershipType = "IEEE" | "AEROBOTIX" | "EXTERNAL";
 export interface RegisterMemberInput {
   name: string;
   email: string;
-  membership?: MembershipType;
-  affiliation?: string;
-  studentId?: string;
+  membership: MembershipType;
   phone: string;
   password?: string;
 }
@@ -19,6 +17,7 @@ export interface RegisterResult {
 
 export interface IAuthService {
   registerMember(input: RegisterMemberInput): Promise<RegisterResult>;
+  getCurrentUser(): UserPersona;
   getCurrentSession(): Promise<UserPersona | null>;
   setSession(persona: UserPersona): void;
   clearSession(): void;

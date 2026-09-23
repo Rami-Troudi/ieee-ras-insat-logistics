@@ -51,7 +51,7 @@ describe("MockInventoryService Scenarios & Filtering", () => {
     expect(elapsed).toBeGreaterThanOrEqual(1400);
   }, 10000);
 
-  it("filters items by search query, equipment class, and availability", async () => {
+  it("filters items by search query and availability", async () => {
     service.setScenario("NORMAL");
 
     // Search query filter
@@ -60,13 +60,9 @@ describe("MockInventoryService Scenarios & Filtering", () => {
       searchResults.every((it) => it.name.includes("Arduino") || it.description.includes("Arduino"))
     ).toBe(true);
 
-    // Equipment class filter
-    const classEResults = await service.listItems({ equipmentClass: "E" });
-    expect(classEResults.every((it) => it.equipmentClass === "E")).toBe(true);
-
     // Available only filter
     const availableResults = await service.listItems({ availableOnly: true });
-    expect(availableResults.every((it) => it.availableQuantity > 0)).toBe(true);
+    expect(availableResults.every((it) => it.availability !== "UNAVAILABLE")).toBe(true);
 
     // Single item retrieval
     const stm32 = await service.getItem("item-stm32-f4");

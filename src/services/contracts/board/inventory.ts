@@ -3,6 +3,7 @@ import {
   InventoryEvent,
   InventoryEventType,
   AssetCondition,
+  AssetState,
   IndividualAsset,
 } from "@/types";
 
@@ -31,7 +32,8 @@ export interface UpdateAssetPayload {
   itemId: string;
   assetId: string;
   condition: AssetCondition;
-  isAvailable: boolean;
+  isAvailable?: boolean;
+  state?: AssetState;
   notes?: string;
 }
 

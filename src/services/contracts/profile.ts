@@ -10,8 +10,3 @@ export interface IProjectService {
   listActiveProjects(): Promise<ProjectSummary[]>;
   listMine(userId: string): Promise<ProjectSummary[]>;
 }
-
-export interface IFavoritesService {
-  getFavoriteIds(userId: string): Promise<string[]>;
-  toggleFavorite(userId: string, itemId: string): Promise<boolean>;
-}

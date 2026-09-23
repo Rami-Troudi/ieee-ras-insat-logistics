@@ -9,7 +9,6 @@ import { EmptyState, ErrorState } from "@/components/shared/FeedbackStates";
 import { ResponsiveDialog } from "@/components/shared/ResponsiveDialog";
 import { AlertBanner } from "@/components/shared/AlertBanner";
 import { PolicyNotice } from "@/components/shared/PolicyNotice";
-import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
 import { ResponsiveDataTable } from "@/components/shared/ResponsiveDataTable";
 import { MobileEntityCard } from "@/components/shared/MobileEntityCard";
@@ -25,7 +24,7 @@ import { QUERY_KEYS } from "@/app/query-client";
 import rasLogoFull from "@/assets/ras_logo_full.png";
 import rasLogoWhite from "@/assets/ras_logo_white.svg";
 import { Clock, ClipboardList, AlertTriangle, Package } from "lucide-react";
-import { InventoryItemSummary } from "@/types";
+import { BorrowerCatalogItem } from "@/types";
 
 export const DesignLabPage: React.FC = () => {
   const [searchValue, setSearchValue] = useState("");
@@ -34,10 +33,6 @@ export const DesignLabPage: React.FC = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [activeScenario, setActiveScenario] = useState<MockScenario>("NORMAL");
-  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>({
-    "item-stm32-f4": true,
-    "item-pololu-driver": true,
-  });
 
   // Filter Bar state
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([
@@ -63,10 +58,6 @@ export const DesignLabPage: React.FC = () => {
     refetch();
   };
 
-  const toggleFavorite = (id: string) => {
-    setFavoriteMap((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
   const removeFilter = (id: string) => {
     setActiveFilters((prev) => prev.filter((f) => f.id !== id));
   };
@@ -79,7 +70,7 @@ export const DesignLabPage: React.FC = () => {
     {
       key: "name",
       header: "Equipment Item",
-      render: (item: InventoryItemSummary) => (
+      render: (item: BorrowerCatalogItem) => (
         <div className="space-y-0.5">
           <span className="font-semibold text-foreground block">{item.name}</span>
           <span className="text-xs text-muted-foreground line-clamp-1">{item.description}</span>
@@ -89,42 +80,28 @@ export const DesignLabPage: React.FC = () => {
     {
       key: "category",
       header: "Category",
-      render: (item: InventoryItemSummary) => (
+      render: (item: BorrowerCatalogItem) => (
         <span className="text-xs text-muted-foreground">{item.category}</span>
       ),
     },
     {
-      key: "class",
-      header: "Class",
-      render: (item: InventoryItemSummary) => (
+      key: "availability",
+      header: "Availability",
+      render: (item: BorrowerCatalogItem) => (
         <Badge variant="outline" className="font-mono text-xs">
-          Class {item.equipmentClass}
+          {item.availability}
         </Badge>
       ),
     },
     {
-      key: "stock",
-      header: "Available / Total",
-      className: "text-right",
-      headerClassName: "text-right",
-      render: (item: InventoryItemSummary) => (
-        <span className="font-mono font-semibold text-xs">
-          <span className="text-[hsl(var(--success))]">{item.availableQuantity}</span>
-          <span className="text-muted-foreground"> / {item.totalQuantity}</span>
-        </span>
-      ),
-    },
-    {
       key: "action",
-      header: "Favorite",
+      header: "Action",
       className: "text-right",
       headerClassName: "text-right",
-      render: (item: InventoryItemSummary) => (
-        <FavoriteButton
-          isFavorite={!!favoriteMap[item.id]}
-          onToggle={() => toggleFavorite(item.id)}
-          itemName={item.name}
-        />
+      render: (item: BorrowerCatalogItem) => (
+        <Button size="sm" variant="ghost">
+          {item.action}
+        </Button>
       ),
     },
   ];
@@ -328,12 +305,7 @@ export const DesignLabPage: React.FC = () => {
           <AlertBanner
             variant="warning"
             title="Loan Due in 24 Hours: STM32F401RE Nucleo"
-            description="Your loan for Eurobot 2027 is due tomorrow at 18:00. Return equipment to the Board cabinet or request an extension."
-            action={
-              <Button size="sm" variant="outline">
-                Request Extension
-              </Button>
-            }
+            description="Your loan for Eurobot 2027 is due tomorrow at 18:00. Return equipment to the Board cabinet or contact logistics team."
           />
           <AlertBanner
             variant="danger"
@@ -379,7 +351,7 @@ export const DesignLabPage: React.FC = () => {
             </div>
           </div>
 
-          <ResponsiveDataTable<InventoryItemSummary>
+          <ResponsiveDataTable<BorrowerCatalogItem>
             data={mockItems || []}
             keyExtractor={(it) => it.id}
             columns={tableColumns}
@@ -387,20 +359,12 @@ export const DesignLabPage: React.FC = () => {
               <MobileEntityCard
                 title={item.name}
                 subtitle={item.category}
-                status={
-                  <StatusBadge status={item.availableQuantity > 0 ? "AVAILABLE" : "BORROWED"} />
-                }
-                metadata={[
-                  { label: "Class", value: `Class ${item.equipmentClass}` },
-                  { label: "Stock", value: `${item.availableQuantity} / ${item.totalQuantity}` },
-                  { label: "Tracking", value: item.trackingMode },
-                ]}
+                status={<Badge variant="outline">{item.availability}</Badge>}
+                metadata={[{ label: "Action", value: item.action }]}
                 action={
-                  <FavoriteButton
-                    isFavorite={!!favoriteMap[item.id]}
-                    onToggle={() => toggleFavorite(item.id)}
-                    itemName={item.name}
-                  />
+                  <Button size="sm" variant="ghost">
+                    {item.action}
+                  </Button>
                 }
               />
             )}

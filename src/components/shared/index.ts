@@ -15,7 +15,6 @@ export * from "./PolicyNotice";
 export * from "./FilterChip";
 export * from "./FilterBar";
 export * from "./FilterDrawer";
-export * from "./FavoriteButton";
 export * from "./ConfirmationDialog";
 export * from "./MobileEntityCard";
 export * from "./ResponsiveDataTable";

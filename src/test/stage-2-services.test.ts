@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { mockRequestService } from "@/services/mock/requests";
 import { mockLoanService } from "@/services/mock/loans";
 import { mockProjectService } from "@/services/mock/profile";
-import { authService } from "@/services";
+import { authService, boardLoanService } from "@/services";
 import { mockDb } from "@/mocks/db";
 import { UserPersona } from "@/types";
 
@@ -21,10 +21,9 @@ describe("Stage 2 Domain Services Workflow", () => {
       name: "Test Candidate",
       email: "candidate@insat.u-carthage.tn",
       phone: "+216 55 123 456",
-      studentId: "2400999",
+      membership: "EXTERNAL",
     });
 
-    expect(result.persona.id).toBe("p-member-unprocessed");
     expect(result.persona.name).toBe("Test Candidate");
     expect(result.persona.role).toBe("MEMBER");
     expect(result.persona.clearance).toBe("I");
@@ -33,7 +32,6 @@ describe("Stage 2 Domain Services Workflow", () => {
     expect(result.persona.status).toBe("ACTIVE");
 
     expect(result.profile.phone).toBe("+216 55 123 456");
-    expect(result.profile.studentId).toBe("2400999");
 
     // Check that session subscribers were notified
     expect(notifiedPersona).not.toBeNull();
@@ -45,12 +43,12 @@ describe("Stage 2 Domain Services Workflow", () => {
 
   it("submits a new borrow request with multi-dimensional states and line quantities", async () => {
     const created = await mockRequestService.createRequest("p-member-ieee", {
-      purpose: "Quadrotor test bench calibration and motor speed profiling",
+      note: "Quadrotor test bench calibration and motor speed profiling",
       expectedReturnDate: "2026-10-15",
       items: [{ itemId: "item-stm32-f4", quantity: 1 }],
     });
 
-    expect(created.id).toMatch(/^REQ-2026-/);
+    expect(created.id).toMatch(/^REQ-/);
     expect(created.decisionStatus).toBe("PENDING");
     expect(created.handoverStatus).toBe("WAITING");
     expect(created.lifecycleStatus).toBe("ACTIVE");
@@ -78,7 +76,7 @@ describe("Stage 2 Domain Services Workflow", () => {
 
   it("allows member to cancel PENDING request with reason", async () => {
     const created = await mockRequestService.createRequest("p-member-ieee", {
-      purpose: "Temporary sensor breadboard check",
+      note: "Temporary sensor breadboard check",
       expectedReturnDate: "2026-10-10",
       items: [{ itemId: "item-arduino-uno", quantity: 1 }],
     });
@@ -111,61 +109,39 @@ describe("Stage 2 Domain Services Workflow", () => {
     );
   });
 
-  it("submits extension request and preserves official due date", async () => {
+  it("allows operator to directly update loan due date", async () => {
     // LN-2026-0089 is ACTIVE
-    const initial = await mockLoanService.getLoan("LN-2026-0089");
-    const originalDueDate = initial!.dueDate;
-
-    const updated = await mockLoanService.requestExtension(
-      {
-        loanId: "LN-2026-0089",
-        proposedReturnDate: "2026-10-25",
-        reason: "Need additional time for motor encoder tuning",
-      },
-      "p-member-ieee"
+    const updated = await boardLoanService.updateDueDate(
+      "LN-2026-0089",
+      "2026-10-25",
+      "p-board-logistics"
     );
 
-    expect(updated.extensionStatus).toBe("PENDING");
-    expect(updated.dueDate).toBe(originalDueDate); // Official due date preserved!
-    expect(updated.extensionRequests[0].proposedReturnDate).toBe("2026-10-25");
+    expect(updated.dueDate).toBe("2026-10-25");
   });
 
-  it("enforces strict returnable quantity formula and rejects return exceeding outstanding minus pending", async () => {
+  it("enforces operator-managed return flow and updates loan returned quantities", async () => {
     // LN-2026-0089 has 2 motor drivers
     const loan = await mockLoanService.getLoan("LN-2026-0089");
     const driverLine = loan!.items.find((i) => i.itemId === "item-pololu-driver")!;
 
-    // Step 1: Request return of 1 unit
-    await mockLoanService.requestReturn(
+    // Operator confirms physical return of 1 unit
+    const returned = await boardLoanService.confirmReturn(
       {
         loanId: "LN-2026-0089",
         items: [
           {
             lineItemId: driverLine.id,
-            quantity: 1,
-            conditionReport: "Good condition",
+            returnedQuantity: 1,
+            condition: "GOOD",
           },
         ],
       },
-      "p-member-ieee"
+      "p-board-logistics"
     );
 
-    // Step 2: Attempt to return 2 units when only 1 is remaining returnable (2 borrowed - 0 returned - 1 pending = 1)
-    await expect(
-      mockLoanService.requestReturn(
-        {
-          loanId: "LN-2026-0089",
-          items: [
-            {
-              lineItemId: driverLine.id,
-              quantity: 2, // Exceeds remaining returnable!
-              conditionReport: "Good",
-            },
-          ],
-        },
-        "p-member-ieee"
-      )
-    ).rejects.toThrow(/already pending confirmation/);
+    const updatedLine = returned.items.find((i) => i.id === driverLine.id)!;
+    expect(updatedLine.returnedQuantity).toBe(1);
   });
 
   it("scopes listMine projects strictly to assigned member", async () => {

@@ -4,7 +4,7 @@ import { useSession } from "@/hooks/useSession";
 
 export const RootRedirect: React.FC = () => {
   const { currentPersona } = useSession();
-  if (currentPersona.role === "BOARD" || currentPersona.role === "SUPERADMIN") {
+  if (currentPersona.role === "OPERATOR" || currentPersona.role === "SUPERADMIN") {
     return <Navigate to="/board" replace />;
   }
   return <Navigate to="/app" replace />;

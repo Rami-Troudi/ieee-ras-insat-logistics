@@ -21,7 +21,7 @@ export const DevPersonaSwitcher: React.FC = () => {
 
   const handleSelectPersona = (p: UserPersona) => {
     setPersona(p);
-    if (p.role === "BOARD" || p.role === "SUPERADMIN") {
+    if (p.role === "OPERATOR" || p.role === "SUPERADMIN") {
       navigate("/board");
     } else {
       navigate("/app");
@@ -63,7 +63,7 @@ export const DevPersonaSwitcher: React.FC = () => {
               <div className="flex items-center justify-between w-full">
                 <span className="font-medium text-xs text-foreground flex items-center gap-1.5">
                   {p.role === "SUPERADMIN" && <ShieldAlert className="w-3.5 h-3.5 text-primary" />}
-                  {p.role === "BOARD" && <UserCheck className="w-3.5 h-3.5 text-secondary" />}
+                  {p.role === "OPERATOR" && <UserCheck className="w-3.5 h-3.5 text-secondary" />}
                   {p.name}
                 </span>
                 {isSelected && (

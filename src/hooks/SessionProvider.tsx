@@ -14,7 +14,9 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
   initialPersona = PROD_DEFAULT_PERSONA,
   isDev = false,
 }) => {
-  const [currentPersona, setCurrentPersona] = useState<UserPersona>(initialPersona);
+  const [currentPersona, setCurrentPersona] = useState<UserPersona>(() =>
+    initialPersona.id === PROD_DEFAULT_PERSONA.id ? authService.getCurrentUser() : initialPersona
+  );
 
   useEffect(() => {
     authService.getCurrentSession().then((session) => {

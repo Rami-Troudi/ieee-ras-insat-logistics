@@ -38,7 +38,6 @@ export interface MockDatabaseSchema {
   loans: LoanRecord[];
   notifications: AppNotification[];
   userProfiles: Record<string, UserProfile>;
-  favorites: Record<string, string[]>; // userId -> itemId[]
   allocations: AllocationRecord[];
   inventoryEvents: InventoryEvent[];
   audits: InventoryAudit[];
@@ -50,10 +49,12 @@ export interface MockDatabaseSchema {
   semesters: SemesterConfig[];
 }
 
-const STORAGE_KEY = "ras_insat_mock_db_v3";
+// The old demo store remains untouched for recovery during the mock schema change.
+const STORAGE_KEY = "ras_insat_mock_db_v4";
 
 class MockDatabase {
   private data: MockDatabaseSchema;
+  private listeners = new Set<() => void>();
 
   constructor() {
     this.data = this.loadFromStorage();
@@ -67,9 +68,6 @@ class MockDatabase {
       loans: JSON.parse(JSON.stringify(INITIAL_LOANS)),
       notifications: JSON.parse(JSON.stringify(INITIAL_NOTIFICATIONS)),
       userProfiles: JSON.parse(JSON.stringify(INITIAL_USER_PROFILES)),
-      favorites: {
-        "p-member-ieee": [],
-      },
       allocations: JSON.parse(JSON.stringify(INITIAL_ALLOCATIONS)),
       inventoryEvents: JSON.parse(JSON.stringify(INITIAL_INVENTORY_EVENTS)),
       audits: JSON.parse(JSON.stringify(INITIAL_AUDITS)),
@@ -116,6 +114,7 @@ class MockDatabase {
   public resetToDefault(): void {
     this.data = this.getDefaultData();
     this.saveToStorage(this.data);
+    this.listeners.forEach((listener) => listener());
   }
 
   public reset(): void {
@@ -126,9 +125,18 @@ class MockDatabase {
     return JSON.parse(JSON.stringify(this.data));
   }
 
-  public mutate(mutator: (draft: MockDatabaseSchema) => void): void {
-    mutator(this.data);
+  public mutate<T>(mutator: (draft: MockDatabaseSchema) => T): T {
+    const draft = this.getSnapshot();
+    const result = mutator(draft);
+    this.data = draft;
     this.saveToStorage(this.data);
+    this.listeners.forEach((listener) => listener());
+    return result;
+  }
+
+  public subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 }
 

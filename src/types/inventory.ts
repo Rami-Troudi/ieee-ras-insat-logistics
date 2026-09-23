@@ -5,12 +5,14 @@ export type TrackingMode = "QUANTITY" | "INDIVIDUAL_ASSET";
 
 export type AssetCondition =
   "GOOD" | "MINOR_ISSUE" | "DAMAGED" | "MAINTENANCE" | "LOST" | "RETIRED";
+export type AssetState =
+  "AVAILABLE" | "ALLOCATED" | "BORROWED" | "DAMAGED" | "MAINTENANCE" | "LOST" | "RETIRED";
 
 export interface IndividualAsset {
   id: string;
   serialNumber: string;
   condition: AssetCondition;
-  isAvailable: boolean;
+  state: AssetState;
   notes?: string;
 }
 
@@ -27,8 +29,8 @@ export interface InventoryItemSummary {
   allocatedQuantity: number;
   borrowedQuantity: number;
   damagedQuantity: number;
-  maintenanceQuantity?: number;
-  lostQuantity?: number;
+  maintenanceQuantity: number;
+  lostQuantity: number;
   location?: string;
   isFavorite?: boolean;
   imageUrl?: string;
@@ -43,9 +45,17 @@ export interface InventoryItemSummary {
 export interface InventoryQueryFilter {
   search?: string;
   category?: string;
-  equipmentClass?: string;
   availableOnly?: boolean;
-  borrowableByMe?: boolean;
-  trackingMode?: TrackingMode;
-  favoritesOnly?: boolean;
+}
+
+/** Explicit public projection. Internal stock, assets and policy fields never cross this service boundary. */
+export interface BorrowerCatalogItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  imageUrl: string;
+  datasheetUrl?: string;
+  availability: "AVAILABLE" | "LIMITED" | "UNAVAILABLE";
+  action: "REQUEST" | "ASK_OPERATOR" | "WORKSPACE" | "NONE";
 }

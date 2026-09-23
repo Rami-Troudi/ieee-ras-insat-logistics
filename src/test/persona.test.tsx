@@ -6,11 +6,13 @@ import { DevPersonaProvider } from "@/dev/DevPersonaProvider";
 import { MemberLayout } from "@/layouts/MemberLayout";
 import { BoardLayout } from "@/layouts/BoardLayout";
 import { MemberInventoryPage } from "@/pages/member";
-import { BoardActionCenterPage } from "@/pages/board";
+import { BoardDashboardPage } from "@/pages/board";
+import { authService } from "@/services";
 
 describe("Dev Persona Switching & Shell Transition", () => {
   beforeEach(() => {
     localStorage.clear();
+    authService.clearSession();
   });
 
   function createTestRouter(initialPath = "/app") {
@@ -28,7 +30,7 @@ describe("Dev Persona Switching & Shell Transition", () => {
           path: "/board",
           element: <BoardLayout />,
           children: [
-            { index: true, element: <BoardActionCenterPage /> },
+            { index: true, element: <BoardDashboardPage /> },
             { path: "requests/:requestId", element: <div>Board Request Detail View</div> },
           ],
         },
@@ -69,9 +71,9 @@ describe("Dev Persona Switching & Shell Transition", () => {
     fireEvent.click(boardOption);
 
     // 4. Verify Board persona is active and navigated to /board (BoardLayout rendered)
-    expect(await screen.findByText("BOARD")).toBeInTheDocument();
+    expect(await screen.findByText("OPERATOR")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/board");
-    expect(await screen.findByText("Logistics Action Center")).toBeInTheDocument();
+    expect(await screen.findByText("Logistics Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Board Operations")).toBeInTheDocument();
 
     // 5. Open switcher again and select Member
@@ -98,7 +100,7 @@ describe("Dev Persona Switching & Shell Transition", () => {
     // 8. Verify Superadmin uses Board shell
     expect(await screen.findByText("SUPERADMIN")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/board");
-    expect(screen.getByText("Logistics Action Center")).toBeInTheDocument();
+    expect(screen.getByText("Logistics Dashboard")).toBeInTheDocument();
   });
 
   it("switches persona and transitions shell when originating from deep routes", async () => {
@@ -127,7 +129,7 @@ describe("Dev Persona Switching & Shell Transition", () => {
 
     // Shell transitions to /board
     expect(router.state.location.pathname).toBe("/board");
-    expect(await screen.findByText("Logistics Action Center")).toBeInTheDocument();
+    expect(await screen.findByText("Logistics Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Board Operations")).toBeInTheDocument();
   });
 });

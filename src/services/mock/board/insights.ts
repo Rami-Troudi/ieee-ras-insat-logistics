@@ -44,11 +44,25 @@ class MockBoardInsightsService implements IBoardInsightsService {
     const overdueRatePercent =
       activeLoansCount > 0 ? Math.round((overdueLoansCount / activeLoansCount) * 100) : 0;
 
-    const loansWithExtensions = snapshot.loans.filter((l) => l.extensionRequests.length > 0).length;
-    const extensionFrequencyPercent =
-      snapshot.loans.length > 0
-        ? Math.round((loansWithExtensions / snapshot.loans.length) * 100)
-        : 0;
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const requestsThisMonth = snapshot.requests.filter((r) => {
+      const t = Date.parse(r.createdAt);
+      return !isNaN(t) && t >= thirtyDaysAgo;
+    }).length;
+
+    const durations = snapshot.loans.map((l) => {
+      const start = Date.parse(l.borrowDate);
+      const due = Date.parse(l.dueDate);
+      if (isNaN(start) || isNaN(due)) return 14;
+      return Math.max(1, Math.round((due - start) / (1000 * 60 * 60 * 24)));
+    });
+    const averageDurationDays =
+      durations.length > 0
+        ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+        : 14;
+
+    const extensionFrequencyPercent = 0;
 
     // 3. Equipment Rankings
     const borrowCountsByItem: Record<string, number> = {};
@@ -137,16 +151,16 @@ class MockBoardInsightsService implements IBoardInsightsService {
         allocatedUnits,
         borrowedUnits,
         damagedUnits,
-        maintenanceUnits: 0,
-        lostUnits: 0,
+        maintenanceUnits: snapshot.inventory.reduce((s, i) => s + (i.maintenanceQuantity || 0), 0),
+        lostUnits: snapshot.inventory.reduce((s, i) => s + (i.lostQuantity || 0), 0),
       },
       borrowing: {
         totalRequestsCount,
-        requestsThisMonth: totalRequestsCount,
+        requestsThisMonth,
         approvalRatePercent,
         partialApprovalRatePercent,
         activeLoansCount,
-        averageDurationDays: 14,
+        averageDurationDays,
         extensionFrequencyPercent,
         overdueLoansCount,
         overdueRatePercent,

@@ -4,9 +4,10 @@ import {
   MutateStockPayload,
   UpdateAssetPayload,
 } from "@/services/contracts/board/inventory";
-import { InventoryItemSummary, InventoryEvent, IndividualAsset, Role } from "@/types";
+import { InventoryItemSummary, InventoryEvent, IndividualAsset, Role, AssetState } from "@/types";
 import { mockDb } from "@/mocks/db";
 import { mockBoardAuditLogService } from "./audit-log";
+import { inventoryState, assertInventoryConserved } from "./inventoryState";
 
 class MockBoardInventoryService implements IBoardInventoryService {
   private async simulateLatency(): Promise<void> {
@@ -69,11 +70,11 @@ class MockBoardInventoryService implements IBoardInventoryService {
               id: `ast-${itemId}-${idx + 1}`,
               serialNumber: a.serialNumber,
               condition: a.condition,
-              isAvailable: true,
+              state: "AVAILABLE" as AssetState,
             }))
           : [];
 
-      newItem = {
+      const created: InventoryItemSummary = {
         id: itemId,
         name: payload.name,
         category: payload.category,
@@ -84,29 +85,34 @@ class MockBoardInventoryService implements IBoardInventoryService {
         allocatedQuantity: 0,
         borrowedQuantity: 0,
         damagedQuantity: 0,
+        maintenanceQuantity: 0,
+        lostQuantity: 0,
         description: payload.description,
         location: payload.location,
         specifications: payload.specifications,
         assets,
       };
 
-      draft.inventory.unshift(newItem);
+      newItem = created;
+      draft.inventory.unshift(created);
 
       // Log initial inventory event
       draft.inventoryEvents.unshift({
         id: `iev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        itemId: newItem.id,
-        itemName: newItem.name,
+        itemId: created.id,
+        itemName: created.name,
         type: "ADD",
         quantity: payload.totalQuantity,
-        beforeState: { total: 0, available: 0, allocated: 0, borrowed: 0, damaged: 0 },
-        afterState: {
-          total: payload.totalQuantity,
-          available: payload.totalQuantity,
+        beforeState: {
+          total: 0,
+          available: 0,
           allocated: 0,
           borrowed: 0,
           damaged: 0,
+          maintenance: 0,
+          lost: 0,
         },
+        afterState: inventoryState(created),
         reason: "Initial catalog entry creation",
         actorUserId,
         actorName: "Board Custodian",
@@ -143,13 +149,7 @@ class MockBoardInventoryService implements IBoardInventoryService {
       const item = draft.inventory.find((i) => i.id === payload.itemId);
       if (!item) throw new Error("Inventory item not found");
 
-      const before = {
-        total: item.totalQuantity,
-        available: item.availableQuantity,
-        allocated: item.allocatedQuantity,
-        borrowed: item.borrowedQuantity,
-        damaged: item.damagedQuantity,
-      };
+      const before = inventoryState(item);
 
       const qty = payload.quantity;
       if (qty <= 0) throw new Error("Mutation quantity must be greater than 0");
@@ -209,21 +209,17 @@ class MockBoardInventoryService implements IBoardInventoryService {
         const asset = item.assets.find((a) => a.id === payload.assetId);
         if (asset) {
           if (payload.condition) asset.condition = payload.condition;
-          if (payload.type === "DAMAGE" || payload.type === "RETIRE") {
-            asset.isAvailable = false;
+          if (payload.type === "DAMAGE") {
+            asset.state = "DAMAGED";
+          } else if (payload.type === "RETIRE") {
+            asset.state = "RETIRED";
           } else if (payload.type === "REPAIR" || payload.type === "RECOVER") {
-            asset.isAvailable = true;
+            asset.state = "AVAILABLE";
           }
         }
       }
 
-      const after = {
-        total: item.totalQuantity,
-        available: item.availableQuantity,
-        allocated: item.allocatedQuantity,
-        borrowed: item.borrowedQuantity,
-        damaged: item.damagedQuantity,
-      };
+      const after = inventoryState(item);
 
       createdEvent = {
         id: `iev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -277,9 +273,41 @@ class MockBoardInventoryService implements IBoardInventoryService {
       const asset = item.assets.find((a) => a.id === payload.assetId);
       if (!asset) throw new Error("Asset unit not found");
 
+      const oldState = asset.state;
+      let newState: AssetState = oldState;
+      if (payload.state) {
+        newState = payload.state;
+      } else if (payload.isAvailable !== undefined) {
+        newState = payload.isAvailable
+          ? "AVAILABLE"
+          : payload.condition === "DAMAGED"
+            ? "DAMAGED"
+            : "MAINTENANCE";
+      }
       asset.condition = payload.condition;
-      asset.isAvailable = payload.isAvailable;
+      asset.state = newState;
       if (payload.notes) asset.notes = payload.notes;
+
+      // Synchronize aggregate item counters atomically if state changed
+      if (oldState !== newState) {
+        const stateToField: Record<string, keyof InventoryItemSummary> = {
+          AVAILABLE: "availableQuantity",
+          ALLOCATED: "allocatedQuantity",
+          BORROWED: "borrowedQuantity",
+          DAMAGED: "damagedQuantity",
+          MAINTENANCE: "maintenanceQuantity",
+          LOST: "lostQuantity",
+        };
+        const oldField = stateToField[oldState];
+        const newField = stateToField[newState];
+        if (oldField && typeof item[oldField] === "number") {
+          (item[oldField] as number) = Math.max(0, (item[oldField] as number) - 1);
+        }
+        if (newField && typeof item[newField] === "number") {
+          (item[newField] as number) += 1;
+        }
+        assertInventoryConserved(item);
+      }
 
       updatedAsset = { ...asset };
     });

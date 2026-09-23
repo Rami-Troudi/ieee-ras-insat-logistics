@@ -11,7 +11,6 @@ export interface ReviewRequestPayload {
   requestId: string;
   lines: LineDecisionInput[];
   decisionNotes?: string;
-  scheduledPickup?: string; // Invited date & hour for physical collection
 }
 
 export interface HandoverPayload {
@@ -38,18 +37,18 @@ export interface IBoardRequestService {
   reviewRequest(
     payload: ReviewRequestPayload,
     actorUserId: string,
-    actorRole: string,
-    actorClearance: string
+    _actorRole?: string,
+    _actorClearance?: string
   ): Promise<BorrowRequest>;
   rejectEntireRequest(
     requestId: string,
     reason: string,
     actorUserId: string,
-    actorRole: string
+    _actorRole?: string
   ): Promise<BorrowRequest>;
   confirmHandover(
     payload: HandoverPayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole?: string
   ): Promise<{ request: BorrowRequest; loanId: string }>;
 }

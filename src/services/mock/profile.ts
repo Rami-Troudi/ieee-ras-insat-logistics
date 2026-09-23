@@ -1,4 +1,4 @@
-import { IProfileService, IProjectService, IFavoritesService } from "../contracts/profile";
+import { IProfileService, IProjectService } from "../contracts/profile";
 import { UserProfile, ProjectSummary } from "@/types";
 import { mockDb } from "@/mocks/db";
 import { scenarioManager } from "./scenario";
@@ -63,41 +63,5 @@ export class MockProjectService implements IProjectService {
   }
 }
 
-export class MockFavoritesService implements IFavoritesService {
-  private defaultDelayMs = 100;
-
-  private async simulateLatency(): Promise<void> {
-    await scenarioManager.simulateLatency(this.defaultDelayMs);
-  }
-
-  async getFavoriteIds(userId: string): Promise<string[]> {
-    await this.simulateLatency();
-    if (scenarioManager.isEmpty()) return [];
-    const snapshot = mockDb.getSnapshot();
-    return snapshot.favorites[userId] || [];
-  }
-
-  async toggleFavorite(userId: string, itemId: string): Promise<boolean> {
-    await this.simulateLatency();
-    let isFav = false;
-    mockDb.mutate((draft) => {
-      if (!draft.favorites[userId]) {
-        draft.favorites[userId] = [];
-      }
-      const list = draft.favorites[userId];
-      const idx = list.indexOf(itemId);
-      if (idx >= 0) {
-        list.splice(idx, 1);
-        isFav = false;
-      } else {
-        list.push(itemId);
-        isFav = true;
-      }
-    });
-    return isFav;
-  }
-}
-
 export const mockProfileService = new MockProfileService();
 export const mockProjectService = new MockProjectService();
-export const mockFavoritesService = new MockFavoritesService();

@@ -7,6 +7,7 @@ export interface ReturnInspectionLineItem {
   notes?: string;
   damagedQuantity?: number;
   lostQuantity?: number;
+  assetIds?: string[];
 }
 
 export interface ConfirmReturnPayload {
@@ -16,18 +17,10 @@ export interface ConfirmReturnPayload {
   inspectionNotes?: string;
 }
 
-export interface ReviewExtensionPayload {
-  loanId: string;
-  extensionRequestId: string;
-  decision: "APPROVED" | "REJECTED";
-  decisionNotes?: string;
-}
-
 export interface BoardLoanFilterParams {
   lifecycleStatus?: "ACTIVE" | "CLOSED" | "ALL";
   dueStatus?: "ON_TIME" | "DUE_SOON" | "OVERDUE" | "ALL";
   returnStatus?: "NONE" | "PENDING_CONFIRMATION" | "PARTIAL" | "COMPLETE" | "ALL";
-  extensionStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | "ALL";
   search?: string;
 }
 
@@ -37,12 +30,7 @@ export interface IBoardLoanService {
   confirmReturn(
     payload: ConfirmReturnPayload,
     actorUserId: string,
-    actorRole: string
-  ): Promise<LoanRecord>;
-  reviewExtension(
-    payload: ReviewExtensionPayload,
-    actorUserId: string,
-    actorRole: string
+    _actorRole?: string
   ): Promise<LoanRecord>;
   updateDueDate(loanId: string, dueDate: string, actorUserId: string): Promise<LoanRecord>;
 }

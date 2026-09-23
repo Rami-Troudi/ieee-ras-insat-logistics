@@ -49,7 +49,6 @@ export function useCreateProject() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardProjects.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects.active });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardActionCenter.all });
     },
   });
 }

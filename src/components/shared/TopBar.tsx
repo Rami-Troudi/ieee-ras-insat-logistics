@@ -17,7 +17,7 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
   const { totalItemCount } = useBorrowCart();
 
   const isBoardRole =
-    isBoard || currentPersona.role === "BOARD" || currentPersona.role === "SUPERADMIN";
+    isBoard || currentPersona.role === "OPERATOR" || currentPersona.role === "SUPERADMIN";
 
   const { data: notifications = [] } = useUserNotifications(currentPersona.id);
   const unreadCount = notifications.filter((n) => !n.read).length;

@@ -3,7 +3,6 @@ import { describe, it, expect, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { FilterChip } from "@/components/shared/FilterChip";
 import { FilterBar } from "@/components/shared/FilterBar";
-import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
 import { AlertBanner } from "@/components/shared/AlertBanner";
 import { PolicyNotice } from "@/components/shared/PolicyNotice";
@@ -56,28 +55,6 @@ describe("Shared Foundation Primitives", () => {
     const removeBtn = screen.getByLabelText("Remove filter for Category: Microcontrollers");
     fireEvent.click(removeBtn);
     expect(handleRemove).toHaveBeenCalled();
-  });
-
-  it("toggles FavoriteButton with accessible state", () => {
-    let favorite = false;
-    const handleToggle = vi.fn(() => {
-      favorite = !favorite;
-    });
-
-    const { rerender } = render(
-      <FavoriteButton isFavorite={favorite} onToggle={handleToggle} itemName="STM32 Board" />
-    );
-
-    const btn = screen.getByRole("button", { name: /Add STM32 Board to favorites/i });
-    expect(btn).toHaveAttribute("aria-pressed", "false");
-
-    fireEvent.click(btn);
-    expect(handleToggle).toHaveBeenCalledTimes(1);
-
-    rerender(<FavoriteButton isFavorite={true} onToggle={handleToggle} itemName="STM32 Board" />);
-    expect(
-      screen.getByRole("button", { name: /Remove STM32 Board from favorites/i })
-    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("handles ConfirmationDialog confirm and cancel actions", () => {

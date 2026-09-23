@@ -71,8 +71,6 @@ export const BoardDashboardPage: React.FC = () => {
         decisionNotes: "Approved via quick review",
       },
       actorUserId: currentPersona.id,
-      actorRole: currentPersona.role,
-      actorClearance: currentPersona.clearance,
     });
   };
 

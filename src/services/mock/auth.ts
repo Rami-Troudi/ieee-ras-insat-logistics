@@ -1,33 +1,39 @@
 import { IAuthService, RegisterMemberInput, RegisterResult } from "../contracts/auth";
-import { UserPersona, Affiliation } from "@/types";
+import { UserPersona } from "@/types";
 import { mockDb } from "@/mocks/db";
 import { PROD_DEFAULT_PERSONA } from "@/hooks/useSession";
 
 class MockAuthService implements IAuthService {
   private subscribers: Set<(persona: UserPersona) => void> = new Set();
-  private currentSession: UserPersona = PROD_DEFAULT_PERSONA;
+  private sessionUserId = PROD_DEFAULT_PERSONA.id;
 
   constructor() {
     try {
-      const saved = localStorage.getItem("ras_active_session");
+      const saved =
+        localStorage.getItem("ras_active_user_id") ||
+        (import.meta.env.DEV ? localStorage.getItem("ras_dev_persona_id") : null);
       if (saved) {
-        this.currentSession = JSON.parse(saved);
+        this.sessionUserId = saved;
       }
     } catch {
       // Ignore storage errors in test or restricted environments
     }
+    mockDb.subscribe(() => this.notifySubscribers());
   }
 
   async registerMember(input: RegisterMemberInput): Promise<RegisterResult> {
     await new Promise((res) => setTimeout(res, 200));
 
-    const affiliation = (input.membership || input.affiliation || "EXTERNAL") as Affiliation;
+    if (!["EXTERNAL", "AEROBOTIX", "IEEE"].includes(input.membership)) {
+      throw new Error("Public registration only accepts member affiliations");
+    }
+    const affiliation = input.membership;
     const newPersona: UserPersona = {
-      id: "p-member-unprocessed",
+      id: `member-${crypto.randomUUID()}`,
       name: input.name.trim(),
       email: input.email.trim().toLowerCase(),
       role: "MEMBER",
-      clearance: affiliation === "IEEE" ? "II" : affiliation === "AEROBOTIX" ? "II" : "I",
+      clearance: affiliation === "IEEE" ? "III" : affiliation === "AEROBOTIX" ? "II" : "I",
       affiliation: affiliation,
       isProcessed: false,
       status: "ACTIVE",
@@ -38,7 +44,6 @@ class MockAuthService implements IAuthService {
       draft.userProfiles[newPersona.id] = {
         ...newPersona,
         phone: input.phone.trim(),
-        studentId: (input.studentId || "").trim(),
         claimedAffiliation: affiliation,
         joinedDate: new Date().toISOString(),
         strikes: [],
@@ -57,13 +62,21 @@ class MockAuthService implements IAuthService {
   }
 
   async getCurrentSession(): Promise<UserPersona | null> {
-    return this.currentSession;
+    return this.getCurrentUser();
+  }
+
+  getCurrentUser(): UserPersona {
+    const users = mockDb.getSnapshot().userProfiles;
+    return users[this.sessionUserId] || users[PROD_DEFAULT_PERSONA.id];
   }
 
   setSession(persona: UserPersona): void {
-    this.currentSession = persona;
+    if (!mockDb.getSnapshot().userProfiles[persona.id]) {
+      throw new Error("Unknown account");
+    }
+    this.sessionUserId = persona.id;
     try {
-      localStorage.setItem("ras_active_session", JSON.stringify(persona));
+      localStorage.setItem("ras_active_user_id", persona.id);
       if (import.meta.env.DEV) {
         localStorage.setItem("ras_dev_persona_id", persona.id);
       }
@@ -74,9 +87,9 @@ class MockAuthService implements IAuthService {
   }
 
   clearSession(): void {
-    this.currentSession = PROD_DEFAULT_PERSONA;
+    this.sessionUserId = PROD_DEFAULT_PERSONA.id;
     try {
-      localStorage.removeItem("ras_active_session");
+      localStorage.removeItem("ras_active_user_id");
       if (import.meta.env.DEV) {
         localStorage.removeItem("ras_dev_persona_id");
       }
@@ -94,9 +107,10 @@ class MockAuthService implements IAuthService {
   }
 
   private notifySubscribers() {
+    const currentUser = this.getCurrentUser();
     this.subscribers.forEach((cb) => {
       try {
-        cb(this.currentSession);
+        cb(currentUser);
       } catch (err) {
         console.error("Session subscriber error:", err);
       }

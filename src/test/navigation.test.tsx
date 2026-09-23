@@ -16,12 +16,15 @@ import { BoardLayout } from "@/layouts/BoardLayout";
 import { MemberRequestDetailPage, MemberLoanDetailPage } from "@/pages/member";
 import { BoardRequestDetailPage, BoardProfilePage, BoardNotificationsPage } from "@/pages/board";
 import { NotFoundPage } from "@/pages/system/NotFoundPage";
+import { authService } from "@/services";
+import { PRESET_PERSONAS } from "@/constants/personas";
+
+beforeEach(() => {
+  localStorage.clear();
+  authService.clearSession();
+});
 
 describe("Stage 1 Navigation & Shell Architecture", () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
-
   it("renders Desktop Member Navigation with simplified human links and excludes board links", () => {
     render(
       <Providers>
@@ -149,11 +152,13 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
       </Providers>
     );
 
-    expect(await screen.findByText("Borrow Request Summary")).toBeInTheDocument();
-    expect(screen.getByText("Line Item Decision Breakdown")).toBeInTheDocument();
+    expect(await screen.findByText("Equipment request")).toBeInTheDocument();
+    expect(screen.getByText("Updates")).toBeInTheDocument();
   });
 
   it("preserves Board shell context when navigating to Board Profile and Board Notifications", () => {
+    authService.setSession(PRESET_PERSONAS.find((p) => p.role === "OPERATOR")!);
+
     const boardContextRouter = createMemoryRouter(
       [
         {

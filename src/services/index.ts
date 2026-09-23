@@ -2,18 +2,17 @@ import { IInventoryService } from "./contracts/inventory";
 import { IRequestService } from "./contracts/requests";
 import { ILoanService } from "./contracts/loans";
 import { INotificationService } from "./contracts/notifications";
-import { IProfileService, IProjectService, IFavoritesService } from "./contracts/profile";
+import { IProfileService, IProjectService } from "./contracts/profile";
 import { IAuthService } from "./contracts/auth";
 
 import { mockInventoryService } from "./mock/inventory";
 import { mockRequestService } from "./mock/requests";
 import { mockLoanService } from "./mock/loans";
 import { mockNotificationService } from "./mock/notifications";
-import { mockProfileService, mockProjectService, mockFavoritesService } from "./mock/profile";
+import { mockProfileService, mockProjectService } from "./mock/profile";
 import { mockAuthService } from "./mock/auth";
 
 // Board services
-import { IBoardActionCenterService } from "./contracts/board/action-center";
 import { IBoardAllocationService } from "./contracts/board/allocations";
 import { IBoardRequestService } from "./contracts/board/requests";
 import { IBoardLoanService } from "./contracts/board/loans";
@@ -26,7 +25,6 @@ import { IBoardInsightsService } from "./contracts/board/insights";
 import { IBoardExportService } from "./contracts/board/exports";
 import { IBoardAuditLogService } from "./contracts/board/audit-log";
 
-import { mockBoardActionCenterService } from "./mock/board/action-center";
 import { mockBoardAllocationService } from "./mock/board/allocations";
 import { mockBoardRequestService } from "./mock/board/requests";
 import { mockBoardLoanService } from "./mock/board/loans";
@@ -46,11 +44,9 @@ export const loanService: ILoanService = mockLoanService;
 export const notificationService: INotificationService = mockNotificationService;
 export const profileService: IProfileService = mockProfileService;
 export const projectService: IProjectService = mockProjectService;
-export const favoritesService: IFavoritesService = mockFavoritesService;
 export const authService: IAuthService = mockAuthService;
 
 // Board Public Services
-export const boardActionCenterService: IBoardActionCenterService = mockBoardActionCenterService;
 export const boardAllocationService: IBoardAllocationService = mockBoardAllocationService;
 export const boardRequestService: IBoardRequestService = mockBoardRequestService;
 export const boardLoanService: IBoardLoanService = mockBoardLoanService;
@@ -71,7 +67,6 @@ export * from "./contracts/notifications";
 export * from "./contracts/profile";
 export * from "./contracts/auth";
 
-export * from "./contracts/board/action-center";
 export * from "./contracts/board/allocations";
 export * from "./contracts/board/requests";
 export * from "./contracts/board/loans";

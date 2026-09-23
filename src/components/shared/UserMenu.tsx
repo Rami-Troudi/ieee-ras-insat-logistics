@@ -21,7 +21,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isBoard = false }) => {
   const navigate = useNavigate();
   const { currentPersona } = useSession();
   const isBoardRole =
-    isBoard || currentPersona.role === "BOARD" || currentPersona.role === "SUPERADMIN";
+    isBoard || currentPersona.role === "OPERATOR" || currentPersona.role === "SUPERADMIN";
 
   const profilePath = isBoardRole ? "/board/profile" : "/app/profile";
   const notificationPath = isBoardRole ? "/board/notifications" : "/app/notifications";

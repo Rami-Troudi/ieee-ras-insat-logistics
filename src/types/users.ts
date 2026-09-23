@@ -1,4 +1,4 @@
-export type Role = "MEMBER" | "BOARD" | "SUPERADMIN";
+export type Role = "MEMBER" | "OPERATOR" | "SUPERADMIN";
 export type UserRole = Role;
 
 export type ClearanceLevel = "I" | "II" | "III" | "IV" | "V" | "VI";
@@ -6,20 +6,10 @@ export type ClearanceLevel = "I" | "II" | "III" | "IV" | "V" | "VI";
 export type UserStatus = "ACTIVE" | "RESTRICTED" | "BANNED" | "BLACKLISTED" | "PENDING";
 export type AccountStatus = "PENDING" | "ACTIVE" | "RESTRICTED" | "BANNED" | "SUSPENDED";
 
-export type Affiliation =
-  | "EXTERNAL"
-  | "AEROBOTIX"
-  | "IEEE"
-  | "RAS_BOARD"
-  | "EUROBOT"
-  | "INSAT_STUDENT"
-  | "IEEE_STUDENT_MEMBER"
-  | "IEEE_RAS_MEMBER"
-  | "AEROBOTIX_MEMBER"
-  | string;
+export type Affiliation = "EXTERNAL" | "AEROBOTIX" | "IEEE" | "RAS_BOARD" | "EUROBOT";
 
 export type ClearanceSource =
-  "AFFILIATION" | "EUROBOT" | "BOARD_ROLE" | "MANUAL_LEVEL_IV" | "SUPERADMIN_ROLE";
+  "AFFILIATION" | "EUROBOT" | "OPERATOR_ROLE" | "MANUAL_LEVEL_IV" | "SUPERADMIN_ROLE";
 
 export interface UserPersona {
   id: string;

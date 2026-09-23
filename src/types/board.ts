@@ -43,6 +43,8 @@ export interface InventoryQuantityState {
   allocated: number;
   borrowed: number;
   damaged: number;
+  maintenance: number;
+  lost: number;
 }
 
 export interface InventoryEvent {
@@ -205,34 +207,6 @@ export interface AuditEvent {
   after?: unknown;
   reason?: string;
   createdAt: string;
-}
-
-// --- 6. Derived Board Actions for Action Center ---
-export type BoardActionPriority = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-
-export type BoardActionType =
-  | "REQUEST_PENDING"
-  | "REQUEST_AWAITING_HANDOVER"
-  | "RETURN_PENDING"
-  | "EXTENSION_PENDING"
-  | "USER_UNPROCESSED"
-  | "LOAN_OVERDUE"
-  | "DISCIPLINARY_RECOMMENDATION"
-  | "INCIDENT_OPEN"
-  | "AUDIT_DISCREPANCY"
-  | "LOW_STOCK";
-
-export interface BoardAction {
-  id: string;
-  type: BoardActionType;
-  priority: BoardActionPriority;
-  title: string;
-  description: string;
-  entityType: string;
-  entityId: string;
-  createdAt: string;
-  route: string;
-  badgeLabel?: string;
 }
 
 // --- 7. Board Insights Analytics ---

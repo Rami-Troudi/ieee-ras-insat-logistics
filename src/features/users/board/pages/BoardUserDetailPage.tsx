@@ -40,7 +40,7 @@ export const BoardUserDetailPage: React.FC = () => {
   const [manualReason, setManualReason] = useState("");
 
   // Superadmin privileged role state
-  const [targetRole, setTargetRole] = useState<UserRole>("BOARD");
+  const [targetRole, setTargetRole] = useState<UserRole>("OPERATOR");
   const [roleReason, setRoleReason] = useState("");
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -436,7 +436,7 @@ export const BoardUserDetailPage: React.FC = () => {
                   className="h-8 px-2 rounded-md border border-input bg-background text-xs"
                 >
                   <option value="MEMBER">MEMBER (Normal User)</option>
-                  <option value="BOARD">BOARD (Clearance V)</option>
+                  <option value="OPERATOR">BOARD (Clearance V)</option>
                   <option value="SUPERADMIN">SUPERADMIN (Clearance VI)</option>
                 </select>
 

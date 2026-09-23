@@ -191,7 +191,6 @@ export function useReviewRecommendation() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardDiscipline.recommendations });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardDiscipline.strikes() });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardUsers.all });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardActionCenter.queue });
     },
   });
 }

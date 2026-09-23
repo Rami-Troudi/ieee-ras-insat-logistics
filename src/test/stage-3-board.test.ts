@@ -7,15 +7,9 @@ import {
   boardAuditService,
   boardDisciplineService,
   boardUserService,
-  boardActionCenterService,
   boardExportService,
 } from "@/services";
-import {
-  IncidentRecord,
-  DisciplinaryRecommendation,
-  InventoryAuditItem,
-  BoardAction,
-} from "@/types";
+import { IncidentRecord, DisciplinaryRecommendation, InventoryAuditItem } from "@/types";
 
 describe("Stage 3 Board & Superadmin Domain Operations", () => {
   beforeEach(() => {
@@ -41,19 +35,19 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
           requestId: "REQ-2026-0155",
           lines: [
             {
-              lineId: "rline-5",
+              lineId: "rline-waiting-uno",
               approvedQuantity: 1,
             },
           ],
           decisionNotes: "Approved for IEEE INSAT prototyping",
         },
         "p-board-logistics",
-        "BOARD",
+        "OPERATOR",
         "V"
       );
 
       expect(approvedReq.decisionStatus).toBe("APPROVED");
-      const approvedLine = approvedReq.items.find((i) => i.id === "rline-5");
+      const approvedLine = approvedReq.items.find((i) => i.id === "rline-waiting-uno");
       expect(approvedLine!.approvedQuantity).toBe(1);
 
       // 4. Verify inventory stock was reserved/allocated (48h window)
@@ -67,26 +61,24 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
           requestId: "REQ-2026-0155",
           lineHandoverDetails: [
             {
-              lineId: "rline-5",
-              serialNumbers: ["ARDUINO-UNO-099"],
+              lineId: "rline-waiting-uno",
             },
           ],
           notes: "Hardware inspected and handed over",
         },
         "p-board-logistics",
-        "BOARD"
+        "OPERATOR"
       );
 
       expect(handedOverReq.handoverStatus).toBe("HANDED_OVER");
       expect(handedOverReq.lifecycleStatus).toBe("CLOSED");
 
-      // 6. Verify loan record exists and has items with serials
+      // 6. Verify loan record exists
       const createdLoan = await boardLoanService.getLoanById(loanId);
       expect(createdLoan).not.toBeNull();
       expect(createdLoan!.lifecycleStatus).toBe("ACTIVE");
       const loanItem = createdLoan!.items.find((i) => i.itemId === "item-arduino-uno");
       expect(loanItem!.borrowedQuantity).toBe(1);
-      expect(loanItem!.serialNumbers).toEqual(["ARDUINO-UNO-099"]);
 
       // 7. Verify inventory state: allocated released, borrowed incremented
       const postHandoverItem = await boardInventoryService.getItemById("item-arduino-uno");
@@ -125,7 +117,7 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
           inspectionNotes: "Physical intake verified at cabinet A",
         },
         "p-board-logistics",
-        "BOARD"
+        "OPERATOR"
       );
 
       expect(updatedLoan.lifecycleStatus).toBe("CLOSED");
@@ -155,7 +147,7 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
           inspectionNotes: "Hardware damaged during testing",
         },
         "p-board-logistics",
-        "BOARD"
+        "OPERATOR"
       );
 
       expect(updatedLoan.lifecycleStatus).toBe("CLOSED");
@@ -191,7 +183,7 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
           userName: "Rami Troudi",
           userEmail: "rami.ieee@insat.u-carthage.tn",
           userClearance: "III",
-          purpose: "High precision oscilloscope benchmarks",
+          note: "High precision oscilloscope benchmarks",
           expectedReturnDate: "2026-10-30",
           decisionStatus: "PENDING",
           handoverStatus: "WAITING",
@@ -227,25 +219,24 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
             lines: [{ lineId: "line-g-01", approvedQuantity: 1 }],
           },
           "p-board-logistics",
-          "BOARD",
+          "OPERATOR",
           "V"
         )
-      ).rejects.toThrow(/Level VI|Superadmin|Class G/i);
+      ).rejects.toThrow("Only Class C and E requests can be approved online");
 
-      // 2. Superadmin (Level VI) approves -> Must succeed
-      const approved = await boardRequestService.reviewRequest(
-        {
-          requestId: classGReqId,
-          lines: [{ lineId: "line-g-01", approvedQuantity: 1 }],
-          decisionNotes: "Approved under Superadmin chairman authorization",
-        },
-        "p-superadmin-chair",
-        "SUPERADMIN",
-        "VI"
-      );
-
-      expect(approved.decisionStatus).toBe("APPROVED");
-      expect(approved.items[0].approvedQuantity).toBe(1);
+      // 2. Superadmin (Level VI) attempts to approve online -> Must also throw Error
+      await expect(
+        boardRequestService.reviewRequest(
+          {
+            requestId: classGReqId,
+            lines: [{ lineId: "line-g-01", approvedQuantity: 1 }],
+            decisionNotes: "Approved under Superadmin chairman authorization",
+          },
+          "p-superadmin-chair",
+          "SUPERADMIN",
+          "VI"
+        )
+      ).rejects.toThrow("Only Class C and E requests can be approved online");
     });
 
     it("enforces Superadmin-only gate for Manual Level IV clearance grant", async () => {
@@ -259,7 +250,7 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
             reason: "Attempted board grant",
           },
           "p-board-logistics",
-          "BOARD",
+          "OPERATOR",
           "V"
         )
       ).rejects.toThrow(/Superadmin/i);
@@ -291,7 +282,7 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
             reason: "Severe unauthorized equipment tampering",
           },
           "p-board-logistics",
-          "BOARD"
+          "OPERATOR"
         )
       ).rejects.toThrow(/Superadmin/i);
 
@@ -316,14 +307,14 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
     it("enforces Superadmin-only gate for sensitive CSV dataset exports", async () => {
       // 1. Board member attempts to export users -> Throws
       await expect(
-        boardExportService.exportCsv("USERS", "p-board-logistics", "BOARD")
+        boardExportService.exportCsv("USERS", "p-board-logistics", "OPERATOR")
       ).rejects.toThrow(/Superadmin/i);
 
       // 2. Board member can export inventory -> Succeeds
       const invExport = await boardExportService.exportCsv(
         "INVENTORY",
         "p-board-logistics",
-        "BOARD"
+        "OPERATOR"
       );
       expect(invExport.csvContent).toContain("Item ID,Name,Category,Equipment Class");
       expect(invExport.rowCount).toBeGreaterThan(0);
@@ -348,7 +339,7 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
           notes: "Verification of microcontrollers and sensors",
         },
         "user-emna",
-        "BOARD"
+        "OPERATOR"
       );
 
       expect(audit.status).toBe("IN_PROGRESS");
@@ -369,7 +360,7 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
           ],
         },
         "user-emna",
-        "BOARD"
+        "OPERATOR"
       );
 
       const auditItem = recorded.items.find(
@@ -379,9 +370,9 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
       expect(auditItem!.discrepancy).toBe(-1);
 
       // 3. Attempting to complete audit while discrepancy exists must throw
-      await expect(boardAuditService.completeAudit(audit.id, "user-emna", "BOARD")).rejects.toThrow(
-        /Cannot complete audit/i
-      );
+      await expect(
+        boardAuditService.completeAudit(audit.id, "user-emna", "OPERATOR")
+      ).rejects.toThrow(/Cannot complete audit/i);
 
       // 4. Reconcile discrepancy
       const reconciled = await boardAuditService.reconcileItem(
@@ -393,7 +384,7 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
           reason: "Confirmed lost during competition testing",
         },
         "user-emna",
-        "BOARD"
+        "OPERATOR"
       );
 
       const reconciledItem = reconciled.items.find(
@@ -416,28 +407,13 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
           counts: matchAllPayload,
         },
         "user-emna",
-        "BOARD"
+        "OPERATOR"
       );
 
       // 6. Complete audit
-      const completed = await boardAuditService.completeAudit(audit.id, "user-emna", "BOARD");
+      const completed = await boardAuditService.completeAudit(audit.id, "user-emna", "OPERATOR");
       expect(completed.status).toBe("RECONCILED");
       expect(completed.completedBy).toBe("user-emna");
-    });
-  });
-
-  describe("Logistics Action Center Triage Priority", () => {
-    it("prioritizes critical incidents, overdue loans, and pending intakes in action queue", async () => {
-      const actions = await boardActionCenterService.getActions();
-      expect(actions.length).toBeGreaterThan(0);
-
-      // Critical/High priority items must appear first
-      const firstAction = actions[0];
-      expect(["CRITICAL", "HIGH", "MEDIUM"]).toContain(firstAction.priority);
-
-      // Check presence of key triage action types
-      const types = actions.map((a: BoardAction) => a.type);
-      expect(types).toContain("REQUEST_PENDING");
     });
   });
 });

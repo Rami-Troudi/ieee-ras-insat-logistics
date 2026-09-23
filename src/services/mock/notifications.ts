@@ -17,7 +17,7 @@ export class MockNotificationService implements INotificationService {
 
     mockDb.mutate((draft) => {
       const user = draft.userProfiles?.[userId];
-      const isBoard = user?.role === "BOARD" || user?.role === "SUPERADMIN";
+      const isBoard = user?.role === "OPERATOR" || user?.role === "SUPERADMIN";
 
       draft.loans.forEach((loan) => {
         if (

@@ -1,22 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/app/query-client";
 import { boardLoanService } from "@/services";
-import {
-  BoardLoanFilterParams,
-  ConfirmReturnPayload,
-  ReviewExtensionPayload,
-} from "@/services/contracts/board/loans";
+import { BoardLoanFilterParams, ConfirmReturnPayload } from "@/services/contracts/board/loans";
 
 export interface ConfirmReturnMutationParams {
   payload: ConfirmReturnPayload;
   actorUserId: string;
-  actorRole: string;
-}
-
-export interface ReviewExtensionMutationParams {
-  payload: ReviewExtensionPayload;
-  actorUserId: string;
-  actorRole: string;
 }
 
 export function useBoardLoans(filters?: BoardLoanFilterParams) {
@@ -38,8 +27,8 @@ export function useConfirmReturn() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ payload, actorUserId, actorRole }: ConfirmReturnMutationParams) =>
-      boardLoanService.confirmReturn(payload, actorUserId, actorRole),
+    mutationFn: ({ payload, actorUserId }: ConfirmReturnMutationParams) =>
+      boardLoanService.confirmReturn(payload, actorUserId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardLoans.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.loans.all });
@@ -48,7 +37,6 @@ export function useConfirmReturn() {
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardInventory.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.inventory.all });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardActionCenter.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardDiscipline.all });
     },
   });
@@ -73,23 +61,6 @@ export function useUpdateLoanDueDate() {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.boardLoans.detail(variables.loanId),
       });
-    },
-  });
-}
-
-export function useReviewExtension() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ payload, actorUserId, actorRole }: ReviewExtensionMutationParams) =>
-      boardLoanService.reviewExtension(payload, actorUserId, actorRole),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardLoans.all });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.loans.all });
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.boardLoans.detail(variables.payload.loanId),
-      });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardActionCenter.all });
     },
   });
 }

@@ -52,7 +52,7 @@ describe("Production Session Abstraction & UserMenu", () => {
       id: "board-user-1",
       name: "Board Custodian",
       email: "board@insat.u-carthage.tn",
-      role: "BOARD",
+      role: "OPERATOR",
       clearance: "V",
       affiliation: "RAS_BOARD",
       isProcessed: true,
@@ -76,7 +76,7 @@ describe("Production Session Abstraction & UserMenu", () => {
     const memberPersona = PROD_DEFAULT_PERSONA;
     const boardPersona: UserPersona = {
       ...PROD_DEFAULT_PERSONA,
-      role: "BOARD",
+      role: "OPERATOR",
     };
 
     const { unmount: u1 } = render(

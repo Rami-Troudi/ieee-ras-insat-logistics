@@ -1,18 +1,13 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { InventoryItemSummary } from "@/types";
-import {
-  getHumanAvailability,
-  canRequestOnline,
-  getHumanCategory,
-} from "@/features/inventory/utils/humanAvailability";
+import { BorrowerCatalogItem } from "@/types";
 import { useBorrowCart } from "@/features/cart";
 import { Button } from "@/components/ui/button";
 import { Plus, Minus, Check, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface EquipmentCardProps {
-  item: InventoryItemSummary;
+  item: BorrowerCatalogItem;
 }
 
 export const EquipmentCard: React.FC<EquipmentCardProps> = ({ item }) => {
@@ -23,9 +18,13 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({ item }) => {
   const inCart = Boolean(cartEntry);
   const currentQuantity = cartEntry ? cartEntry.quantity : 0;
 
-  const availability = getHumanAvailability(item);
-  const requestable = canRequestOnline(item);
-  const humanCategory = getHumanCategory(item.category, item.equipmentClass);
+  const requestable = item.action === "REQUEST";
+  const availabilityLabel =
+    item.availability === "AVAILABLE"
+      ? "Available"
+      : item.availability === "LIMITED"
+        ? "Limited"
+        : "Unavailable";
 
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -36,7 +35,7 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({ item }) => {
   const handleIncrement = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (currentQuantity < item.availableQuantity) {
+    if (currentQuantity < 99) {
       updateQuantity(item.id, currentQuantity + 1);
     }
   };
@@ -57,30 +56,24 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({ item }) => {
       <Link to={`/app/inventory/${item.id}`} className="block relative focus:outline-none">
         {/* Photo Container with fixed 4:3 aspect ratio */}
         <div className="relative aspect-[4/3] w-full bg-muted/40 overflow-hidden">
-          {item.imageUrl && !imageError ? (
-            <img
-              src={item.imageUrl}
-              alt={item.name}
-              onError={() => setImageError(true)}
-              className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-muted/70 text-muted-foreground text-xs font-medium">
-              <span>{item.name.slice(0, 15)}</span>
-            </div>
-          )}
+          <img
+            src={imageError ? "/equipment/fallback.svg" : item.imageUrl}
+            alt={item.name}
+            onError={() => setImageError(true)}
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+          />
 
           {/* Availability Dot Badge overlay */}
           <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-background/90 backdrop-blur-sm border border-border shadow-xs text-[11px] font-medium">
             <span
               className={cn("w-2 h-2 rounded-full", {
-                "bg-emerald-500": availability.color === "emerald",
-                "bg-amber-500": availability.color === "amber",
-                "bg-rose-500": availability.color === "rose",
+                "bg-emerald-500": item.availability === "AVAILABLE",
+                "bg-amber-500": item.availability === "LIMITED",
+                "bg-rose-500": item.availability === "UNAVAILABLE",
               })}
             />
-            <span className="text-foreground text-[10px]">{availability.label}</span>
+            <span className="text-foreground text-[10px]">{availabilityLabel}</span>
           </div>
 
           {/* Subtle in-cart badge */}
@@ -95,7 +88,7 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({ item }) => {
         {/* Card Body */}
         <div className="p-3">
           <span className="text-[11px] font-medium text-muted-foreground block line-clamp-1 mb-0.5">
-            {humanCategory}
+            {item.category}
           </span>
           <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors line-clamp-1">
             {item.name}
@@ -111,7 +104,7 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({ item }) => {
               <button
                 type="button"
                 onClick={handleDecrement}
-                className="w-8 h-8 rounded-md bg-background border border-border flex items-center justify-center text-foreground hover:bg-muted active:scale-95 transition-all focus:outline-none focus:ring-1 focus:ring-primary min-w-[32px] min-h-[32px]"
+                className="w-11 h-11 rounded-md bg-background border border-border flex items-center justify-center text-foreground hover:bg-muted active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label={`Decrease ${item.name} quantity`}
               >
                 <Minus className="w-3.5 h-3.5" />
@@ -120,8 +113,8 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({ item }) => {
               <button
                 type="button"
                 onClick={handleIncrement}
-                disabled={currentQuantity >= item.availableQuantity}
-                className="w-8 h-8 rounded-md bg-background border border-border flex items-center justify-center text-foreground hover:bg-muted active:scale-95 disabled:opacity-40 transition-all focus:outline-none focus:ring-1 focus:ring-primary min-w-[32px] min-h-[32px]"
+                disabled={currentQuantity >= 99}
+                className="w-11 h-11 rounded-md bg-background border border-border flex items-center justify-center text-foreground hover:bg-muted active:scale-95 disabled:opacity-40 transition-all focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label={`Increase ${item.name} quantity`}
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -133,7 +126,7 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({ item }) => {
               variant="default"
               size="sm"
               onClick={handleAdd}
-              className="w-full text-xs font-semibold gap-1.5 h-9 min-h-[36px] rounded-lg shadow-xs active:scale-95 transition-all duration-150 hover:shadow-sm"
+              className="w-full text-xs font-semibold gap-1.5 min-h-11 rounded-lg shadow-xs active:scale-95 transition-all duration-150 hover:shadow-sm"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Add</span>
@@ -142,9 +135,15 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({ item }) => {
         ) : (
           <Link
             to={`/app/inventory/${item.id}`}
-            className="w-full h-9 min-h-[36px] flex items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border/70 rounded-lg transition-colors"
+            className="w-full min-h-11 flex items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 hover:bg-muted border border-border/70 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span>{availability.label}</span>
+            <span>
+              {item.action === "WORKSPACE"
+                ? "At workspace"
+                : item.action === "ASK_OPERATOR"
+                  ? "Ask logistics team"
+                  : "Unavailable"}
+            </span>
             <ArrowRight className="w-3 h-3 text-muted-foreground" />
           </Link>
         )}

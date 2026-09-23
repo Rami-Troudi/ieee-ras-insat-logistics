@@ -74,14 +74,21 @@ export const BoardBorrowedPage: React.FC = () => {
           loanId: activeReturnLoan.id,
           items: activeReturnLoan.items.map((item) => ({
             lineItemId: item.id,
-            returnedQuantity: item.borrowedQuantity - (item.returnedQuantity || 0),
+            returnedQuantity:
+              item.borrowedQuantity - (item.returnedQuantity || 0) - item.lostQuantity,
+            ...(item.assetIds
+              ? {
+                  assetIds: item.assetIds.filter(
+                    (id) => !(item.resolvedAssetIds ?? []).includes(id)
+                  ),
+                }
+              : {}),
             condition: returnCondition,
             notes: returnNote,
           })),
           inspectionNotes: returnNote,
         },
         actorUserId: currentPersona.id,
-        actorRole: currentPersona.role,
       });
 
       setActiveReturnLoan(null);
