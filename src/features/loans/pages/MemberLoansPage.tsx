@@ -185,7 +185,7 @@ export const MemberLoansPage: React.FC = () => {
                     <Button asChild variant="outline" size="sm" className="text-xs min-h-[44px]">
                       <Link to={`/app/loans/${loan.id}`} className="gap-1.5">
                         <PackageCheck className="w-3.5 h-3.5" />
-                        <span>Return / Extend</span>
+                        <span>View Loan</span>
                         <ArrowRight className="w-3 h-3" />
                       </Link>
                     </Button>

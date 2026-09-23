@@ -75,6 +75,7 @@ export class MockRequestService implements IRequestService {
       projectName: project ? project.name : undefined,
       purpose: payload.purpose,
       expectedReturnDate: payload.expectedReturnDate,
+      borrowerPickupAvailability: payload.borrowerPickupAvailability,
       decisionStatus: "PENDING",
       handoverStatus: "WAITING",
       lifecycleStatus: "ACTIVE",
@@ -97,6 +98,26 @@ export class MockRequestService implements IRequestService {
       if (draft.userProfiles[userId]) {
         draft.userProfiles[userId].totalRequestsCount += 1;
       }
+
+      // Notify Logistics Board
+      const boardUsers = Object.values(draft.userProfiles || {}).filter(
+        (u) => u.role === "BOARD" || u.role === "SUPERADMIN"
+      );
+      boardUsers.forEach((bUser) => {
+        draft.notifications.unshift({
+          id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          userId: bUser.id,
+          title: `New Borrow Request (${newRequest.id})`,
+          message: `${user.name} requested ${items.map((i) => `${i.requestedQuantity}x ${i.itemName}`).join(", ")}.${newRequest.borrowerPickupAvailability ? ` Suggested pickup: "${newRequest.borrowerPickupAvailability}"` : ""}`,
+          type: "GENERAL",
+          read: false,
+          link: `/board/requests/${newRequest.id}`,
+          createdAt: new Date().toISOString(),
+          metadata: {
+            requestId: newRequest.id,
+          },
+        });
+      });
     });
 
     return newRequest;

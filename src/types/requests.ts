@@ -45,6 +45,8 @@ export interface BorrowRequest {
   projectName?: string;
   purpose: string;
   expectedReturnDate: string;
+  borrowerPickupAvailability?: string; // e.g. "Tomorrow after 14h"
+  scheduledPickup?: string; // Logistics manager's invited date & time, e.g. "2026-09-24T15:30"
   // Multi-dimensional state fields
   decisionStatus: RequestDecisionStatus;
   handoverStatus: RequestHandoverStatus;
@@ -72,6 +74,7 @@ export interface CreateBorrowRequestPayload {
   projectId?: string;
   purpose: string;
   expectedReturnDate: string;
+  borrowerPickupAvailability?: string;
   items: {
     itemId: string;
     quantity: number;

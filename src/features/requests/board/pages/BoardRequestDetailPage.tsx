@@ -54,6 +54,7 @@ export const BoardRequestDetailPage: React.FC = () => {
     >
   >({});
   const [overallNotes, setOverallNotes] = useState("");
+  const [scheduledPickup, setScheduledPickup] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -65,6 +66,16 @@ export const BoardRequestDetailPage: React.FC = () => {
   // Initialize line decisions once request is loaded
   useEffect(() => {
     if (request) {
+      if (request.scheduledPickup) {
+        try {
+          const d = new Date(request.scheduledPickup);
+          if (!isNaN(d.getTime())) {
+            setScheduledPickup(d.toISOString().slice(0, 16));
+          }
+        } catch {
+          setScheduledPickup(request.scheduledPickup);
+        }
+      }
       setLineDecisions((prev) => {
         if (Object.keys(prev).length > 0) return prev;
         const initial: Record<
@@ -168,6 +179,7 @@ export const BoardRequestDetailPage: React.FC = () => {
           requestId: request.id,
           lines: linesPayload,
           decisionNotes: overallNotes,
+          scheduledPickup: scheduledPickup ? new Date(scheduledPickup).toISOString() : undefined,
         },
         actorUserId: currentPersona.id,
         actorRole: currentPersona.role,
@@ -373,6 +385,36 @@ export const BoardRequestDetailPage: React.FC = () => {
                   {request.purpose || "No detailed purpose supplied."}
                 </p>
               </div>
+
+              {request.borrowerPickupAvailability && (
+                <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 space-y-1">
+                  <span className="text-primary font-semibold block text-[11px] flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    Borrower's Suggested Availability:
+                  </span>
+                  <p className="text-foreground font-medium text-xs">
+                    {request.borrowerPickupAvailability}
+                  </p>
+                </div>
+              )}
+
+              {request.scheduledPickup && (
+                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 space-y-1">
+                  <span className="text-emerald-700 dark:text-emerald-400 font-semibold block text-[11px] flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Confirmed Pickup Appointment:
+                  </span>
+                  <p className="text-foreground font-bold text-xs">
+                    {new Date(request.scheduledPickup).toLocaleString([], {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -589,6 +631,44 @@ export const BoardRequestDetailPage: React.FC = () => {
             {/* Overall Decision Section for Pending requests */}
             {isPending && (
               <div className="pt-4 border-t border-border space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-foreground block">
+                      Invite for Pickup (Date & Hour):
+                    </label>
+                    {request.borrowerPickupAvailability && (
+                      <span className="text-[11px] text-muted-foreground font-mono">
+                        Member requested: {request.borrowerPickupAvailability}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <Input
+                      type="datetime-local"
+                      value={scheduledPickup}
+                      onChange={(e) => setScheduledPickup(e.target.value)}
+                      className="h-9 text-xs flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-9 shrink-0"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        d.setHours(14, 0, 0, 0);
+                        setScheduledPickup(d.toISOString().slice(0, 16));
+                      }}
+                    >
+                      Tomorrow 14:00
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    The member will be notified with this date and time to collect their items at the RAS workspace counter.
+                  </p>
+                </div>
+
                 <div>
                   <label className="text-xs font-semibold text-foreground block mb-1">
                     Overall Review Rationale / Notes:

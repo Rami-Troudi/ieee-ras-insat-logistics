@@ -194,6 +194,27 @@ export const MemberRequestDetailPage: React.FC = () => {
             {request.purpose}
           </p>
         </div>
+
+        {request.borrowerPickupAvailability && (
+          <div className="p-3 rounded-lg bg-muted/40 border border-border/60 text-xs flex items-center gap-2">
+            <Clock className="w-4 h-4 text-primary shrink-0" />
+            <span>
+              Your Suggested Availability: <strong className="text-foreground">{request.borrowerPickupAvailability}</strong>
+            </span>
+          </div>
+        )}
+
+        {request.scheduledPickup && (
+          <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-950 dark:text-emerald-100 flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <div>
+              <span className="font-bold text-sm block">Invited Pickup Appointment</span>
+              <span>
+                {formatDateTime(request.scheduledPickup)} at the IEEE RAS Workspace Counter
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 48h Collection Window Banner */}
@@ -213,12 +234,16 @@ export const MemberRequestDetailPage: React.FC = () => {
             title={
               pickupWindow.isExpired
                 ? "Collection Window Expired"
-                : `48-Hour Collection Window: ${pickupWindow.hoursRemaining} Hours Remaining`
+                : request.scheduledPickup
+                  ? `Appointment Scheduled: ${formatDateTime(request.scheduledPickup)}`
+                  : `48-Hour Collection Window: ${pickupWindow.hoursRemaining} Hours Remaining`
             }
             description={
               pickupWindow.isExpired
-                ? "The 48-hour reservation window has elapsed. Uncollected items have been released back to general inventory."
-                : `Your equipment is staged at the RAS Logistics desk until ${formatDateTime(pickupWindow.deadline)}. Present your student card to finalize handover.`
+                ? "The reservation window has elapsed. Uncollected items have been released back to general inventory."
+                : request.scheduledPickup
+                  ? `Your equipment is reserved and staged at the RAS Logistics desk. The logistics manager invited you for ${formatDateTime(request.scheduledPickup)}. Please come to collect your gear.`
+                  : `Your equipment is staged at the RAS Logistics desk until ${formatDateTime(pickupWindow.deadline)}. Meet the logistics team at the workspace counter.`
             }
           />
         )}

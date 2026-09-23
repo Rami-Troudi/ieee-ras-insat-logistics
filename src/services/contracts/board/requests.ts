@@ -11,6 +11,7 @@ export interface ReviewRequestPayload {
   requestId: string;
   lines: LineDecisionInput[];
   decisionNotes?: string;
+  scheduledPickup?: string; // Invited date & hour for physical collection
 }
 
 export interface HandoverPayload {

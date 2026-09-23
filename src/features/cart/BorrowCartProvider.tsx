@@ -10,6 +10,7 @@ type CartAction =
   | { type: "SET_PROJECT"; projectId?: string }
   | { type: "SET_PURPOSE"; purpose: string }
   | { type: "SET_RETURN_DATE"; date: string }
+  | { type: "SET_PICKUP_AVAILABILITY"; availability: string }
   | { type: "LOAD_STATE"; state: CartState };
 
 const CART_STORAGE_KEY = "ras_insat_cart_draft_v1";
@@ -74,6 +75,11 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         ...state,
         expectedReturnDate: action.date,
       };
+    case "SET_PICKUP_AVAILABILITY":
+      return {
+        ...state,
+        borrowerPickupAvailability: action.availability,
+      };
     case "LOAD_STATE":
       return action.state;
     default:
@@ -130,6 +136,10 @@ export const BorrowCartProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     dispatch({ type: "SET_RETURN_DATE", date });
   }, []);
 
+  const setPickupAvailability = React.useCallback((availability: string) => {
+    dispatch({ type: "SET_PICKUP_AVAILABILITY", availability });
+  }, []);
+
   const totalItemCount = state.items.reduce((sum, item) => sum + item.quantity, 0);
 
   const contextValue = React.useMemo<CartContextValue>(
@@ -142,6 +152,7 @@ export const BorrowCartProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setProject,
       setPurpose,
       setReturnDate,
+      setPickupAvailability,
       totalItemCount,
     }),
     [
@@ -153,6 +164,7 @@ export const BorrowCartProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setProject,
       setPurpose,
       setReturnDate,
+      setPickupAvailability,
       totalItemCount,
     ]
   );

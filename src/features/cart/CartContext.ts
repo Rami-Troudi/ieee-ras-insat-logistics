@@ -11,6 +11,7 @@ export interface CartState {
   projectId?: string;
   purpose: string;
   expectedReturnDate: string;
+  borrowerPickupAvailability?: string;
 }
 
 export interface CartContextValue {
@@ -22,6 +23,7 @@ export interface CartContextValue {
   setProject: (projectId?: string) => void;
   setPurpose: (purpose: string) => void;
   setReturnDate: (date: string) => void;
+  setPickupAvailability: (val: string) => void;
   totalItemCount: number;
 }
 
@@ -49,6 +51,7 @@ export const fallbackCartValue: CartContextValue = {
   setProject: () => {},
   setPurpose: () => {},
   setReturnDate: () => {},
+  setPickupAvailability: () => {},
   totalItemCount: 0,
 };
 

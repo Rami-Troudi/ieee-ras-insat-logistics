@@ -208,9 +208,12 @@ class MockBoardRequestService implements IBoardRequestService {
           ? "Amine Elkadhi (RAS Chairman)"
           : "Emna Taghlet (Logistics Board)";
       req.decisionNotes = payload.decisionNotes;
+      req.scheduledPickup = payload.scheduledPickup;
       req.pickupDeadline =
         decisionOutcome === "APPROVED" || decisionOutcome === "PARTIALLY_APPROVED"
-          ? new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+          ? payload.scheduledPickup
+            ? new Date(new Date(payload.scheduledPickup).getTime() + 24 * 60 * 60 * 1000).toISOString()
+            : new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
           : undefined;
 
       if (decisionOutcome === "REJECTED") {
@@ -237,7 +240,9 @@ class MockBoardRequestService implements IBoardRequestService {
         message:
           decisionOutcome === "REJECTED"
             ? `Your request ${req.id} was not approved. Reason: ${payload.decisionNotes || "See line details"}.`
-            : `Your request ${req.id} is approved for collection! A 48-hour pickup window is active at the RAS Workshop counter.`,
+            : payload.scheduledPickup
+              ? `Your request ${req.id} is approved! You are invited to pick up your gear on ${new Date(payload.scheduledPickup).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} at the RAS desk.`
+              : `Your request ${req.id} is approved for collection! A 48-hour pickup window is active at the RAS Workshop counter.`,
         type:
           decisionOutcome === "APPROVED"
             ? "REQUEST_APPROVED"

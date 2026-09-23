@@ -13,6 +13,7 @@ import {
   Send,
   CheckCircle2,
   PackageOpen,
+  Clock,
 } from "lucide-react";
 import { formatDate } from "@/lib/dates";
 
@@ -25,6 +26,7 @@ export const MemberCartPage: React.FC = () => {
     clearCart,
     setPurpose,
     setReturnDate,
+    setPickupAvailability,
   } = useBorrowCart();
 
   const createRequestMutation = useCreateRequest(currentPersona.id);
@@ -46,6 +48,7 @@ export const MemberCartPage: React.FC = () => {
       await createRequestMutation.mutateAsync({
         purpose: cartState.purpose?.trim() || "Robotics project equipment borrow",
         expectedReturnDate: cartState.expectedReturnDate,
+        borrowerPickupAvailability: cartState.borrowerPickupAvailability?.trim() || undefined,
         items: cartState.items.map((i) => ({
           itemId: i.item.id,
           quantity: i.quantity,
@@ -194,12 +197,12 @@ export const MemberCartPage: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-        {/* Expected Return Date Section */}
+        {/* Expected Return Date Section (Mandatory) */}
         <div className="p-4 rounded-xl border border-border bg-card/60 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Calendar className="w-5 h-5 text-primary shrink-0" />
             <div>
-              <span className="text-xs text-muted-foreground block">Expected return</span>
+              <span className="text-xs text-muted-foreground block">Expected return *</span>
               {isEditingDate ? (
                 <input
                   type="date"
@@ -226,6 +229,31 @@ export const MemberCartPage: React.FC = () => {
               Change
             </button>
           )}
+        </div>
+
+        {/* Optional Preferred Pickup Date & Hour */}
+        <div className="p-4 rounded-xl border border-border bg-card/60 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs font-semibold text-foreground">
+                When are you available to pick it up?
+              </span>
+            </div>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+              Optional
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Suggest a preferred day or hour (the logistics manager will confirm your appointment).
+          </p>
+          <input
+            type="text"
+            value={cartState.borrowerPickupAvailability || ""}
+            onChange={(e) => setPickupAvailability(e.target.value)}
+            placeholder="e.g. Tomorrow afternoon (14h-16h) or Wednesday break"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
+          />
         </div>
 
         {/* Purpose / Note with 1-tap presets */}

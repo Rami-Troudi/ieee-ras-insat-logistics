@@ -10,7 +10,7 @@ import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/FeedbackStates";
 import { ResponsiveDialog } from "@/components/shared/ResponsiveDialog";
 import { Button } from "@/components/ui/button";
-import { useLoanDetail, useRequestExtension, useRequestReturn } from "../hooks/useLoans";
+import { useLoanDetail, useRequestExtension } from "../hooks/useLoans";
 import { useSession } from "@/hooks/useSession";
 import { formatDate, formatDateTime, isDatePast } from "@/lib/dates";
 import { ArrowLeft, Calendar, CheckCircle2, RotateCcw, AlertTriangle } from "lucide-react";
@@ -23,28 +23,15 @@ const extensionSchema = z.object({
 
 type ExtensionFormData = z.infer<typeof extensionSchema>;
 
-const returnRequestSchema = z.object({
-  quantities: z.record(z.string(), z.number()),
-  conditions: z.record(z.string(), z.string()),
-  memberNotes: z.string().optional(),
-});
-
-type ReturnRequestFormData = z.infer<typeof returnRequestSchema>;
-
 export const MemberLoanDetailPage: React.FC = () => {
   const { loanId = "" } = useParams<{ loanId: string }>();
   const { currentPersona } = useSession();
 
   const { data: loan, isLoading, error, refetch } = useLoanDetail(loanId, currentPersona.id);
   const extensionMutation = useRequestExtension(currentPersona.id);
-  const returnMutation = useRequestReturn(currentPersona.id);
 
   // Extension Modal State
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
-
-  // Return Modal State
-  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
-  const [returnError, setReturnError] = useState<string | null>(null);
 
   const {
     register: registerExt,
@@ -54,24 +41,6 @@ export const MemberLoanDetailPage: React.FC = () => {
   } = useForm<ExtensionFormData>({
     resolver: zodResolver(extensionSchema),
   });
-
-  const {
-    handleSubmit: handleSubmitReturn,
-    setValue: setReturnVal,
-    watch: watchReturn,
-    reset: resetReturn,
-  } = useForm<ReturnRequestFormData>({
-    resolver: zodResolver(returnRequestSchema),
-    defaultValues: {
-      quantities: {},
-      conditions: {},
-      memberNotes: "",
-    },
-  });
-
-  const watchedQuantities = watchReturn("quantities") || {};
-  const watchedConditions = watchReturn("conditions") || {};
-  const watchedMemberNotes = watchReturn("memberNotes") || "";
 
   if (isLoading) {
     return (
@@ -108,24 +77,6 @@ export const MemberLoanDetailPage: React.FC = () => {
 
   // Open Return Dialog & Init quantities according to strict formula:
   // maxReturnable = borrowedQuantity - returnedQuantity - (pending returnRequestedQuantity)
-  const handleOpenReturn = () => {
-    const initQty: Record<string, number> = {};
-    const initCond: Record<string, string> = {};
-    loan.items.forEach((item) => {
-      const alreadyPending = item.returnRequestedQuantity || 0;
-      const maxReturnable = item.borrowedQuantity - item.returnedQuantity - alreadyPending;
-      initQty[item.id] = Math.max(0, maxReturnable);
-      initCond[item.id] = "Good condition, verified functional";
-    });
-    resetReturn({
-      quantities: initQty,
-      conditions: initCond,
-      memberNotes: "",
-    });
-    setReturnError(null);
-    setIsReturnModalOpen(true);
-  };
-
   const handleOpenExtension = () => {
     const d = new Date(loan.dueDate);
     d.setDate(d.getDate() + 7);
@@ -147,36 +98,6 @@ export const MemberLoanDetailPage: React.FC = () => {
       refetch();
     } catch (err: unknown) {
       console.error("Extension error:", err);
-    }
-  };
-
-  const onReturnSubmit = async (data: ReturnRequestFormData) => {
-    setReturnError(null);
-
-    const itemsToReturn: { lineItemId: string; quantity: number; conditionReport: string }[] =
-      Object.entries(data.quantities)
-        .filter(([, qty]) => Number(qty) > 0)
-        .map(([lineItemId, qty]) => ({
-          lineItemId,
-          quantity: Number(qty),
-          conditionReport: data.conditions[lineItemId] || "Good condition",
-        }));
-
-    if (itemsToReturn.length === 0) {
-      setReturnError("Please select at least 1 unit to return.");
-      return;
-    }
-
-    try {
-      await returnMutation.mutateAsync({
-        loanId: loan.id,
-        items: itemsToReturn,
-        memberNotes: data.memberNotes?.trim() || undefined,
-      });
-      setIsReturnModalOpen(false);
-      refetch();
-    } catch (err: unknown) {
-      setReturnError(err instanceof Error ? err.message : "Failed to submit return declaration");
     }
   };
 
@@ -205,16 +126,6 @@ export const MemberLoanDetailPage: React.FC = () => {
               <span>
                 {loan.extensionStatus === "PENDING" ? "Extension Pending" : "Request Extension"}
               </span>
-            </Button>
-
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleOpenReturn}
-              className="text-xs gap-1.5 min-h-[44px]"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Initiate Return</span>
             </Button>
           </div>
         )}
@@ -303,13 +214,17 @@ export const MemberLoanDetailPage: React.FC = () => {
         />
       )}
 
-      {/* Return Pending Policy Warning */}
-      {isReturnPending && (
-        <PolicyNotice
-          variant="warning"
-          title="Return Declaration Awaiting Physical Custodian Confirmation"
-          description="You have declared equipment for return. Note that returning equipment does NOT increment stock or close loans until physically inspected and confirmed by the Logistics Custodian at the RAS Workshop."
-        />
+      {/* Physical In-Person Return Desk Information */}
+      {!isClosed && (
+        <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 text-xs space-y-2 shadow-xs">
+          <div className="flex items-center gap-2 font-bold text-foreground text-sm">
+            <RotateCcw className="w-4 h-4 text-primary" />
+            <span>How to Return Equipment</span>
+          </div>
+          <p className="text-muted-foreground leading-relaxed">
+            Return handling is done <strong>in-person</strong>. Simply bring your equipment back to the IEEE RAS desk at the robotics lab. The logistics manager will inspect the gear and immediately check it back into the inventory system.
+          </p>
+        </div>
       )}
 
       {/* Line Items & Serial Numbers */}
@@ -500,109 +415,6 @@ export const MemberLoanDetailPage: React.FC = () => {
             </Button>
             <Button type="submit" disabled={extensionMutation.isPending} className="min-h-[44px]">
               {extensionMutation.isPending ? "Submitting..." : "Submit Extension Request"}
-            </Button>
-          </div>
-        </form>
-      </ResponsiveDialog>
-
-      {/* Partial Return Modal */}
-      <ResponsiveDialog
-        open={isReturnModalOpen}
-        onOpenChange={setIsReturnModalOpen}
-        title="Initiate Equipment Return"
-        description="Select line items and quantities you are bringing back to the RAS Workshop."
-      >
-        <form onSubmit={handleSubmitReturn(onReturnSubmit)} className="space-y-4 pt-2">
-          {returnError && (
-            <div className="p-3 rounded bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{returnError}</span>
-            </div>
-          )}
-
-          <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-            {loan.items.map((item) => {
-              const alreadyPending = item.returnRequestedQuantity || 0;
-              const maxUnits = item.borrowedQuantity - item.returnedQuantity - alreadyPending;
-              if (maxUnits <= 0) return null;
-              const currentQty = watchedQuantities[item.id] ?? maxUnits;
-              const currentCond = watchedConditions[item.id] ?? "Good condition";
-
-              return (
-                <div
-                  key={item.id}
-                  className="p-3 rounded-lg border border-border bg-muted/30 space-y-2 text-xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-foreground">{item.itemName}</span>
-                    <span className="text-muted-foreground">Available to Return: {maxUnits}</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <label className="text-muted-foreground">Quantity to return:</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={maxUnits}
-                      aria-label={`Quantity to return for ${item.itemName}`}
-                      value={currentQty}
-                      onChange={(e) =>
-                        setReturnVal("quantities", {
-                          ...watchedQuantities,
-                          [item.id]: Math.min(maxUnits, Math.max(0, parseInt(e.target.value) || 0)),
-                        })
-                      }
-                      className="w-20 rounded border border-input bg-background px-2 py-1 text-xs text-center min-h-[44px]"
-                    />
-                  </div>
-
-                  <input
-                    type="text"
-                    value={currentCond}
-                    placeholder="Condition note (e.g. clean, no defects)"
-                    onChange={(e) =>
-                      setReturnVal("conditions", {
-                        ...watchedConditions,
-                        [item.id]: e.target.value,
-                      })
-                    }
-                    className="w-full rounded border border-input bg-background px-3 py-2 text-xs min-h-[44px]"
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
-              Additional Member Notes (Optional)
-            </label>
-            <textarea
-              value={watchedMemberNotes}
-              onChange={(e) => setReturnVal("memberNotes", e.target.value)}
-              rows={2}
-              placeholder="Any component behavior or parts replaced..."
-              className="w-full rounded-md border border-input bg-background p-2.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px]"
-            />
-          </div>
-
-          <div className="p-3 rounded bg-muted/60 text-[11px] text-muted-foreground">
-            <strong>Mandatory Notice:</strong> Submitting this declaration does NOT immediately
-            restore workshop stock. An in-person inspection and physical scan by a Logistics
-            Custodian is required.
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsReturnModalOpen(false)}
-              className="min-h-[44px]"
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={returnMutation.isPending} className="min-h-[44px]">
-              {returnMutation.isPending ? "Submitting..." : "Declare Return"}
             </Button>
           </div>
         </form>

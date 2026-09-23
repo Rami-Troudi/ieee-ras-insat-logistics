@@ -151,6 +151,27 @@ export const MemberActivityPage: React.FC = () => {
                     </div>
                   ))}
                 </div>
+
+                {req.scheduledPickup && (
+                  <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-950 dark:text-emerald-100 text-xs">
+                    <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <div>
+                      <span className="font-bold">Scheduled Pickup Appointment:</span>{" "}
+                      <span className="font-semibold">
+                        {new Date(req.scheduledPickup).toLocaleString([], {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      <span className="text-[11px] block text-emerald-800 dark:text-emerald-300 font-normal">
+                        Please come to the IEEE RAS workspace to collect your gear.
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -268,6 +289,15 @@ export const MemberActivityPage: React.FC = () => {
                     </div>
                   ))}
                 </div>
+
+                {req.borrowerPickupAvailability && (
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/50 p-2 rounded-lg border border-border/40">
+                    <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span>
+                      Your suggested availability: <strong className="text-foreground">{req.borrowerPickupAvailability}</strong>
+                    </span>
+                  </div>
+                )}
 
                 {/* Direct 1-tap Cancel Action */}
                 <div className="flex items-center justify-between pt-1 text-xs">
