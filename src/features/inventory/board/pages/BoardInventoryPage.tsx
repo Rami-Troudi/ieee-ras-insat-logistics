@@ -5,14 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { useSession } from "@/hooks/useSession";
-import { useBoardInventory, useCreateInventoryItem } from "../hooks/useBoardInventory";
-import { Package, Search, Plus, Eye } from "lucide-react";
+import {
+  useBoardInventory,
+  useCreateInventoryItem,
+  useSetBorrowerVisibility,
+} from "../hooks/useBoardInventory";
+import { Package, Search, Plus, Eye, EyeOff } from "lucide-react";
 import { EquipmentClass } from "@/types";
+import { isBorrowerCatalogVisible } from "@/features/inventory/utils/catalogAccess";
 
 export const BoardInventoryPage: React.FC = () => {
   const { currentPersona } = useSession();
   const { data: items = [], isLoading } = useBoardInventory();
   const createItemMutation = useCreateInventoryItem();
+  const visibilityMutation = useSetBorrowerVisibility();
 
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
   const [classFilter, setClassFilter] = useState<string>("ALL");
@@ -155,6 +161,11 @@ export const BoardInventoryPage: React.FC = () => {
 
       {/* Inventory Table */}
       <div className="space-y-3">
+        {visibilityMutation.error instanceof Error && (
+          <p role="alert" className="text-sm text-destructive">
+            {visibilityMutation.error.message}
+          </p>
+        )}
         {filteredItems.length === 0 ? (
           <div className="p-8 text-center rounded-xl border border-dashed border-border bg-card">
             <Package className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
@@ -178,6 +189,7 @@ export const BoardInventoryPage: React.FC = () => {
                     <th className="py-3 px-4">Borrowed</th>
                     <th className="py-3 px-4">Damaged</th>
                     <th className="py-3 px-4">Location</th>
+                    <th className="py-3 px-4">Borrower access</th>
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -207,7 +219,7 @@ export const BoardInventoryPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-muted-foreground">{item.category}</td>
                         <td className="py-3 px-4">
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                          <span className="inline-flex whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
                             Class {item.equipmentClass}
                           </span>
                         </td>
@@ -238,6 +250,29 @@ export const BoardInventoryPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 font-mono text-muted-foreground">
                           {item.location || "Cabinet"}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <Button
+                            size="sm"
+                            variant={isBorrowerCatalogVisible(item) ? "secondary" : "outline"}
+                            disabled={visibilityMutation.isPending}
+                            aria-label={`${isBorrowerCatalogVisible(item) ? "Hide" : "Show"} ${item.name} to borrowers`}
+                            onClick={() =>
+                              visibilityMutation.mutate({
+                                itemId: item.id,
+                                visible: !isBorrowerCatalogVisible(item),
+                                actorUserId: currentPersona.id,
+                              })
+                            }
+                            className="h-8 gap-1.5 text-xs"
+                          >
+                            {isBorrowerCatalogVisible(item) ? (
+                              <EyeOff className="w-3.5 h-3.5" />
+                            ) : (
+                              <Eye className="w-3.5 h-3.5" />
+                            )}
+                            <span>{isBorrowerCatalogVisible(item) ? "Hide" : "Show"}</span>
+                          </Button>
                         </td>
                         <td className="py-3 px-4 text-right whitespace-nowrap">
                           <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1">

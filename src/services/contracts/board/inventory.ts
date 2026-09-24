@@ -52,6 +52,11 @@ export interface IBoardInventoryService {
     actorUserId: string,
     actorRole: string
   ): Promise<InventoryItemSummary>;
+  setBorrowerVisibility(
+    itemId: string,
+    visible: boolean,
+    actorUserId: string
+  ): Promise<InventoryItemSummary>;
   mutateStock(
     payload: MutateStockPayload,
     actorUserId: string,

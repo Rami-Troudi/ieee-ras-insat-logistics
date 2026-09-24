@@ -177,6 +177,36 @@ class MockBoardInventoryService implements IBoardInventoryService {
     return created;
   }
 
+  async setBorrowerVisibility(
+    itemId: string,
+    visible: boolean,
+    actorUserId: string
+  ): Promise<InventoryItemSummary> {
+    await this.simulateLatency();
+    let updated!: InventoryItemSummary;
+    mockDb.mutate((draft) => {
+      const actor = requireOperatorInDraft(draft, actorUserId);
+      const item = draft.inventory.find((candidate) => candidate.id === itemId);
+      if (!item) throw new Error("Inventory item not found");
+      const wasVisible =
+        item.borrowerVisible ?? (item.equipmentClass === "C" || item.equipmentClass === "E");
+      item.borrowerVisible = visible;
+      createAuditEvent(
+        draft,
+        actorUserId,
+        actor.name,
+        actor.role,
+        "BORROWER_VISIBILITY_CHANGED",
+        item.id,
+        { borrowerVisible: wasVisible },
+        { borrowerVisible: visible },
+        visible ? "Item shown in borrower catalogue" : "Item hidden from borrower catalogue"
+      );
+      updated = structuredClone(item);
+    });
+    return updated;
+  }
+
   async mutateStock(
     payload: MutateStockPayload,
     actorUserId: string,

@@ -8,7 +8,14 @@ import { Input } from "@/components/ui/input";
 export const BoardRequestsPage = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"ALL" | "PENDING" | "APPROVED" | "REJECTED">("ALL");
-  const { data: requests = [], isLoading } = useBoardRequests({ search, decisionStatus: status });
+  const [handoverStatus, setHandoverStatus] = useState<"ALL" | "WAITING" | "HANDED_OVER">(
+    "WAITING"
+  );
+  const { data: requests = [], isLoading } = useBoardRequests({
+    search,
+    decisionStatus: status,
+    handoverStatus,
+  });
   if (isLoading) return <LoadingState message="Loading requests" />;
   return (
     <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
@@ -35,6 +42,16 @@ export const BoardRequestsPage = () => {
           <option value="PENDING">Waiting</option>
           <option value="APPROVED">Approved</option>
           <option value="REJECTED">Declined</option>
+        </select>
+        <select
+          aria-label="Handover status"
+          className="h-11 rounded-md border bg-background px-3"
+          value={handoverStatus}
+          onChange={(event) => setHandoverStatus(event.target.value as typeof handoverStatus)}
+        >
+          <option value="WAITING">Awaiting handover</option>
+          <option value="HANDED_OVER">Completed handover</option>
+          <option value="ALL">All handovers</option>
         </select>
       </div>
       <div className="space-y-3">

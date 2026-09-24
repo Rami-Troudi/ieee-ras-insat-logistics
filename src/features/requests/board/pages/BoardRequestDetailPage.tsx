@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useState } from "react";
 import { useSession } from "@/hooks/useSession";
 import {
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 
 export const BoardRequestDetailPage = () => {
   const { requestId = "" } = useParams();
+  const navigate = useNavigate();
   const { currentPersona } = useSession();
   const { data: request, isLoading } = useBoardRequestDetail(requestId);
   const review = useReviewBorrowRequest();
@@ -50,6 +51,7 @@ export const BoardRequestDetailPage = () => {
         payload: { requestId: request.id, notes: note },
         actorUserId: currentPersona.id,
       });
+      navigate("/board/requests", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not confirm handover");
     }

@@ -1,55 +1,55 @@
 # Graph Report - ieee-ras-insat-logistics  (2026-09-24)
 
 ## Corpus Check
-- 220 files · ~198,043 words
+- 220 files · ~134,658 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1429 nodes · 3480 edges · 115 communities (93 shown, 22 thin omitted)
+- 1433 nodes · 3496 edges · 111 communities (90 shown, 21 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 2 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `60647295`
+- Built from commit: `56abbe15`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - ui_ux_context.md
-- board.ts
+- types/inventory.ts
 - BoardIncidentsPage.tsx
 - ProjectSummary
-- useSession
+- navigation.test.tsx
 - useBoardUsers.ts
 - types/index.ts
 - dependencies
 - UserPersona
 - mock/inventory.ts
+- mock/board/allocations.ts
 - requireOperatorInDraft
-- mock/board/inventory.ts
 - IEEE RAS INSAT Logistics Platform — Implementation Context
-- mock/board/loans.ts
-- DesignLabPage.tsx
+- LoanRecord
+- board/index.tsx
 - services/index.ts
 - compilerOptions
-- useRequests.ts
+- member/index.tsx
 - BoardBorrowedPage.tsx
-- button.tsx
-- ResponsiveDataTable.tsx
-- mock/board/audits.ts
-- utils.ts
-- ScenarioManager
+- useSession
+- useSession.tsx
+- InventoryAudit
+- RegisterPage.tsx
+- authorization.ts
 - BorrowRequest
-- BoardAuditDetailPage.tsx
+- query-client.ts
 - Stage 1 Quality Assurance & Browser Verification Report
 - BoardItemDetailPage.tsx
-- MemberNotificationsPage.tsx
+- useProfile.ts
 - UserMenu.tsx
 - Pre-Backend Domain Contract & Freeze Specification
 - 2. Feature Workflows & Interface Specifications
 - IEEE RAS Brand Identity Compliance Certificate
-- components.test.tsx
-- ResponsiveDialog.tsx
+- DesignLabPage.tsx
+- shared/index.ts
 - devDependencies
 - cn
 - router.tsx
@@ -60,7 +60,7 @@
 - Current Product UX Specification
 - scripts
 - MockDatabase
-- MockBoardAuditLogService
+- BoardExportsPage.tsx
 - 24. Discipline and strikes
 - STAGE 3 ARCHITECTURE: BOARD & SUPERADMIN OPERATIONAL DOMAIN
 - STAGE 3 QUALITY ASSURANCE (QA) RESULTS & VERIFICATION MATRIX
@@ -72,13 +72,11 @@
 - 7. Strike System
 - 32. Recommended architecture and stack
 - 3. Fundamental UX Principles
-- RegisterPage.tsx
 - 16. Loan state model
 - 27. Insights dashboard
 - Stage 2 Member Logistics Architecture & Domain Specification
 - Stage 2 Member UX & Interaction Specification
 - 2. Targeted Shipped-Product Research (Lazyweb & Benchmark Pass)
-- CartContext.ts
 - 11. Management Responsibilities
 - 6. Disciplinary Actions
 - 5. Design System Foundations
@@ -87,7 +85,6 @@
 - 2. Design Tokens & Foundations
 - package.json
 - humanAvailability.ts
-- mock/requests.ts
 - 10. User Responsibilities
 - 8. Compensation Policy
 - 11. Policy engine
@@ -95,7 +92,7 @@
 - 4. Application roles
 - Tracking modes
 - 4. State Machines & Lifecycles
-- mock/board/insights.ts
+- common.ts
 - vite-env.d.ts
 - 5. Clearance model
 - 16. Inventory Experience
@@ -119,13 +116,12 @@
 - typescript
 - typescript-eslint
 - vite
-- equipmentImages.ts
 
 ## God Nodes (most connected - your core abstractions)
 1. `cn()` - 97 edges
 2. `useSession()` - 61 edges
 3. `Button` - 40 edges
-4. `requireOperatorInDraft()` - 38 edges
+4. `requireOperatorInDraft()` - 39 edges
 5. `IEEE RAS INSAT Logistics Platform — Implementation Context` - 37 edges
 6. `LoadingState()` - 29 edges
 7. `UserProfile` - 29 edges
@@ -134,137 +130,141 @@
 10. `ProjectSummary` - 24 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `DialogOverlay` --calls--> `cn()`  [EXTRACTED]
+  src/components/ui/dialog.tsx → src/lib/utils.ts
+- `DialogFooter()` --calls--> `cn()`  [EXTRACTED]
+  src/components/ui/dialog.tsx → src/lib/utils.ts
 - `DropdownMenuSubTrigger` --calls--> `cn()`  [EXTRACTED]
   src/components/ui/dropdown-menu.tsx → src/lib/utils.ts
 - `DropdownMenuSubContent` --calls--> `cn()`  [EXTRACTED]
   src/components/ui/dropdown-menu.tsx → src/lib/utils.ts
 - `DropdownMenuCheckboxItem` --calls--> `cn()`  [EXTRACTED]
   src/components/ui/dropdown-menu.tsx → src/lib/utils.ts
-- `DropdownMenuRadioItem` --calls--> `cn()`  [EXTRACTED]
-  src/components/ui/dropdown-menu.tsx → src/lib/utils.ts
-- `SheetOverlay` --calls--> `cn()`  [EXTRACTED]
-  src/components/ui/sheet.tsx → src/lib/utils.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (115 total, 22 thin omitted)
+## Communities (111 total, 21 thin omitted)
 
 ### Community 0 - "ui_ux_context.md"
 Cohesion: 0.03
 Nodes (77): 10. Desktop Navigation, 11. Mobile Navigation, 12. Board Navigation, 13. Member Information Architecture, 14. Board Information Architecture, 15. Member Home, 17. Inventory Card/List Item, 18. Item Detail (+69 more)
 
-### Community 1 - "board.ts"
-Cohesion: 0.07
-Nodes (23): INITIAL_REQUESTS, member, AllocationStatus, AuditItemStatus, CompensationStatus, IncidentStatus, InventoryAuditItem, InventoryAuditStatus (+15 more)
+### Community 1 - "types/inventory.ts"
+Cohesion: 0.09
+Nodes (17): INITIAL_REQUESTS, member, InventoryAuditItem, EquipmentClass, ItemClass, TrackingMode, LoanDueStatus, LoanLifecycleStatus (+9 more)
 
 ### Community 2 - "BoardIncidentsPage.tsx"
-Cohesion: 0.09
-Nodes (24): useBoardCompensations(), useBoardIncidents(), useBoardRecommendations(), useBoardStrikes(), useCreateIncident(), useIssueStrike(), useOverturnStrike(), useRecordCompensation() (+16 more)
+Cohesion: 0.07
+Nodes (33): useBoardCompensations(), useBoardIncidents(), useBoardRecommendations(), useBoardStrikes(), useCreateIncident(), useIssueStrike(), useOverturnStrike(), useRecordCompensation() (+25 more)
 
 ### Community 3 - "ProjectSummary"
-Cohesion: 0.08
-Nodes (19): BoardProjectFilterParams, CreateProjectParams, ProjectMemberParams, UpdateProjectParams, useAddProjectMember(), useBoardProjectDetail(), useRemoveProjectMember(), useUpdateProject() (+11 more)
+Cohesion: 0.07
+Nodes (22): BoardProjectFilterParams, CreateProjectParams, ProjectMemberParams, UpdateProjectParams, useAddProjectMember(), useBoardProjectDetail(), useBoardProjects(), useCreateProject() (+14 more)
 
-### Community 4 - "useSession"
-Cohesion: 0.15
-Nodes (19): RootRedirect(), DesktopBoardSidebar(), DesktopSidebar(), DevPersonaSwitcher(), MobileBoardBottomNav(), MobileBottomNav(), QuantitySelector(), TopBar() (+11 more)
+### Community 4 - "navigation.test.tsx"
+Cohesion: 0.17
+Nodes (14): DesktopBoardSidebar(), DesktopSidebar(), MobileBoardBottomNav(), MobileBottomNav(), BOARD_MOBILE_TABS, BOARD_MORE_ITEMS, BOARD_NAV_ITEMS, MEMBER_NAV_ITEMS (+6 more)
 
 ### Community 5 - "useBoardUsers.ts"
 Cohesion: 0.11
 Nodes (29): BoardUserFilterParams, ProcessUserParams, UpdateClearanceParams, UpdateRoleParams, UpdateStatusParams, useBoardUserDetail(), useProcessUser(), useUpdateUserClearance() (+21 more)
 
 ### Community 6 - "types/index.ts"
-Cohesion: 0.09
-Nodes (27): MockDatabaseSchema, mockDb, INITIAL_ALLOCATIONS, INITIAL_AUDIT_EVENTS, INITIAL_AUDITS, INITIAL_COMPENSATIONS, INITIAL_INCIDENTS, INITIAL_INVENTORY_EVENTS (+19 more)
+Cohesion: 0.08
+Nodes (23): MockDatabaseSchema, INITIAL_ALLOCATIONS, INITIAL_AUDIT_EVENTS, INITIAL_AUDITS, INITIAL_COMPENSATIONS, INITIAL_INCIDENTS, INITIAL_INVENTORY_EVENTS, INITIAL_LOANS (+15 more)
 
 ### Community 7 - "dependencies"
 Cohesion: 0.04
 Nodes (45): class-variance-authority, clsx, date-fns, @hookform/resolvers, lucide-react, dependencies, class-variance-authority, clsx (+37 more)
 
 ### Community 8 - "UserPersona"
-Cohesion: 0.08
-Nodes (22): App(), Providers(), ProvidersProps, queryClient, router, PRESET_PERSONAS, DevPersonaProvider(), SessionProvider() (+14 more)
+Cohesion: 0.15
+Nodes (9): SessionProviderProps, DevPersonaContextType, SessionContextType, IAuthService, MembershipType, RegisterMemberInput, RegisterResult, MockAuthService (+1 more)
 
 ### Community 9 - "mock/inventory.ts"
-Cohesion: 0.19
-Nodes (8): CartLineItem, EquipmentCardProps, toBorrowerCatalogItem(), IInventoryService, inventoryService, MockInventoryService, BorrowerCatalogItem, InventoryQueryFilter
+Cohesion: 0.08
+Nodes (29): DEFAULT_EQUIPMENT_IMAGE, EQUIPMENT_IMAGES, SENSOR_EQUIPMENT_IMAGE, BorrowCartProvider(), CartAction, cartReducer(), CartContext, CartContextValue (+21 more)
 
-### Community 10 - "requireOperatorInDraft"
-Cohesion: 0.22
-Nodes (10): IBoardAllocationService, requireOperatorInDraft(), MockBoardAllocationService, createAuditEvent(), assertInventoryConserved(), inventoryState(), moveUnits(), recordInventoryEvent() (+2 more)
+### Community 10 - "mock/board/allocations.ts"
+Cohesion: 0.39
+Nodes (3): IBoardAllocationService, MockBoardAllocationService, AllocationRecord
 
-### Community 11 - "mock/board/inventory.ts"
-Cohesion: 0.14
-Nodes (18): CreateInventoryItemPayload, IBoardInventoryService, MutateStockPayload, UpdateAssetPayload, bucketForState, MockBoardInventoryService, assetStates, fields (+10 more)
+### Community 11 - "requireOperatorInDraft"
+Cohesion: 0.11
+Nodes (26): CreateInventoryItemPayload, IBoardInventoryService, MutateStockPayload, UpdateAssetPayload, HandoverPayload, ReviewRequestPayload, requireOperatorInDraft(), bucketForState (+18 more)
 
 ### Community 12 - "IEEE RAS INSAT Logistics Platform — Implementation Context"
 Cohesion: 0.07
 Nodes (26): 10. Shopping cart and request submission, 12. Approval and partial approval, 14. Cancellation rules, 15. Physical handover, 17. Returns, 18. Extensions, 19. Inventory stock operations, 1. Product goal (+18 more)
 
-### Community 13 - "mock/board/loans.ts"
-Cohesion: 0.26
-Nodes (7): ConfirmReturnMutationParams, BoardLoanFilterParams, ConfirmReturnPayload, ReturnInspectionLineItem, makeId(), MockBoardLoanService, now()
+### Community 13 - "LoanRecord"
+Cohesion: 0.18
+Nodes (7): BoardLoanFilterParams, IBoardLoanService, ReturnInspectionLineItem, ILoanService, MockBoardLoanService, MockLoanService, LoanRecord
 
-### Community 14 - "DesignLabPage.tsx"
+### Community 14 - "board/index.tsx"
 Cohesion: 0.11
-Nodes (26): AlertBanner(), AlertBannerProps, AlertBannerVariant, VARIANT_CONFIG, PageContainer(), PageContainerProps, PageHeader(), PageHeaderProps (+18 more)
+Nodes (35): AlertBanner(), EmptyState(), EmptyStateProps, ErrorState(), ErrorStateProps, LoadingSkeleton, LoadingState(), LoadingStateProps (+27 more)
 
 ### Community 15 - "services/index.ts"
-Cohesion: 0.05
-Nodes (40): QUERY_KEYS, DatasetCardConfig, ConfirmHandoverParams, RejectEntireRequestParams, ReviewBorrowRequestParams, ExportDatasetType, ExportResult, IBoardExportService (+32 more)
+Cohesion: 0.13
+Nodes (19): ExportResult, IBoardExportService, IBoardInsightsService, boardAllocationService, boardAuditService, boardDisciplineService, boardExportService, boardInventoryService (+11 more)
 
 ### Community 16 - "compilerOptions"
 Cohesion: 0.08
 Nodes (24): DOM, DOM.Iterable, ES2022, src, vite.config.ts, compilerOptions, allowImportingTsExtensions, baseUrl (+16 more)
 
-### Community 17 - "useRequests.ts"
-Cohesion: 0.31
-Nodes (6): MemberActivityPage(), useUserLoans(), useCancelRequest(), useRequestDetail(), useUserRequests(), MemberRequestDetailPage()
+### Community 17 - "member/index.tsx"
+Cohesion: 0.24
+Nodes (9): MemberActivityPage(), MemberCartPage(), useUserLoans(), useCancelRequest(), useCreateRequest(), useRequestDetail(), useUserRequests(), MemberRequestDetailPage() (+1 more)
 
 ### Community 18 - "BoardBorrowedPage.tsx"
-Cohesion: 0.22
-Nodes (12): SearchInput(), BoardDashboardPage(), useBoardLoanDetail(), useBoardLoans(), useConfirmReturn(), useUpdateLoanDueDate(), BoardBorrowedPage(), useBoardRequests() (+4 more)
+Cohesion: 0.12
+Nodes (20): BoardDashboardPage(), useBoardInventory(), ConfirmReturnMutationParams, useBoardLoans(), useConfirmReturn(), useUpdateLoanDueDate(), BoardBorrowedPage(), ConfirmHandoverParams (+12 more)
 
-### Community 19 - "button.tsx"
+### Community 19 - "useSession"
+Cohesion: 0.30
+Nodes (9): RootRedirect(), UserMenu(), useInventoryCategories(), useInventoryItem(), useInventoryItems(), MemberInventoryPage(), MemberItemDetailPage(), useSession() (+1 more)
+
+### Community 20 - "useSession.tsx"
+Cohesion: 0.20
+Nodes (11): Providers(), ProvidersProps, queryClient, DevPersonaSwitcher(), PRESET_PERSONAS, SessionProvider(), DevPersonaContext, useDevPersona() (+3 more)
+
+### Community 21 - "InventoryAudit"
+Cohesion: 0.13
+Nodes (16): useBoardAuditDetail(), useBoardAudits(), useCompleteAudit(), useReconcileAuditItem(), useRecordAuditCounts(), useStartAudit(), BoardAuditDetailPage(), BoardAuditsPage() (+8 more)
+
+### Community 22 - "RegisterPage.tsx"
 Cohesion: 0.16
-Nodes (17): EmptyState(), EmptyStateProps, ErrorState(), ErrorStateProps, LoadingSkeleton, LoadingState(), LoadingStateProps, QuantitySelectorProps (+9 more)
+Nodes (8): AppBrand(), AppBrandProps, ForgotFormData, forgotSchema, LoginFormData, loginSchema, RegisterFormData, registerSchema
 
-### Community 20 - "ResponsiveDataTable.tsx"
-Cohesion: 0.15
-Nodes (16): EntityMetadataItem, MobileEntityCard(), MobileEntityCardProps, DataTableColumn, ResponsiveDataTable(), ResponsiveDataTableProps, Table, TableBody (+8 more)
-
-### Community 21 - "mock/board/audits.ts"
-Cohesion: 0.22
-Nodes (8): IBoardAuditService, ReconcileAuditDiscrepancyPayload, RecordPhysicalCountPayload, StartAuditPayload, auditLog(), MockBoardAuditService, onSiteQuantity(), InventoryAudit
-
-### Community 22 - "utils.ts"
-Cohesion: 0.14
-Nodes (12): AppBrand(), AppBrandProps, BOARD_MOBILE_TABS, BOARD_MORE_ITEMS, BOARD_NAV_ITEMS, MEMBER_NAV_ITEMS, MOBILE_MEMBER_TABS, NavItem (+4 more)
+### Community 23 - "authorization.ts"
+Cohesion: 0.21
+Nodes (8): mockDb, activeStrikeCount(), activeStrikesForUser(), IdentityDraft, refreshStrikeDerivedProfile(), requireMember(), requireMemberInDraft(), ScenarioManager
 
 ### Community 24 - "BorrowRequest"
-Cohesion: 0.18
-Nodes (5): IBoardRequestService, IRequestService, MockBoardRequestService, MockRequestService, BorrowRequest
+Cohesion: 0.14
+Nodes (9): IBoardRequestService, LineDecisionInput, RequestFilterParams, IRequestService, MockBoardRequestService, MockRequestService, BorrowRequest, CreateBorrowRequestPayload (+1 more)
 
-### Community 25 - "BoardAuditDetailPage.tsx"
-Cohesion: 0.21
-Nodes (14): SearchInputProps, Input, InputProps, useBoardAuditDetail(), useBoardAudits(), useCompleteAudit(), useReconcileAuditItem(), useRecordAuditCounts() (+6 more)
+### Community 25 - "query-client.ts"
+Cohesion: 0.27
+Nodes (6): QUERY_KEYS, useLoanDetail(), MemberLoanDetailPage(), boardAuditLogService, boardInsightsService, loanService
 
 ### Community 26 - "Stage 1 Quality Assurance & Browser Verification Report"
 Cohesion: 0.12
 Nodes (15): 1. Executive Summary, 2. Automated Quality Gates, 3. Real Browser DevTools Viewport Audit, 4. Role Shell & Board Ergonomics Verification, 5. Visual System & Design Lab (`/_dev/design`), 6. Strict Stage 2 Boundary Audit (Zero Premature Domain Logic), Board Console (`/board`), Development Persona Switcher & Production Session Isolation (`useSession` / `useDevPersona`) (+7 more)
 
 ### Community 27 - "BoardItemDetailPage.tsx"
-Cohesion: 0.70
-Nodes (4): useBoardItemDetail(), useBoardItemEvents(), useMutateStock(), BoardItemDetailPage()
+Cohesion: 0.42
+Nodes (7): useBoardItemDetail(), useBoardItemEvents(), useCreateInventoryItem(), useMutateStock(), useSetBorrowerVisibility(), BoardInventoryPage(), BoardItemDetailPage()
 
-### Community 28 - "MemberNotificationsPage.tsx"
-Cohesion: 0.25
-Nodes (13): OnboardingFormData, onboardingSchema, QuickOnboardingModal(), BoardNotificationsPage(), MemberNotificationsPage(), useMarkAllNotificationsAsRead(), useMarkNotificationAsRead(), useResetDemoData() (+5 more)
+### Community 28 - "useProfile.ts"
+Cohesion: 0.21
+Nodes (14): TopBar(), TopBarProps, BoardNotificationsPage(), MemberNotificationsPage(), useMarkAllNotificationsAsRead(), useMarkNotificationAsRead(), useResetDemoData(), useUpdateContactInfo() (+6 more)
 
 ### Community 29 - "UserMenu.tsx"
-Cohesion: 0.25
-Nodes (11): UserMenuProps, Badge(), badgeVariants, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioItem (+3 more)
+Cohesion: 0.29
+Nodes (9): UserMenuProps, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSubContent (+1 more)
 
 ### Community 30 - "Pre-Backend Domain Contract & Freeze Specification"
 Cohesion: 0.14
@@ -278,25 +278,25 @@ Nodes (13): 1. Design Principles for Operational Custodians, 2.1 Logistics Actio
 Cohesion: 0.14
 Nodes (13): 1. Official Canonical Color Palette, 2. Typography Standard, 3. Official Logo Integrity & Clear Space, 4. Theme Scope: Light Theme Only, 5. Verification Checkpoints, Deprecated & Prohibited Colors, IEEE Master Brand Relationship, IEEE RAS Brand Identity Compliance Certificate (+5 more)
 
-### Community 33 - "components.test.tsx"
-Cohesion: 0.22
-Nodes (9): ActiveFilter, FilterBar(), FilterBarProps, FilterChip(), FilterChipProps, KeyValueRow(), KeyValueRowProps, Metric() (+1 more)
+### Community 33 - "DesignLabPage.tsx"
+Cohesion: 0.10
+Nodes (25): AlertBannerProps, AlertBannerVariant, VARIANT_CONFIG, ActiveFilter, FilterBar(), FilterBarProps, FilterChip(), FilterChipProps (+17 more)
 
-### Community 34 - "ResponsiveDialog.tsx"
-Cohesion: 0.18
-Nodes (12): FilterDrawer(), FilterDrawerProps, ResponsiveDialog(), ResponsiveDialogProps, SheetContent, SheetContentProps, SheetDescription, SheetFooter() (+4 more)
+### Community 34 - "shared/index.ts"
+Cohesion: 0.11
+Nodes (23): FilterDrawerProps, OnboardingFormData, onboardingSchema, QuickOnboardingModal(), ResponsiveDialog(), ResponsiveDialogProps, DialogContent, DialogContentProps (+15 more)
 
 ### Community 35 - "devDependencies"
 Cohesion: 0.15
 Nodes (13): autoprefixer, eslint, devDependencies, autoprefixer, eslint, prettier, @types/react-dom, @vitejs/plugin-react (+5 more)
 
 ### Community 36 - "cn"
-Cohesion: 0.17
-Nodes (21): ConfirmationDialog(), ConfirmationDialogProps, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter(), AlertDialogHeader() (+13 more)
+Cohesion: 0.13
+Nodes (28): ConfirmationDialog(), ConfirmationDialogProps, EntityMetadataItem, MobileEntityCard(), MobileEntityCardProps, DataTableColumn, ResponsiveDataTable(), ResponsiveDataTableProps (+20 more)
 
 ### Community 37 - "router.tsx"
-Cohesion: 0.22
-Nodes (12): useBoardAuditLog(), BoardAuditLogPage(), BoardMorePage(), useBoardInsights(), BoardInsightsPage(), BoardLoanDetailPage(), BoardProfilePage(), useBoardRequestDetail() (+4 more)
+Cohesion: 0.28
+Nodes (5): App(), router, BoardMorePage(), rootElement, NotFoundPage()
 
 ### Community 38 - "IEEE RAS INSAT Logistics Platform — Design System Specification"
 Cohesion: 0.17
@@ -322,9 +322,9 @@ Nodes (10): 1. Design Vision & Philosophy, 2.1 Navigation & Shell, 2.2 Discovery
 Cohesion: 0.20
 Nodes (10): scripts, build, dev, format, format:check, lint, test, test:e2e (+2 more)
 
-### Community 45 - "MockBoardAuditLogService"
-Cohesion: 0.36
-Nodes (3): IBoardAuditLogService, MockBoardAuditLogService, AuditEvent
+### Community 45 - "BoardExportsPage.tsx"
+Cohesion: 0.48
+Nodes (5): useExportCsv(), BoardExportsPage(), DatasetCardConfig, DATASETS, ExportDatasetType
 
 ### Community 46 - "24. Discipline and strikes"
 Cohesion: 0.22
@@ -370,10 +370,6 @@ Nodes (7): 32. Recommended architecture and stack, Auth, Backend, Code/CI, Data,
 Cohesion: 0.29
 Nodes (7): 3.1 Progressive disclosure, 3.2 Recognition over recall, 3.3 Prevent errors instead of explaining them later, 3.4 Every page should have one obvious primary action, 3.5 Preserve real-world workflow, 3.6 Explain unusual states in plain language, 3. Fundamental UX Principles
 
-### Community 57 - "RegisterPage.tsx"
-Cohesion: 0.33
-Nodes (4): PolicyNotice(), PolicyNoticeProps, RegisterFormData, registerSchema
-
 ### Community 58 - "16. Loan state model"
 Cohesion: 0.33
 Nodes (6): 16. Loan state model, Due state, Handover, Loan lifecycle, Request decision, Return progress
@@ -393,10 +389,6 @@ Nodes (5): 1. Member Navigation & Shell Integration, 2. Equipment Discovery & El
 ### Community 62 - "2. Targeted Shipped-Product Research (Lazyweb & Benchmark Pass)"
 Cohesion: 0.33
 Nodes (6): 2.1 Pattern: Mobile Filter Drawer, 2.2 Pattern: Admin Operational Action Queue, 2.3 Pattern: Responsive Data Presentation (Table vs. Cards Fallback), 2.4 Pattern: Mobile Operational Navigation (4 Tabs + "More" Drawer), 2.5 Pattern: Non-Color-Alone Semantic Feedback, 2. Targeted Shipped-Product Research (Lazyweb & Benchmark Pass)
-
-### Community 63 - "CartContext.ts"
-Cohesion: 0.29
-Nodes (10): BorrowCartProvider(), CartAction, cartReducer(), CartContext, CartContextValue, CartState, defaultReturnDate(), fallbackCartValue (+2 more)
 
 ### Community 64 - "11. Management Responsibilities"
 Cohesion: 0.40
@@ -426,10 +418,6 @@ Nodes (5): 2.1 Color Tokens, 2.2 Canonical Tints, 2.3 Typography Tokens, 2.4 Spa
 Cohesion: 0.40
 Nodes (4): name, private, type, version
 
-### Community 72 - "mock/requests.ts"
-Cohesion: 0.32
-Nodes (6): getBorrowerCatalogAccess(), isFormalRequestClass(), clearanceToNumber(), EligibilityResult, evaluateItemEligibility(), CreateBorrowRequestPayload
-
 ### Community 73 - "10. User Responsibilities"
 Cohesion: 0.50
 Nodes (4): 10. User Responsibilities, Honest Reporting, Proper Handling, Timely Returns
@@ -458,9 +446,9 @@ Nodes (4): 8. Inventory model, INDIVIDUAL_ASSET, QUANTITY, Tracking modes
 Cohesion: 0.50
 Nodes (4): 4.1 Borrow Request Lifecycle, 4.2 Allocation Reservation Expiry, 4.3 Loan Lifecycle & Physical Return Inspection, 4. State Machines & Lifecycles
 
-### Community 81 - "mock/board/insights.ts"
-Cohesion: 0.24
-Nodes (6): IBoardInsightsService, MockBoardInsightsService, BoardInsightsData, DomainStatus, PaginatedResult, PaginationParams
+### Community 81 - "common.ts"
+Cohesion: 0.50
+Nodes (3): DomainStatus, PaginatedResult, PaginationParams
 
 ### Community 82 - "vite-env.d.ts"
 Cohesion: 0.50
@@ -478,29 +466,25 @@ Nodes (3): 16.1 Search, 16.2 Inventory filters, 16. Inventory Experience
 Cohesion: 0.67
 Nodes (3): 75. Core Screens to Implement First, Board, Member
 
-### Community 114 - "equipmentImages.ts"
-Cohesion: 0.47
-Nodes (4): DEFAULT_EQUIPMENT_IMAGE, EQUIPMENT_IMAGES, SENSOR_EQUIPMENT_IMAGE, INITIAL_INVENTORY
-
 ## Knowledge Gaps
 - **486 isolated node(s):** `viewports`, `name`, `private`, `version`, `type` (+481 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **22 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **21 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `cn()` connect `cn` to `components.test.tsx`, `ResponsiveDialog.tsx`, `useSession`, `mock/inventory.ts`, `DesignLabPage.tsx`, `BoardBorrowedPage.tsx`, `button.tsx`, `ResponsiveDataTable.tsx`, `utils.ts`, `RegisterPage.tsx`, `UserMenu.tsx`, `BoardAuditDetailPage.tsx`?**
+- **Why does `cn()` connect `cn` to `DesignLabPage.tsx`, `shared/index.ts`, `navigation.test.tsx`, `board/index.tsx`, `useSession`, `RegisterPage.tsx`, `UserMenu.tsx`?**
   _High betweenness centrality (0.024) - this node is a cross-community bridge._
-- **Why does `MockBoardDisciplineService` connect `BoardIncidentsPage.tsx` to `types/index.ts`, `services/index.ts`?**
+- **Why does `LoanRecord` connect `LoanRecord` to `types/inventory.ts`, `types/index.ts`, `requireOperatorInDraft`, `BoardBorrowedPage.tsx`, `authorization.ts`?**
   _High betweenness centrality (0.013) - this node is a cross-community bridge._
-- **Why does `useSession()` connect `useSession` to `BoardIncidentsPage.tsx`, `ProjectSummary`, `router.tsx`, `useBoardUsers.ts`, `DesignLabPage.tsx`, `useRequests.ts`, `BoardBorrowedPage.tsx`, `button.tsx`, `BoardAuditDetailPage.tsx`, `BoardItemDetailPage.tsx`, `MemberNotificationsPage.tsx`, `UserMenu.tsx`?**
+- **Why does `MockBoardDisciplineService` connect `BoardIncidentsPage.tsx` to `types/index.ts`, `services/index.ts`?**
   _High betweenness centrality (0.011) - this node is a cross-community bridge._
 - **What connects `viewports`, `name`, `private` to the rest of the system?**
   _486 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `ui_ux_context.md` be split into smaller, more focused modules?**
   _Cohesion score 0.02564102564102564 - nodes in this community are weakly interconnected._
-- **Should `board.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.07096774193548387 - nodes in this community are weakly interconnected._
+- **Should `types/inventory.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.09333333333333334 - nodes in this community are weakly interconnected._
 - **Should `BoardIncidentsPage.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.0889894419306184 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06980433632998413 - nodes in this community are weakly interconnected._

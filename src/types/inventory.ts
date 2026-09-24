@@ -39,6 +39,8 @@ export interface InventoryItemSummary {
   aliases?: string[];
   tags?: string[];
   isDirectBoardApproval?: boolean;
+  /** Whether this item is exposed in the member catalogue; defaults to Class C/E only. */
+  borrowerVisible?: boolean;
 }
 
 export interface InventoryQueryFilter {

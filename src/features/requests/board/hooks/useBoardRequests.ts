@@ -79,17 +79,18 @@ export function useConfirmHandover() {
   return useMutation({
     mutationFn: ({ payload, actorUserId }: ConfirmHandoverParams) =>
       boardRequestService.confirmHandover(payload, actorUserId),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardRequests.all });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.requests.all });
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.boardRequests.detail(variables.payload.requestId),
-      });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardLoans.all });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.loans.all });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardInventory.all });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.inventory.all });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardAllocations.all });
-    },
+    onSuccess: (_, variables) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardRequests.all }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.requests.all }),
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.boardRequests.detail(variables.payload.requestId),
+        }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardLoans.all }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.loans.all }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardInventory.all }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.inventory.all }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardAllocations.all }),
+      ]),
   });
 }

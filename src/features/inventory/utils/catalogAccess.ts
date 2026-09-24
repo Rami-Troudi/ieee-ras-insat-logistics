@@ -6,6 +6,10 @@ export function isFormalRequestClass(item: InventoryItemSummary): boolean {
   return item.equipmentClass === "C" || item.equipmentClass === "E";
 }
 
+export function isBorrowerCatalogVisible(item: InventoryItemSummary): boolean {
+  return item.borrowerVisible ?? isFormalRequestClass(item);
+}
+
 export function getBorrowerCatalogAccess(
   user: UserProfile,
   item: InventoryItemSummary
@@ -23,6 +27,7 @@ export function getBorrowerCatalogAccess(
   const clearance = clearanceToNumber(user.clearance);
   const requiredClearance = { A: 1, B: 1, C: 2, D: 3, E: 3, F: 3, G: 4 }[item.equipmentClass];
   const visible =
+    isBorrowerCatalogVisible(item) &&
     user.role === "MEMBER" &&
     user.status === "ACTIVE" &&
     user.strikesCount < 4 &&

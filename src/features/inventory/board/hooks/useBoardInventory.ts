@@ -64,3 +64,23 @@ export function useCreateInventoryItem() {
     },
   });
 }
+
+export function useSetBorrowerVisibility() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (params: { itemId: string; visible: boolean; actorUserId: string }) =>
+      boardInventoryService.setBorrowerVisibility(
+        params.itemId,
+        params.visible,
+        params.actorUserId
+      ),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardInventory.all });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.inventory.all });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.boardInventory.detail(variables.itemId),
+      });
+    },
+  });
+}
