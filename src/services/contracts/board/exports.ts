@@ -19,9 +19,5 @@ export interface ExportResult {
 }
 
 export interface IBoardExportService {
-  exportCsv(
-    dataset: ExportDatasetType,
-    actorUserId: string,
-    actorRole: string
-  ): Promise<ExportResult>;
+  exportCsv(dataset: ExportDatasetType, actorUserId: string): Promise<ExportResult>;
 }

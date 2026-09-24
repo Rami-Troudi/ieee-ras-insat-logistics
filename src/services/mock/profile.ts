@@ -2,6 +2,7 @@ import { IProfileService, IProjectService } from "../contracts/profile";
 import { UserProfile, ProjectSummary } from "@/types";
 import { mockDb } from "@/mocks/db";
 import { scenarioManager } from "./scenario";
+import { refreshStrikeDerivedProfile } from "./authorization";
 
 export class MockProfileService implements IProfileService {
   private defaultDelayMs = 200;
@@ -15,6 +16,7 @@ export class MockProfileService implements IProfileService {
     if (scenarioManager.isEmpty()) return null;
     const snapshot = mockDb.getSnapshot();
     const profile = snapshot.userProfiles[userId];
+    if (profile) refreshStrikeDerivedProfile(snapshot, userId);
     return profile ? { ...profile } : null;
   }
 

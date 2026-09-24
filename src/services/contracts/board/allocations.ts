@@ -11,5 +11,5 @@ export interface IBoardAllocationService {
     actorUserId: string,
     reason?: string
   ): Promise<AllocationRecord>;
-  checkAndExpireAllocations(): Promise<number>; // returns count of expired allocations
+  checkAndExpireAllocations(actorUserId: string): Promise<number>; // returns count of expired allocations
 }

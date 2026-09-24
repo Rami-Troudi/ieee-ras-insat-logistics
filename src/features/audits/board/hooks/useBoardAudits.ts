@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/app/query-client";
-import { boardAuditService, StartAuditPayload, RecordPhysicalCountPayload } from "@/services";
+import {
+  boardAuditService,
+  StartAuditPayload,
+  RecordPhysicalCountPayload,
+  ReconcileAuditDiscrepancyPayload,
+} from "@/services";
 
 export function useBoardAudits(status?: string) {
   return useQuery({
@@ -56,6 +61,26 @@ export function useCompleteAudit() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardAudits.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardAudits.detail(variables.auditId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardInventory.all });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.inventory.all });
+    },
+  });
+}
+
+export function useReconcileAuditItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (params: {
+      payload: ReconcileAuditDiscrepancyPayload;
+      actorUserId: string;
+      actorRole: string;
+    }) => boardAuditService.reconcileItem(params.payload, params.actorUserId, params.actorRole),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardAudits.all });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.boardAudits.detail(variables.payload.auditId),
+      });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardInventory.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.inventory.all });
     },

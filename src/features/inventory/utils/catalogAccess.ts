@@ -1,5 +1,6 @@
 import { BorrowerCatalogItem, InventoryItemSummary, UserProfile } from "@/types";
 import { clearanceToNumber } from "./eligibility";
+import { DEFAULT_EQUIPMENT_IMAGE } from "@/assets/equipmentImages";
 
 export function isFormalRequestClass(item: InventoryItemSummary): boolean {
   return item.equipmentClass === "C" || item.equipmentClass === "E";
@@ -44,7 +45,7 @@ export function toBorrowerCatalogItem(
     name: item.name,
     description: item.description,
     category: item.category,
-    imageUrl: item.imageUrl || "/equipment/fallback.svg",
+    imageUrl: item.imageUrl || DEFAULT_EQUIPMENT_IMAGE,
     ...(item.datasheetUrl ? { datasheetUrl: item.datasheetUrl } : {}),
     availability: access.availability,
     action: access.action,

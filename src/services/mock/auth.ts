@@ -2,6 +2,7 @@ import { IAuthService, RegisterMemberInput, RegisterResult } from "../contracts/
 import { UserPersona } from "@/types";
 import { mockDb } from "@/mocks/db";
 import { PROD_DEFAULT_PERSONA } from "@/hooks/useSession";
+import { refreshStrikeDerivedProfile } from "./authorization";
 
 class MockAuthService implements IAuthService {
   private subscribers: Set<(persona: UserPersona) => void> = new Set();
@@ -66,8 +67,11 @@ class MockAuthService implements IAuthService {
   }
 
   getCurrentUser(): UserPersona {
-    const users = mockDb.getSnapshot().userProfiles;
-    return users[this.sessionUserId] || users[PROD_DEFAULT_PERSONA.id];
+    const snapshot = mockDb.getSnapshot();
+    const userId = snapshot.userProfiles[this.sessionUserId]
+      ? this.sessionUserId
+      : PROD_DEFAULT_PERSONA.id;
+    return refreshStrikeDerivedProfile(snapshot, userId);
   }
 
   setSession(persona: UserPersona): void {

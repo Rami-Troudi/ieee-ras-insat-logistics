@@ -3,10 +3,9 @@ export type ItemClass = EquipmentClass;
 
 export type TrackingMode = "QUANTITY" | "INDIVIDUAL_ASSET";
 
-export type AssetCondition =
-  "GOOD" | "MINOR_ISSUE" | "DAMAGED" | "MAINTENANCE" | "LOST" | "RETIRED";
+export type AssetCondition = "GOOD" | "MINOR_ISSUE" | "DAMAGED" | "MAINTENANCE" | "LOST";
 export type AssetState =
-  "AVAILABLE" | "ALLOCATED" | "BORROWED" | "DAMAGED" | "MAINTENANCE" | "LOST" | "RETIRED";
+  "AVAILABLE" | "ALLOCATED" | "BORROWED" | "DAMAGED" | "MAINTENANCE" | "LOST";
 
 export interface IndividualAsset {
   id: string;

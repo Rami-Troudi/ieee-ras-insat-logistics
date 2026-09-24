@@ -5,7 +5,7 @@
 [![Vite](https://img.shields.io/badge/Vite-6.2-646cff.svg)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38bdf8.svg)](https://tailwindcss.com/)
 [![Vitest](https://img.shields.io/badge/Vitest-3.0-729b1b.svg)](https://vitest.dev/)
-[![Playwright](https://img.shields.io/badge/Playwright-1.50-green.svg)](https://playwright.dev/)
+[![Playwright](https://img.shields.io/badge/Playwright-1.63-green.svg)](https://playwright.dev/)
 [![IEEE Brand](https://img.shields.io/badge/IEEE%20RAS-Brand%20Compliant-861F41.svg)](docs/design/RAS_BRAND_COMPLIANCE.md)
 
 The official web platform for managing hardware inventory, borrow requests, active equipment loans, physical returns, and disciplinary ledgers for the **IEEE Robotics & Automation Society (RAS) INSAT Student Branch Chapter**.
@@ -14,17 +14,16 @@ The official web platform for managing hardware inventory, borrow requests, acti
 
 ## 1. Final Pre-Backend Freeze Status
 
-The frontend, UI/UX interaction architecture, and mock domain layers are frozen and verified under branch `codex/pre-backend-freeze`.
+This is the frontend-only pre-backend freeze branch, `codex/pre-backend-freeze`. Current readiness and command results are recorded in [`FINAL_FREEZE_AUDIT.md`](FINAL_FREEZE_AUDIT.md).
 
 - **Zero Backend Code**: No server endpoints, Cloudflare Workers, Hono routes, D1/Drizzle schemas, Resend emails, or Cron jobs are present in this stage.
-- **3 Canonical Roles**: `MEMBER`, `OPERATOR`, `SUPERADMIN`. All executive affiliations (`RAS_BOARD`, `EUROBOT`) map directly to `OPERATOR` (Clearance Level V).
+- **3 Canonical Roles**: `MEMBER`, `OPERATOR`, `SUPERADMIN`. Authorized identity administration assigns roles and clearance; project membership does not change identity or authorization.
 - **Formal Online Request Gating**: Only **Class C** (Sensors/Modules) and **Class E** (Development Boards) equipment can be requested online. All other equipment classes (A, B, D, F, G) require physical desk interaction.
 - **Borrower Stock Privacy**: Borrowers interact via the `BorrowerCatalogItem` DTO, which strictly redacts exact quantities, tracking modes, individual asset serials, and physical cabinet/shelf storage coordinates.
 - **Simplified Physical Handover & Returns**:
   - No digital appointment booking or member-side extension/return forms.
   - Equipment returns and due-date adjustments are exclusively managed in-person by Operators.
-  - Returns classified as `DAMAGED` automatically create an incident report and a disciplinary recommendation for board review.
-- **Quality Gates**: 100% passing across TypeScript (`tsc --noEmit`), Vitest (12 test suites, 80 tests), and Playwright E2E suites (21 tests across 5 viewports).
+  - Returns classified as `DAMAGED` update inventory and its audit trail. An operator may explicitly request a damage incident; returns do not automatically recommend or issue strikes.
 
 ---
 
@@ -95,7 +94,7 @@ npm run build
 - [Current Product UX & Viewport Specifications](docs/design/current-product-ux.md)
 - [IEEE RAS Brand Compliance Guide](docs/design/RAS_BRAND_COMPLIANCE.md)
 - [Design System Specification](docs/design/design-system.md)
-- [Stage 1 QA & Browser Audit Report](docs/design/stage-1-qa.md)
+- [Archived stage and QA documents](docs/archive/README.md)
 - [Field UX Research & Interaction Foundations](docs/design/ux-research.md)
 
 ---

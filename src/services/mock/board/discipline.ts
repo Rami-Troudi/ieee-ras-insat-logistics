@@ -10,10 +10,15 @@ import {
   DisciplinaryRecommendation,
   StrikeRecord,
   CompensationRecord,
-  Role,
 } from "@/types";
 import { mockDb } from "@/mocks/db";
 import { mockBoardAuditLogService } from "./audit-log";
+import {
+  refreshStrikeDerivedProfile,
+  requireOperatorInDraft,
+  requireSuperadminInDraft,
+} from "../authorization";
+import { buildSemesterConfigs } from "@/mocks/seed/semesters";
 
 class MockBoardDisciplineService implements IBoardDisciplineService {
   private async simulateLatency(): Promise<void> {
@@ -35,22 +40,20 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
     action: "APPLY" | "DISMISS",
     decisionNotes: string,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<DisciplinaryRecommendation> {
     await this.simulateLatency();
     let updatedRec: DisciplinaryRecommendation | null = null;
 
     mockDb.mutate((draft) => {
+      const actor = requireOperatorInDraft(draft, actorUserId);
       const rec = draft.recommendations.find((r) => r.id === recommendationId);
       if (!rec) throw new Error("Recommendation not found");
 
       rec.status = action === "APPLY" ? "APPLIED" : "DISMISSED";
       rec.decisionNotes = decisionNotes;
       rec.reviewedAt = new Date().toISOString();
-      rec.reviewedBy =
-        actorRole === "SUPERADMIN"
-          ? "Amine Elkadhi (RAS Chairman)"
-          : "Emna Taghlet (Logistics Board)";
+      rec.reviewedBy = actor.name;
 
       updatedRec = { ...rec };
     });
@@ -58,8 +61,8 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
     if (updatedRec) {
       await mockBoardAuditLogService.logEvent({
         actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
+        actorName: "",
+        actorRole: "OPERATOR",
         action: `RECOMMENDATION_${action}`,
         entityType: "INCIDENT",
         entityId: recommendationId,
@@ -106,14 +109,16 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
   async createIncident(
     payload: CreateIncidentPayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<IncidentRecord> {
     await this.simulateLatency();
     let newIncident: IncidentRecord | null = null;
 
     mockDb.mutate((draft) => {
+      const actor = requireOperatorInDraft(draft, actorUserId);
       const user = draft.userProfiles[payload.userId];
-      const userName = user ? user.name : "Member";
+      if (!user) throw new Error("User not found");
+      const userName = user.name;
 
       newIncident = {
         id: `inc-2026-${String(draft.incidents.length + 1).padStart(4, "0")}`,
@@ -127,10 +132,7 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
         relatedLoanId: payload.relatedLoanId,
         relatedItemId: payload.relatedItemId,
         reportedBy: actorUserId,
-        reportedByName:
-          actorRole === "SUPERADMIN"
-            ? "Amine Elkadhi (RAS Chairman)"
-            : "Emna Taghlet (Logistics Board)",
+        reportedByName: actor.name,
         reportedAt: new Date().toISOString(),
       };
 
@@ -140,8 +142,8 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
     if (newIncident) {
       await mockBoardAuditLogService.logEvent({
         actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
+        actorName: "",
+        actorRole: "OPERATOR",
         action: "INCIDENT_CREATED",
         entityType: "INCIDENT",
         entityId: (newIncident as IncidentRecord).id,
@@ -158,12 +160,13 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
     incidentId: string,
     resolutionNotes: string,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<IncidentRecord> {
     await this.simulateLatency();
     let resolvedIncident: IncidentRecord | null = null;
 
     mockDb.mutate((draft) => {
+      requireOperatorInDraft(draft, actorUserId);
       const inc = draft.incidents.find((i) => i.id === incidentId);
       if (!inc) throw new Error("Incident not found");
 
@@ -176,8 +179,8 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
     if (resolvedIncident) {
       await mockBoardAuditLogService.logEvent({
         actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
+        actorName: "",
+        actorRole: "OPERATOR",
         action: "INCIDENT_RESOLVED",
         entityType: "INCIDENT",
         entityId: incidentId,
@@ -197,33 +200,54 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
     if (userId) {
       strikes = strikes.filter((s) => s.userId === userId);
     }
-    return strikes.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime());
+    const now = Date.now();
+    return strikes
+      .map((strike) =>
+        strike.status === "ACTIVE" && strike.expiresAt && Date.parse(strike.expiresAt) <= now
+          ? { ...strike, status: "EXPIRED" as const }
+          : strike
+      )
+      .sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime());
   }
 
   async issueStrike(
     payload: IssueStrikePayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<StrikeRecord> {
     await this.simulateLatency();
     let newStrike: StrikeRecord | null = null;
 
     mockDb.mutate((draft) => {
-      // Authority Check: Strike 5 is Superadmin only
-      if (payload.level === 5 && actorRole !== "SUPERADMIN") {
-        throw new Error(
-          "Unauthorized: Issuing Strike 5 (Permanent Blacklist) is strictly restricted to Superadmin."
-        );
-      }
+      if (!Number.isInteger(payload.level) || payload.level < 1 || payload.level > 5)
+        throw new Error("Strike level must be between 1 and 5");
+      const actor =
+        payload.level === 5
+          ? requireSuperadminInDraft(draft, actorUserId)
+          : requireOperatorInDraft(draft, actorUserId);
 
       const user = draft.userProfiles[payload.userId];
       if (!user) throw new Error("User not found");
 
       const nowIso = new Date().toISOString();
-      const currentSemester = draft.semesters.find((s) => s.isCurrent);
-      const semesterEnd = currentSemester ? currentSemester.endDate : undefined;
+      let currentSemester = draft.semesters.find(
+        (semester) =>
+          Date.parse(semester.startDate) <= Date.parse(nowIso) &&
+          Date.parse(semester.endDate) >= Date.parse(nowIso)
+      );
+      if (!currentSemester) {
+        draft.semesters = buildSemesterConfigs(new Date(nowIso));
+        currentSemester = draft.semesters.find(
+          (semester) =>
+            Date.parse(semester.startDate) <= Date.parse(nowIso) &&
+            Date.parse(semester.endDate) >= Date.parse(nowIso)
+        );
+      }
+      const semesterEnd = currentSemester?.endDate;
+      if (payload.level < 5 && !semesterEnd)
+        throw new Error("Current semester dates are not configured");
 
-      const strikeId = `strk-${Date.now().toString(36)}`;
+      const strikeId = `strk-${crypto.randomUUID()}`;
       newStrike = {
         id: strikeId,
         userId: payload.userId,
@@ -233,10 +257,7 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
         reason: payload.reason,
         incidentId: payload.incidentId,
         issuedBy: actorUserId,
-        issuedByName:
-          actorRole === "SUPERADMIN"
-            ? "Amine Elkadhi (RAS Chairman)"
-            : "Emna Taghlet (Logistics Board)",
+        issuedByName: actor.name,
         issuedAt: nowIso,
         expiresAt: payload.level === 5 ? undefined : semesterEnd, // Strike 5 does not expire
         notes: payload.notes,
@@ -244,8 +265,6 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
 
       draft.strikes.unshift(newStrike);
 
-      // Increment active strikes on user profile
-      user.strikesCount = (user.strikesCount || 0) + 1;
       if (!user.strikes) user.strikes = [];
       user.strikes.push({
         id: strikeId,
@@ -257,13 +276,7 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
         level: payload.level,
       });
 
-      // Apply automatic status changes for high strikes
-      if (payload.level === 4) {
-        user.status = "RESTRICTED";
-      } else if (payload.level === 5) {
-        user.status = "BLACKLISTED";
-        user.isBanned = true;
-      }
+      refreshStrikeDerivedProfile(draft, user.id);
 
       // Notify Member
       draft.notifications.unshift({
@@ -281,8 +294,8 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
     if (newStrike) {
       await mockBoardAuditLogService.logEvent({
         actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
+        actorName: "",
+        actorRole: "OPERATOR",
         action: "STRIKE_ISSUED",
         entityType: "STRIKE",
         entityId: (newStrike as StrikeRecord).id,
@@ -299,12 +312,16 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
     strikeId: string,
     reason: string,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<StrikeRecord> {
     await this.simulateLatency();
     let overturnedStrike: StrikeRecord | null = null;
 
     mockDb.mutate((draft) => {
+      const existing = draft.strikes.find((entry) => entry.id === strikeId);
+      if (!existing) throw new Error("Strike record not found");
+      if (existing.level === 5) requireSuperadminInDraft(draft, actorUserId);
+      else requireOperatorInDraft(draft, actorUserId);
       const strike = draft.strikes.find((s) => s.id === strikeId);
       if (!strike) throw new Error("Strike record not found");
 
@@ -315,13 +332,8 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
 
       const user = draft.userProfiles[strike.userId];
       if (user) {
-        user.strikesCount = Math.max(0, (user.strikesCount || 1) - 1);
-        const userStrk = user.strikes?.find((s) => s.id === strikeId);
-        if (userStrk) userStrk.resolved = true;
-
-        if (user.strikesCount < 4 && user.status === "RESTRICTED") {
-          user.status = "ACTIVE";
-        }
+        if (strike.level === 5 && user.manualBlacklisted !== true) user.isBanned = false;
+        refreshStrikeDerivedProfile(draft, user.id);
       }
 
       overturnedStrike = { ...strike };
@@ -330,8 +342,8 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
     if (overturnedStrike) {
       await mockBoardAuditLogService.logEvent({
         actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
+        actorName: "",
+        actorRole: "OPERATOR",
         action: "STRIKE_OVERTURNED",
         entityType: "STRIKE",
         entityId: strikeId,
@@ -357,14 +369,18 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
   async recordCompensation(
     payload: RecordCompensationPayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<CompensationRecord> {
     await this.simulateLatency();
     let newComp: CompensationRecord | null = null;
 
     mockDb.mutate((draft) => {
+      requireSuperadminInDraft(draft, actorUserId);
       const user = draft.userProfiles[payload.userId];
-      const userName = user ? user.name : "Member";
+      if (!user) throw new Error("User not found");
+      if (!Number.isFinite(payload.amount) || payload.amount <= 0)
+        throw new Error("Compensation amount must be positive");
+      const userName = user.name;
 
       newComp = {
         id: `cmp-2026-${String(draft.compensations.length + 1).padStart(4, "0")}`,
@@ -384,8 +400,8 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
     if (newComp) {
       await mockBoardAuditLogService.logEvent({
         actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
+        actorName: "",
+        actorRole: "SUPERADMIN",
         action: "COMPENSATION_RECORDED",
         entityType: "COMPENSATION",
         entityId: (newComp as CompensationRecord).id,
@@ -401,12 +417,13 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
   async updateCompensationStatus(
     payload: UpdateCompensationStatusPayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<CompensationRecord> {
     await this.simulateLatency();
     let updatedComp: CompensationRecord | null = null;
 
     mockDb.mutate((draft) => {
+      requireSuperadminInDraft(draft, actorUserId);
       const comp = draft.compensations.find((c) => c.id === payload.compensationId);
       if (!comp) throw new Error("Compensation record not found");
 
@@ -426,8 +443,8 @@ class MockBoardDisciplineService implements IBoardDisciplineService {
     if (updatedComp) {
       await mockBoardAuditLogService.logEvent({
         actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
+        actorName: "",
+        actorRole: "SUPERADMIN",
         action: "COMPENSATION_UPDATED",
         entityType: "COMPENSATION",
         entityId: payload.compensationId,

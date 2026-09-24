@@ -17,7 +17,6 @@ The logistics portal minimizes unnecessary digital interaction, channeling all r
 - **Desktop (>= 1024px)**: Fixed left sidebar featuring direct links to:
   - **Catalogue** (`/app/inventory`): Item browsing and search.
   - **Activity** (`/app/activity`): Consolidated request and loan lifecycle views.
-  - **Design Lab** (`/_dev/design`): Developer style guide (dev mode).
   - Secondary footer links for Notifications and Profile.
 - **Mobile (< 1024px)**: Fixed bottom navigation bar with icon + label tabs (`Catalogue`, `Activity`, `Profile`) and header top bar with cart badge.
 
@@ -64,7 +63,8 @@ The operator shell is strictly organized into six core sections:
 - **Request Approval**: One-click approval reserves stock and creates a 48h allocation.
 - **Physical Handover**: On borrower arrival, operator assigns individual asset serial numbers (if individually tracked) and confirms physical handover, transitioning request to an active loan.
 - **Direct Due-Date Adjustment**: Operator can update the expected return date directly from the borrowed list without complex request-counter-offer cycles.
-- **Physical Return & Inspection**: Operator inspects returned items, selects condition (`Good`, `Needs attention`, `Damaged`, `Lost`), and enters inspection notes. Damaged selections automatically initiate an incident and disciplinary strike recommendation.
+- **Physical Return & Inspection**: Operator inspects returned items, selects condition (`Good`, `Needs attention`, `Damaged`, `Lost`), and enters inspection notes. A damaged selection updates inventory and its audit trail. The operator can explicitly request a damage incident; no strike is issued or recommended automatically.
+- **Physical Audits**: Operators record on-site stock counts, then match each line or record a reasoned correction. Corrections are logged before an audit can be closed.
 
 ---
 

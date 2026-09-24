@@ -52,6 +52,7 @@ export interface InventoryEvent {
   itemId: string;
   itemName: string;
   assetId?: string;
+  assetIds?: string[];
   type: InventoryEventType;
   quantity: number;
   beforeState: InventoryQuantityState;
@@ -71,10 +72,11 @@ export interface InventoryAuditItem {
   itemName: string;
   category: string;
   equipmentClass: EquipmentClass;
-  expectedSnapshotQuantity: number; // Snapshot at T0
-  movementsSinceSnapshot: number; // Sum of movement deltas recorded after T0
-  adjustedExpectedQuantity: number; // expectedSnapshotQuantity + movementsSinceSnapshot
+  expectedSnapshotQuantity: number; // On-site quantity at snapshot: available + allocated + damaged + maintenance
+  movementsSinceSnapshot: number; // Net on-site quantity changes after T0
+  adjustedExpectedQuantity: number; // expectedSnapshotQuantity + on-site movementsSinceSnapshot
   physicalCount?: number;
+  countedAt?: string;
   discrepancy?: number; // physicalCount - adjustedExpectedQuantity
   status: AuditItemStatus;
   resolutionNotes?: string;
@@ -85,6 +87,7 @@ export interface InventoryAudit {
   id: string;
   title: string;
   startedAt: string;
+  updatedAt?: string;
   startedBy: string;
   startedByName: string;
   completedAt?: string;
@@ -227,8 +230,7 @@ export interface BoardInsightsData {
     approvalRatePercent: number;
     partialApprovalRatePercent: number;
     activeLoansCount: number;
-    averageDurationDays: number;
-    extensionFrequencyPercent: number;
+    averageDurationDays: number | null;
     overdueLoansCount: number;
     overdueRatePercent: number;
   };

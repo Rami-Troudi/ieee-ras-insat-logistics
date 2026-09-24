@@ -146,7 +146,6 @@ export const BoardExportsPage: React.FC = () => {
       const result = await exportMutation.mutateAsync({
         dataset,
         actorUserId: currentPersona.id,
-        actorRole: currentPersona.role,
       });
 
       // Trigger client-side file download

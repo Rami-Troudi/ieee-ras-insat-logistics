@@ -9,7 +9,7 @@ export type AccountStatus = "PENDING" | "ACTIVE" | "RESTRICTED" | "BANNED" | "SU
 export type Affiliation = "EXTERNAL" | "AEROBOTIX" | "IEEE" | "RAS_BOARD" | "EUROBOT";
 
 export type ClearanceSource =
-  "AFFILIATION" | "EUROBOT" | "OPERATOR_ROLE" | "MANUAL_LEVEL_IV" | "SUPERADMIN_ROLE";
+  "AFFILIATION" | "OPERATOR_ROLE" | "MANUAL_LEVEL_IV" | "SUPERADMIN_ROLE";
 
 export interface UserPersona {
   id: string;
@@ -29,6 +29,7 @@ export interface UserPersona {
   strikeCount?: number;
   createdAt?: string;
   isBanned?: boolean;
+  manualBlacklisted?: boolean;
 }
 
 export interface UserStrike {

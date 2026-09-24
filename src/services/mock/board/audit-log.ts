@@ -1,6 +1,7 @@
 import { IBoardAuditLogService } from "@/services/contracts/board/audit-log";
 import { AuditEvent } from "@/types";
 import { mockDb } from "@/mocks/db";
+import { requireOperatorInDraft } from "../authorization";
 
 class MockBoardAuditLogService implements IBoardAuditLogService {
   private async simulateLatency(): Promise<void> {
@@ -40,13 +41,16 @@ class MockBoardAuditLogService implements IBoardAuditLogService {
   }
 
   async logEvent(event: Omit<AuditEvent, "id" | "createdAt">): Promise<AuditEvent> {
-    const newEvent: AuditEvent = {
-      id: `aev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      createdAt: new Date().toISOString(),
-      ...event,
-    };
-
+    let newEvent!: AuditEvent;
     mockDb.mutate((draft) => {
+      const actor = requireOperatorInDraft(draft, event.actorUserId);
+      newEvent = {
+        id: `aev-${crypto.randomUUID()}`,
+        createdAt: new Date().toISOString(),
+        ...event,
+        actorName: actor.name,
+        actorRole: actor.role,
+      };
       draft.auditEvents.unshift(newEvent);
     });
 

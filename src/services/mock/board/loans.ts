@@ -101,18 +101,18 @@ class MockBoardLoanService implements IBoardLoanService {
           before,
           actorUserId,
           actor.name,
-          `${input.condition} inspection for loan ${loan.id}`
+          `${input.condition} inspection for loan ${loan.id}${input.notes?.trim() ? `: ${input.notes.trim()}` : ""}`
         );
-        if (["DAMAGED", "MAINTENANCE"].includes(input.condition)) {
-          draft.incidents.unshift({
+        if (input.condition === "DAMAGED" && input.escalateIncident === true) {
+          const incident = {
             id: `inc-${makeId()}`,
-            title: `${input.condition === "DAMAGED" ? "Damage" : "Maintenance required"} on return: ${line.itemName}`,
+            title: `Damage on return: ${line.itemName}`,
             description:
               input.notes ||
               `${input.returnedQuantity} unit(s) classified ${input.condition} during return inspection.`,
-            severity: input.condition === "DAMAGED" ? "HIGH" : "MEDIUM",
-            category: input.condition === "DAMAGED" ? "DAMAGE" : "POLICY_BREACH",
-            status: "OPEN",
+            severity: "HIGH" as const,
+            category: "DAMAGE" as const,
+            status: "OPEN" as const,
             userId: loan.userId,
             userName: loan.userName,
             relatedLoanId: loan.id,
@@ -120,21 +120,21 @@ class MockBoardLoanService implements IBoardLoanService {
             reportedBy: actorUserId,
             reportedByName: actor.name,
             reportedAt: timestamp,
+          };
+          draft.incidents.unshift(incident);
+          draft.auditEvents.unshift({
+            id: `aev-${makeId()}`,
+            createdAt: timestamp,
+            actorUserId,
+            actorName: actor.name,
+            actorRole: actor.role,
+            action: "RETURN_DAMAGE_ESCALATED",
+            entityType: "INCIDENT",
+            entityId: incident.id,
+            before: undefined,
+            after: incident,
+            reason: input.notes?.trim() || "Operator explicitly escalated return damage",
           });
-          if (input.condition === "DAMAGED") {
-            draft.recommendations.unshift({
-              id: `rec-${makeId()}`,
-              userId: loan.userId,
-              userName: loan.userName,
-              sourceType: "DAMAGE",
-              sourceEntityId: loan.id,
-              suggestedStrikeLevel: 2,
-              description:
-                input.notes || `Damage reported during return inspection of ${line.itemName}`,
-              status: "PENDING_REVIEW",
-              createdAt: timestamp,
-            });
-          }
         }
       }
       const allResolved = loan.items.every(

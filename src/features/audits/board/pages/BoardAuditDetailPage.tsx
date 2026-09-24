@@ -11,7 +11,9 @@ import {
   useBoardAuditDetail,
   useRecordAuditCounts,
   useCompleteAudit,
+  useReconcileAuditItem,
 } from "../hooks/useBoardAudits";
+import { useBoardInventory } from "@/features/inventory/board/hooks/useBoardInventory";
 import { ArrowLeft, CheckCircle2, Save, SlidersHorizontal } from "lucide-react";
 
 export const BoardAuditDetailPage: React.FC = () => {
@@ -21,6 +23,8 @@ export const BoardAuditDetailPage: React.FC = () => {
   const { data: audit, isLoading } = useBoardAuditDetail(auditId || "");
   const recordCountsMutation = useRecordAuditCounts();
   const completeAuditMutation = useCompleteAudit();
+  const reconcileItemMutation = useReconcileAuditItem();
+  const { data: inventory = [] } = useBoardInventory();
 
   const [counts, setCounts] = useState<Record<string, number | undefined>>({});
   const [showReconcileModal, setShowReconcileModal] = useState(false);
@@ -92,11 +96,58 @@ export const BoardAuditDetailPage: React.FC = () => {
 
       setShowReconcileModal(false);
       setSuccessMessage(
-        "Audit reconciled and inventory balances synchronized with physical counts."
+        "Audit closed. Physical corrections remain available in the inventory event ledger."
       );
     } catch (err: unknown) {
       const e = err as Error;
       setErrorMessage(e.message || "Failed to complete audit");
+    }
+  };
+
+  const handleReconcileItem = async (itemId: string) => {
+    const line = audit.items.find((candidate) => candidate.itemId === itemId);
+    const inventoryItem = inventory.find((candidate) => candidate.id === itemId);
+    if (!line || line.discrepancy === undefined || !inventoryItem) return;
+    const reason = window.prompt(`Explain the physical count correction for ${line.itemName}:`);
+    if (!reason?.trim()) return;
+
+    let assetIds: string[] | undefined;
+    let newAssets: { serialNumber: string; condition: "GOOD" }[] | undefined;
+    if (inventoryItem.trackingMode === "INDIVIDUAL_ASSET" && line.discrepancy < 0) {
+      const availableAssets = (inventoryItem.assets ?? []).filter(
+        (asset) => asset.state === "AVAILABLE"
+      );
+      const promptText = `Enter ${Math.abs(line.discrepancy)} missing serial number(s), comma separated. Available registered serials: ${availableAssets.map((asset) => asset.serialNumber).join(", ")}`;
+      const serials = window.prompt(promptText);
+      if (serials === null) return;
+      const selected = serials
+        .split(",")
+        .map((serial) => serial.trim())
+        .filter(Boolean);
+      assetIds = selected.map(
+        (serial) => availableAssets.find((asset) => asset.serialNumber === serial)?.id ?? ""
+      );
+    }
+    if (inventoryItem.trackingMode === "INDIVIDUAL_ASSET" && line.discrepancy > 0) {
+      const serials = window.prompt(
+        `Enter ${line.discrepancy} newly found serial number(s), comma separated:`
+      );
+      if (serials === null) return;
+      newAssets = serials
+        .split(",")
+        .map((serialNumber) => ({ serialNumber: serialNumber.trim(), condition: "GOOD" }));
+    }
+
+    try {
+      setErrorMessage(null);
+      await reconcileItemMutation.mutateAsync({
+        payload: { auditId: audit.id, itemId, reason, assetIds, newAssets },
+        actorUserId: currentPersona.id,
+        actorRole: currentPersona.role,
+      });
+      setSuccessMessage(`Physical correction recorded for ${line.itemName}.`);
+    } catch (err: unknown) {
+      setErrorMessage((err as Error).message || "Failed to reconcile physical count");
     }
   };
 
@@ -305,9 +356,31 @@ export const BoardAuditDetailPage: React.FC = () => {
                           MATCH
                         </span>
                       ) : (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/20 text-destructive font-bold">
-                          VARIANCE
-                        </span>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/20 text-destructive font-bold">
+                            VARIANCE
+                          </span>
+                          {isInProgress && item.status === "DISCREPANCY" && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-[10px]"
+                              disabled={
+                                reconcileItemMutation.isPending ||
+                                currentPhysical !== item.physicalCount
+                              }
+                              title={
+                                currentPhysical !== item.physicalCount
+                                  ? "Save this physical count before recording its correction"
+                                  : undefined
+                              }
+                              onClick={() => void handleReconcileItem(item.itemId)}
+                            >
+                              Record correction
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -338,8 +411,8 @@ export const BoardAuditDetailPage: React.FC = () => {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Closing this audit will update the master inventory stock balances to match the
-              physical count and mark the audit as completed.
+              Close only after every line matches or has a reasoned physical correction recorded.
+              Corrections are written to the inventory and audit event ledgers.
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">

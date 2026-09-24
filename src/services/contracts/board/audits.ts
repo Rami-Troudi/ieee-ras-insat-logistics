@@ -18,9 +18,12 @@ export interface RecordPhysicalCountPayload {
 export interface ReconcileAuditDiscrepancyPayload {
   auditId: string;
   itemId: string;
-  resolutionType: "CORRECT" | "DAMAGE" | "RETIRE" | "RECOVER";
-  discrepancyQuantity: number;
   reason: string;
+  assetIds?: string[];
+  newAssets?: {
+    serialNumber: string;
+    condition: "GOOD" | "MINOR_ISSUE" | "DAMAGED" | "MAINTENANCE" | "LOST";
+  }[];
 }
 
 export interface IBoardAuditService {

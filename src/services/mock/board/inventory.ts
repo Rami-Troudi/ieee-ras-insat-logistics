@@ -4,14 +4,54 @@ import {
   MutateStockPayload,
   UpdateAssetPayload,
 } from "@/services/contracts/board/inventory";
-import { InventoryItemSummary, InventoryEvent, IndividualAsset, Role, AssetState } from "@/types";
-import { mockDb } from "@/mocks/db";
-import { mockBoardAuditLogService } from "./audit-log";
-import { inventoryState, assertInventoryConserved } from "./inventoryState";
+import { InventoryItemSummary, InventoryEvent, IndividualAsset, AssetState, Role } from "@/types";
+import { mockDb, MockDatabaseSchema } from "@/mocks/db";
+import {
+  assertInventoryConserved,
+  inventoryState,
+  moveUnits,
+  recordInventoryEvent,
+  StockBucket,
+} from "./inventoryState";
+import { requireOperatorInDraft, requireSuperadminInDraft } from "../authorization";
+
+const bucketForState: Record<AssetState, StockBucket> = {
+  AVAILABLE: "available",
+  ALLOCATED: "allocated",
+  BORROWED: "borrowed",
+  DAMAGED: "damaged",
+  MAINTENANCE: "maintenance",
+  LOST: "lost",
+};
+const createAuditEvent = (
+  draft: MockDatabaseSchema,
+  actorUserId: string,
+  actorName: string,
+  actorRole: Role,
+  action: string,
+  entityId: string,
+  before: unknown,
+  after: unknown,
+  reason: string
+) => {
+  draft.auditEvents.unshift({
+    id: `aev-${crypto.randomUUID()}`,
+    createdAt: new Date().toISOString(),
+    actorUserId,
+    actorName,
+    actorRole,
+    action,
+    entityType: "INVENTORY",
+    entityId,
+    before,
+    after,
+    reason,
+  });
+};
 
 class MockBoardInventoryService implements IBoardInventoryService {
-  private async simulateLatency(): Promise<void> {
-    await new Promise((res) => setTimeout(res, 50));
+  private async simulateLatency() {
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
   async getItems(filters?: {
@@ -21,62 +61,69 @@ class MockBoardInventoryService implements IBoardInventoryService {
     lowStockOnly?: boolean;
   }): Promise<InventoryItemSummary[]> {
     await this.simulateLatency();
-    const snapshot = mockDb.getSnapshot();
-    let items = [...snapshot.inventory];
-
-    if (filters?.category && filters.category !== "ALL") {
-      items = items.filter((i) => i.category === filters.category);
-    }
-    if (filters?.equipmentClass && filters.equipmentClass !== "ALL") {
-      items = items.filter((i) => i.equipmentClass === filters.equipmentClass);
-    }
-    if (filters?.lowStockOnly) {
-      items = items.filter((i) => i.availableQuantity <= 2);
-    }
+    let items = mockDb.getSnapshot().inventory;
+    if (filters?.category && filters.category !== "ALL")
+      items = items.filter((item) => item.category === filters.category);
+    if (filters?.equipmentClass && filters.equipmentClass !== "ALL")
+      items = items.filter((item) => item.equipmentClass === filters.equipmentClass);
+    if (filters?.lowStockOnly) items = items.filter((item) => item.availableQuantity <= 2);
     if (filters?.search) {
-      const q = filters.search.toLowerCase();
+      const query = filters.search.toLowerCase();
       items = items.filter(
-        (i) =>
-          i.name.toLowerCase().includes(q) ||
-          i.category.toLowerCase().includes(q) ||
-          i.description.toLowerCase().includes(q) ||
-          (i.location && i.location.toLowerCase().includes(q))
+        (item) =>
+          item.name.toLowerCase().includes(query) ||
+          item.category.toLowerCase().includes(query) ||
+          item.description.toLowerCase().includes(query) ||
+          item.location?.toLowerCase().includes(query)
       );
     }
-
     return items;
   }
 
   async getItemById(itemId: string): Promise<InventoryItemSummary | null> {
     await this.simulateLatency();
-    const snapshot = mockDb.getSnapshot();
-    const item = snapshot.inventory.find((i) => i.id === itemId);
-    return item ? { ...item } : null;
+    return mockDb.getSnapshot().inventory.find((item) => item.id === itemId) ?? null;
   }
 
   async createItem(
     payload: CreateInventoryItemPayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<InventoryItemSummary> {
     await this.simulateLatency();
-    let newItem: InventoryItemSummary | null = null;
-
+    let created!: InventoryItemSummary;
     mockDb.mutate((draft) => {
-      const itemId = `item-${payload.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36).slice(-4)}`;
+      const actor = requireOperatorInDraft(draft, actorUserId);
+      if (
+        !payload.name.trim() ||
+        !Number.isInteger(payload.totalQuantity) ||
+        payload.totalQuantity <= 0
+      )
+        throw new Error("Name and positive whole-unit quantity are required");
+      const initialAssets = payload.initialAssets ?? [];
+      if (
+        payload.trackingMode === "INDIVIDUAL_ASSET" &&
+        initialAssets.length !== payload.totalQuantity
+      )
+        throw new Error("Enter one serial number for every individually tracked unit");
+      if (payload.trackingMode === "QUANTITY" && initialAssets.length)
+        throw new Error("Quantity-tracked items cannot have individual asset entries");
+      const serials = initialAssets.map((asset) => asset.serialNumber.trim());
+      if (serials.some((serial) => !serial) || new Set(serials).size !== serials.length)
+        throw new Error("Asset serial numbers must be unique and nonempty");
+      const id = `item-${crypto.randomUUID()}`;
       const assets: IndividualAsset[] =
         payload.trackingMode === "INDIVIDUAL_ASSET"
-          ? (payload.initialAssets || []).map((a, idx) => ({
-              id: `ast-${itemId}-${idx + 1}`,
-              serialNumber: a.serialNumber,
-              condition: a.condition,
-              state: "AVAILABLE" as AssetState,
+          ? initialAssets.map((asset, index) => ({
+              id: `ast-${crypto.randomUUID()}`,
+              serialNumber: serials[index],
+              condition: asset.condition,
+              state: "AVAILABLE",
             }))
           : [];
-
-      const created: InventoryItemSummary = {
-        id: itemId,
-        name: payload.name,
+      created = {
+        id,
+        name: payload.name.trim(),
         category: payload.category,
         equipmentClass: payload.equipmentClass,
         trackingMode: payload.trackingMode,
@@ -92,250 +139,284 @@ class MockBoardInventoryService implements IBoardInventoryService {
         specifications: payload.specifications,
         assets,
       };
-
-      newItem = created;
+      assertInventoryConserved(created);
       draft.inventory.unshift(created);
-
-      // Log initial inventory event
-      draft.inventoryEvents.unshift({
-        id: `iev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        itemId: created.id,
-        itemName: created.name,
-        type: "ADD",
-        quantity: payload.totalQuantity,
-        beforeState: {
-          total: 0,
-          available: 0,
-          allocated: 0,
-          borrowed: 0,
-          damaged: 0,
-          maintenance: 0,
-          lost: 0,
-        },
-        afterState: inventoryState(created),
-        reason: "Initial catalog entry creation",
+      const after = inventoryState(created);
+      const before = {
+        total: 0,
+        available: 0,
+        allocated: 0,
+        borrowed: 0,
+        damaged: 0,
+        maintenance: 0,
+        lost: 0,
+      };
+      const event = recordInventoryEvent(
+        draft,
+        created,
+        "ADD",
+        payload.totalQuantity,
+        before,
         actorUserId,
-        actorName: "Board Custodian",
-        timestamp: new Date().toISOString(),
-      });
+        actor.name,
+        "Initial catalog entry creation"
+      );
+      if (assets.length) event.assetIds = assets.map((asset) => asset.id);
+      createAuditEvent(
+        draft,
+        actorUserId,
+        actor.name,
+        actor.role,
+        "INVENTORY_ADDED",
+        id,
+        before,
+        after,
+        "New inventory item registered"
+      );
     });
-
-    if (newItem) {
-      await mockBoardAuditLogService.logEvent({
-        actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
-        action: "INVENTORY_ADDED",
-        entityType: "INVENTORY",
-        entityId: (newItem as InventoryItemSummary).id,
-        after: newItem,
-        reason: "New inventory item registered in catalog",
-      });
-      return newItem;
-    }
-    throw new Error("Failed to create inventory item");
+    return created;
   }
 
   async mutateStock(
     payload: MutateStockPayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<{ item: InventoryItemSummary; event: InventoryEvent }> {
     await this.simulateLatency();
-    let updatedItem: InventoryItemSummary | null = null;
-    let createdEvent: InventoryEvent | null = null;
-
+    let itemResult!: InventoryItemSummary;
+    let eventResult!: InventoryEvent;
     mockDb.mutate((draft) => {
-      const item = draft.inventory.find((i) => i.id === payload.itemId);
+      const sensitive = ["CORRECT", "REMOVE", "RETIRE", "CONSUME"].includes(payload.type);
+      const actor = sensitive
+        ? requireSuperadminInDraft(draft, actorUserId)
+        : requireOperatorInDraft(draft, actorUserId);
+      const item = draft.inventory.find((candidate) => candidate.id === payload.itemId);
       if (!item) throw new Error("Inventory item not found");
-
+      if (!payload.reason.trim()) throw new Error("A reason is required for every stock movement");
+      if (!Number.isInteger(payload.quantity))
+        throw new Error("Stock movement must be a whole number");
       const before = inventoryState(item);
-
+      const assetIds = payload.assetIds ?? (payload.assetId ? [payload.assetId] : []);
+      const addedAssetIds: string[] = [];
       const qty = payload.quantity;
-      if (qty <= 0) throw new Error("Mutation quantity must be greater than 0");
-
+      const requireIds = (count: number) => {
+        if (
+          item.trackingMode === "INDIVIDUAL_ASSET" &&
+          (assetIds.length !== count || new Set(assetIds).size !== count)
+        )
+          throw new Error(`Select exactly ${count} individual assets`);
+        if (item.trackingMode === "QUANTITY" && assetIds.length)
+          throw new Error("Quantity-tracked inventory does not accept asset IDs");
+      };
+      const addNewAssets = (count: number) => {
+        if (assetIds.length)
+          throw new Error("Additions require new asset metadata, not existing asset identifiers");
+        if (item.trackingMode === "INDIVIDUAL_ASSET") {
+          const additions = payload.newAssets ?? [];
+          if (additions.length !== count)
+            throw new Error(`Enter serial numbers for all ${count} added units`);
+          const existing = new Set(item.assets?.map((asset) => asset.serialNumber) ?? []);
+          const serials = additions.map((asset) => asset.serialNumber.trim());
+          if (
+            serials.some((serial) => !serial) ||
+            new Set(serials).size !== serials.length ||
+            serials.some((serial) => existing.has(serial))
+          )
+            throw new Error("Added asset serial numbers must be unique and nonempty");
+          item.assets ??= [];
+          additions.forEach((asset, index) => {
+            const assetId = `ast-${crypto.randomUUID()}`;
+            addedAssetIds.push(assetId);
+            item.assets!.push({
+              id: assetId,
+              serialNumber: serials[index],
+              condition: asset.condition,
+              state: "AVAILABLE",
+            });
+          });
+        } else if (payload.newAssets?.length)
+          throw new Error("Quantity-tracked inventory cannot accept individual asset metadata");
+      };
+      const removeAvailable = (count: number) => {
+        if (count > item.availableQuantity)
+          throw new Error(`Only ${item.availableQuantity} units are available to remove`);
+        requireIds(count);
+        if (item.trackingMode === "INDIVIDUAL_ASSET") {
+          const assets = assetIds.map((id) => item.assets?.find((asset) => asset.id === id));
+          if (assets.some((asset) => !asset || asset.state !== "AVAILABLE"))
+            throw new Error("Only available assets can be removed or retired");
+          item.assets = item.assets!.filter((asset) => !assetIds.includes(asset.id));
+        }
+        item.availableQuantity -= count;
+        item.totalQuantity -= count;
+      };
+      let eventQuantity = qty;
       switch (payload.type) {
         case "ADD":
-          item.totalQuantity += qty;
+          if (qty <= 0) throw new Error("Add quantity must be positive");
+          addNewAssets(qty);
           item.availableQuantity += qty;
+          item.totalQuantity += qty;
           break;
-
         case "REMOVE":
         case "RETIRE":
         case "CONSUME":
-          if (qty > item.availableQuantity) {
-            throw new Error(
-              `Cannot remove ${qty} units; only ${item.availableQuantity} available in unreserved stock`
-            );
-          }
-          item.totalQuantity = Math.max(0, item.totalQuantity - qty);
-          item.availableQuantity = Math.max(0, item.availableQuantity - qty);
+          if (qty <= 0) throw new Error("Removal quantity must be positive");
+          removeAvailable(qty);
           break;
-
+        case "CORRECT":
+          if (qty === 0) throw new Error("Correction delta cannot be zero");
+          if (qty > 0) {
+            addNewAssets(qty);
+            item.availableQuantity += qty;
+            item.totalQuantity += qty;
+          } else {
+            removeAvailable(Math.abs(qty));
+            eventQuantity = qty;
+          }
+          break;
         case "DAMAGE":
-          if (qty > item.availableQuantity) {
-            throw new Error(
-              `Cannot mark ${qty} units as damaged; only ${item.availableQuantity} available in unreserved stock`
-            );
-          }
-          item.availableQuantity = Math.max(0, item.availableQuantity - qty);
-          item.damagedQuantity += qty;
+          if (qty <= 0) throw new Error("Damage quantity must be positive");
+          requireIds(qty);
+          moveUnits(
+            item,
+            "available",
+            "damaged",
+            qty,
+            item.trackingMode === "INDIVIDUAL_ASSET" ? assetIds : undefined,
+            "DAMAGED"
+          );
           break;
-
         case "REPAIR":
+          if (qty <= 0) throw new Error("Repair quantity must be positive");
+          requireIds(qty);
+          moveUnits(
+            item,
+            "damaged",
+            "available",
+            qty,
+            item.trackingMode === "INDIVIDUAL_ASSET" ? assetIds : undefined,
+            "GOOD"
+          );
+          break;
         case "RECOVER":
-          if (qty > item.damagedQuantity) {
-            throw new Error(
-              `Cannot repair/recover ${qty} units; only ${item.damagedQuantity} recorded as damaged`
-            );
-          }
-          item.damagedQuantity = Math.max(0, item.damagedQuantity - qty);
-          item.availableQuantity += qty;
+          if (qty <= 0) throw new Error("Recovery quantity must be positive");
+          requireIds(qty);
+          moveUnits(
+            item,
+            "lost",
+            "available",
+            qty,
+            item.trackingMode === "INDIVIDUAL_ASSET" ? assetIds : undefined,
+            "GOOD"
+          );
           break;
-
-        case "CORRECT": {
-          // Absolute reconciliation correction of available quantity
-          const delta = qty - item.availableQuantity;
-          item.availableQuantity = qty;
-          item.totalQuantity = Math.max(0, item.totalQuantity + delta);
-          break;
-        }
-
         default:
-          throw new Error(`Unsupported stock mutation type: ${payload.type}`);
+          throw new Error(`${payload.type} is managed by its dedicated request or loan workflow`);
       }
-
-      if (payload.assetId && item.assets) {
-        const asset = item.assets.find((a) => a.id === payload.assetId);
-        if (asset) {
-          if (payload.condition) asset.condition = payload.condition;
-          if (payload.type === "DAMAGE") {
-            asset.state = "DAMAGED";
-          } else if (payload.type === "RETIRE") {
-            asset.state = "RETIRED";
-          } else if (payload.type === "REPAIR" || payload.type === "RECOVER") {
-            asset.state = "AVAILABLE";
-          }
-        }
-      }
-
-      const after = inventoryState(item);
-
-      createdEvent = {
-        id: `iev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        itemId: item.id,
-        itemName: item.name,
-        assetId: payload.assetId,
-        type: payload.type,
-        quantity: qty,
-        beforeState: before,
-        afterState: after,
-        reason: payload.reason,
+      assertInventoryConserved(item);
+      eventResult = recordInventoryEvent(
+        draft,
+        item,
+        payload.type,
+        eventQuantity,
+        before,
         actorUserId,
-        actorName: "Board Custodian",
-        timestamp: new Date().toISOString(),
-      };
-
-      draft.inventoryEvents.unshift(createdEvent);
-      updatedItem = { ...item };
+        actor.name,
+        payload.reason,
+        assetIds.length === 1 ? assetIds[0] : undefined
+      );
+      const changedAssetIds = [...assetIds, ...addedAssetIds];
+      if (changedAssetIds.length) eventResult.assetIds = changedAssetIds;
+      createAuditEvent(
+        draft,
+        actorUserId,
+        actor.name,
+        actor.role,
+        `INVENTORY_${payload.type}`,
+        item.id,
+        before,
+        inventoryState(item),
+        payload.reason
+      );
+      itemResult = structuredClone(item);
     });
-
-    if (updatedItem && createdEvent) {
-      await mockBoardAuditLogService.logEvent({
-        actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
-        action: `INVENTORY_${payload.type}`,
-        entityType: "INVENTORY",
-        entityId: (updatedItem as InventoryItemSummary).id,
-        before: (createdEvent as InventoryEvent).beforeState,
-        after: (createdEvent as InventoryEvent).afterState,
-        reason: payload.reason,
-      });
-
-      return { item: updatedItem, event: createdEvent };
-    }
-    throw new Error("Failed to execute stock mutation");
+    return { item: itemResult, event: eventResult };
   }
 
   async updateAsset(
     payload: UpdateAssetPayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<IndividualAsset> {
     await this.simulateLatency();
-    let updatedAsset: IndividualAsset | null = null;
-
+    let updated!: IndividualAsset;
     mockDb.mutate((draft) => {
-      const item = draft.inventory.find((i) => i.id === payload.itemId);
-      if (!item || !item.assets) throw new Error("Item or asset list not found");
-
-      const asset = item.assets.find((a) => a.id === payload.assetId);
+      const actor = requireOperatorInDraft(draft, actorUserId);
+      const item = draft.inventory.find((candidate) => candidate.id === payload.itemId);
+      if (!item?.assets) throw new Error("Item or asset list not found");
+      const asset = item.assets.find((candidate) => candidate.id === payload.assetId);
       if (!asset) throw new Error("Asset unit not found");
-
-      const oldState = asset.state;
-      let newState: AssetState = oldState;
-      if (payload.state) {
-        newState = payload.state;
-      } else if (payload.isAvailable !== undefined) {
-        newState = payload.isAvailable
+      const allowed = new Set<AssetState>(["AVAILABLE", "DAMAGED", "MAINTENANCE"]);
+      const newState =
+        payload.state ??
+        (payload.isAvailable === true
           ? "AVAILABLE"
-          : payload.condition === "DAMAGED"
-            ? "DAMAGED"
-            : "MAINTENANCE";
-      }
-      asset.condition = payload.condition;
-      asset.state = newState;
-      if (payload.notes) asset.notes = payload.notes;
-
-      // Synchronize aggregate item counters atomically if state changed
-      if (oldState !== newState) {
-        const stateToField: Record<string, keyof InventoryItemSummary> = {
-          AVAILABLE: "availableQuantity",
-          ALLOCATED: "allocatedQuantity",
-          BORROWED: "borrowedQuantity",
-          DAMAGED: "damagedQuantity",
-          MAINTENANCE: "maintenanceQuantity",
-          LOST: "lostQuantity",
-        };
-        const oldField = stateToField[oldState];
-        const newField = stateToField[newState];
-        if (oldField && typeof item[oldField] === "number") {
-          (item[oldField] as number) = Math.max(0, (item[oldField] as number) - 1);
-        }
-        if (newField && typeof item[newField] === "number") {
-          (item[newField] as number) += 1;
-        }
-        assertInventoryConserved(item);
-      }
-
-      updatedAsset = { ...asset };
-    });
-
-    if (updatedAsset) {
-      await mockBoardAuditLogService.logEvent({
+          : payload.isAvailable === false
+            ? payload.condition === "DAMAGED"
+              ? "DAMAGED"
+              : "MAINTENANCE"
+            : asset.state);
+      if (!allowed.has(asset.state) || !allowed.has(newState))
+        throw new Error(
+          "Asset allocation, custody, and loss states must use their dedicated workflows"
+        );
+      const before = inventoryState(item);
+      const oldState = asset.state;
+      if (oldState !== newState)
+        moveUnits(
+          item,
+          bucketForState[oldState],
+          bucketForState[newState],
+          1,
+          [asset.id],
+          payload.condition
+        );
+      else asset.condition = payload.condition;
+      if (payload.notes !== undefined) asset.notes = payload.notes;
+      assertInventoryConserved(item);
+      updated = structuredClone(asset);
+      recordInventoryEvent(
+        draft,
+        item,
+        "CORRECT",
+        oldState === newState ? 0 : 1,
+        before,
         actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
-        action: "INVENTORY_CORRECTED",
-        entityType: "INVENTORY",
-        entityId: payload.itemId,
-        after: updatedAsset,
-        reason: `Updated asset unit ${payload.assetId} condition to ${payload.condition}`,
-      });
-      return updatedAsset;
-    }
-    throw new Error("Failed to update asset");
+        actor.name,
+        payload.notes?.trim() || `Asset ${asset.serialNumber} set to ${newState}`,
+        asset.id
+      );
+      createAuditEvent(
+        draft,
+        actorUserId,
+        actor.name,
+        actor.role,
+        "ASSET_STATE_CHANGED",
+        item.id,
+        { state: oldState },
+        updated,
+        payload.notes?.trim() || `Asset ${asset.serialNumber} updated`
+      );
+    });
+    return updated;
   }
 
   async getMovementHistory(itemId?: string): Promise<InventoryEvent[]> {
     await this.simulateLatency();
-    const snapshot = mockDb.getSnapshot();
-    let events = [...snapshot.inventoryEvents];
-    if (itemId) {
-      events = events.filter((e) => e.itemId === itemId);
-    }
-    return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    let events = mockDb.getSnapshot().inventoryEvents;
+    if (itemId) events = events.filter((event) => event.itemId === itemId);
+    return events.sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
   }
 }
 

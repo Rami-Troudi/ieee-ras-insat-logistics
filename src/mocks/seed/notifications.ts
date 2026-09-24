@@ -20,7 +20,7 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
     userId: "p-member-ieee",
     title: "Equipment Due Soon",
     message:
-      "Raspberry Pi 4 on loan LN-2026-0072 is due in 2 days. An extension request is currently pending board review.",
+      "Raspberry Pi 4 on loan LN-2026-0072 is due in 2 days. Bring it to the logistics desk for physical return inspection.",
     type: "LOAN_DUE_SOON",
     read: false,
     createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),

@@ -25,6 +25,7 @@ export const BoardBorrowedPage: React.FC = () => {
   const [activeReturnLoan, setActiveReturnLoan] = useState<LoanRecord | null>(null);
   const [returnCondition, setReturnCondition] = useState<AssetCondition>("GOOD");
   const [returnNote, setReturnNote] = useState("");
+  const [escalateDamage, setEscalateDamage] = useState(false);
   const [isSubmittingReturn, setIsSubmittingReturn] = useState(false);
 
   // Direct Date Edit State
@@ -63,6 +64,13 @@ export const BoardBorrowedPage: React.FC = () => {
   ).length;
   const dueTodayCount = activeLoans.filter((l) => l.dueDate === todayStr).length;
 
+  const openReturnInspection = (loan: LoanRecord) => {
+    setReturnCondition("GOOD");
+    setReturnNote("");
+    setEscalateDamage(false);
+    setActiveReturnLoan(loan);
+  };
+
   const handleReturnSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeReturnLoan) return;
@@ -85,6 +93,7 @@ export const BoardBorrowedPage: React.FC = () => {
               : {}),
             condition: returnCondition,
             notes: returnNote,
+            escalateIncident: returnCondition === "DAMAGED" && escalateDamage,
           })),
           inspectionNotes: returnNote,
         },
@@ -93,6 +102,7 @@ export const BoardBorrowedPage: React.FC = () => {
 
       setActiveReturnLoan(null);
       setReturnNote("");
+      setEscalateDamage(false);
       refetch();
     } finally {
       setIsSubmittingReturn(false);
@@ -264,7 +274,7 @@ export const BoardBorrowedPage: React.FC = () => {
                     variant="default"
                     size="sm"
                     onClick={() => {
-                      setActiveReturnLoan(loan);
+                      openReturnInspection(loan);
                       setReturnCondition("GOOD");
                       setReturnNote("");
                     }}
@@ -357,6 +367,21 @@ export const BoardBorrowedPage: React.FC = () => {
                   </label>
                 </div>
               </div>
+
+              {returnCondition === "DAMAGED" && (
+                <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={escalateDamage}
+                    onChange={(event) => setEscalateDamage(event.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    Create a damage incident for operator review. This does not issue or recommend a
+                    strike.
+                  </span>
+                </label>
+              )}
 
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground block">

@@ -2,6 +2,7 @@ import { IBoardInsightsService } from "@/services/contracts/board/insights";
 import { BoardInsightsData } from "@/types";
 import { isDatePast } from "@/lib/dates";
 import { mockDb } from "@/mocks/db";
+import { activeStrikesForUser } from "../authorization";
 
 class MockBoardInsightsService implements IBoardInsightsService {
   private async simulateLatency(): Promise<void> {
@@ -44,25 +45,24 @@ class MockBoardInsightsService implements IBoardInsightsService {
     const overdueRatePercent =
       activeLoansCount > 0 ? Math.round((overdueLoansCount / activeLoansCount) * 100) : 0;
 
-    const now = Date.now();
-    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
     const requestsThisMonth = snapshot.requests.filter((r) => {
       const t = Date.parse(r.createdAt);
-      return !isNaN(t) && t >= thirtyDaysAgo;
+      return !isNaN(t) && t >= monthStart && t < nextMonthStart;
     }).length;
 
-    const durations = snapshot.loans.map((l) => {
+    const durations = snapshot.loans.flatMap((l) => {
       const start = Date.parse(l.borrowDate);
       const due = Date.parse(l.dueDate);
-      if (isNaN(start) || isNaN(due)) return 14;
-      return Math.max(1, Math.round((due - start) / (1000 * 60 * 60 * 24)));
+      if (isNaN(start) || isNaN(due)) return [];
+      return [Math.max(1, Math.round((due - start) / (1000 * 60 * 60 * 24)))];
     });
     const averageDurationDays =
       durations.length > 0
         ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
-        : 14;
-
-    const extensionFrequencyPercent = 0;
+        : null;
 
     // 3. Equipment Rankings
     const borrowCountsByItem: Record<string, number> = {};
@@ -127,8 +127,13 @@ class MockBoardInsightsService implements IBoardInsightsService {
 
     // 5. Discipline Metrics
     const activeStrikesByLevel: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const activeStrikeIds = new Set(
+      [...new Set(snapshot.strikes.map((strike) => strike.userId))].flatMap((userId) =>
+        activeStrikesForUser({ strikes: snapshot.strikes }, userId).map((strike) => strike.id)
+      )
+    );
     snapshot.strikes
-      .filter((s) => s.status === "ACTIVE")
+      .filter((strike) => activeStrikeIds.has(strike.id))
       .forEach((s) => {
         activeStrikesByLevel[s.level] = (activeStrikesByLevel[s.level] || 0) + 1;
       });
@@ -161,7 +166,6 @@ class MockBoardInsightsService implements IBoardInsightsService {
         partialApprovalRatePercent,
         activeLoansCount,
         averageDurationDays,
-        extensionFrequencyPercent,
         overdueLoansCount,
         overdueRatePercent,
       },

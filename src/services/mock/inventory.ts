@@ -6,6 +6,7 @@ import {
   getBorrowerCatalogAccess,
   toBorrowerCatalogItem,
 } from "@/features/inventory/utils/catalogAccess";
+import { refreshStrikeDerivedProfile } from "./authorization";
 
 export type { MockScenario };
 
@@ -31,6 +32,7 @@ export class MockInventoryService implements IInventoryService {
     const effectiveUserId = userId || Object.keys(snapshot.userProfiles)[0] || "p-member-ieee";
     const user = snapshot.userProfiles[effectiveUserId];
     if (!user) return [];
+    refreshStrikeDerivedProfile(snapshot, user.id);
     return snapshot.inventory.flatMap((item) => {
       const access = getBorrowerCatalogAccess(user, item);
       if (!access.visible) return [];
@@ -57,6 +59,7 @@ export class MockInventoryService implements IInventoryService {
     const user = snapshot.userProfiles[effectiveUserId];
     const item = snapshot.inventory.find((candidate) => candidate.id === id);
     if (!user || !item) return null;
+    refreshStrikeDerivedProfile(snapshot, user.id);
     const access = getBorrowerCatalogAccess(user, item);
     return access.visible ? toBorrowerCatalogItem(item, access) : null;
   }

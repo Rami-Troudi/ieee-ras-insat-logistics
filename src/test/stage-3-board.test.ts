@@ -8,8 +8,10 @@ import {
   boardDisciplineService,
   boardUserService,
   boardExportService,
+  boardProjectService,
+  boardInsightsService,
 } from "@/services";
-import { IncidentRecord, DisciplinaryRecommendation, InventoryAuditItem } from "@/types";
+import { InventoryAuditItem } from "@/types";
 
 describe("Stage 3 Board & Superadmin Domain Operations", () => {
   beforeEach(() => {
@@ -129,7 +131,7 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
       expect(postReturnInv!.borrowedQuantity).toBe(initialBorrowed - 1);
     });
 
-    it("creates incident record and disciplinary recommendation on DAMAGED return", async () => {
+    it("records DAMAGED inventory without automatic incident or strike recommendation", async () => {
       const loan = await boardLoanService.getLoanById("LN-2026-0072");
       expect(loan).not.toBeNull();
 
@@ -152,22 +154,47 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
 
       expect(updatedLoan.lifecycleStatus).toBe("CLOSED");
 
-      // Verify incident was created
+      // Damage is an inventory condition; escalation is a separate explicit operator choice.
       const incidents = await boardDisciplineService.getIncidents({ status: "OPEN" });
       const damageIncident = incidents.find(
-        (i: IncidentRecord) => i.relatedLoanId === "LN-2026-0072"
+        (incident) => incident.relatedLoanId === "LN-2026-0072"
       );
-      expect(damageIncident).toBeDefined();
-      expect(damageIncident!.category).toBe("DAMAGE");
-      expect(damageIncident!.userId).toBe(loan!.userId);
+      expect(damageIncident).toBeUndefined();
 
-      // Verify recommendation was created
       const recs = await boardDisciplineService.getRecommendations();
       const damageRec = recs.find(
-        (r: DisciplinaryRecommendation) => r.sourceEntityId === "LN-2026-0072"
+        (recommendation) => recommendation.sourceEntityId === "LN-2026-0072"
       );
-      expect(damageRec).toBeDefined();
-      expect(damageRec!.sourceType).toBe("DAMAGE");
+      expect(damageRec).toBeUndefined();
+    });
+
+    it("creates a damage incident only after explicit operator escalation", async () => {
+      const loan = await boardLoanService.getLoanById("LN-2026-0072");
+      expect(loan).not.toBeNull();
+
+      await boardLoanService.confirmReturn(
+        {
+          loanId: loan!.id,
+          items: [
+            {
+              lineItemId: loan!.items[0].id,
+              returnedQuantity: 1,
+              condition: "DAMAGED",
+              notes: "Operator requested incident review",
+              escalateIncident: true,
+            },
+          ],
+        },
+        "p-board-logistics"
+      );
+
+      const incidents = await boardDisciplineService.getIncidents({ status: "OPEN" });
+      expect(incidents.some((incident) => incident.relatedLoanId === loan!.id)).toBe(true);
+      expect(
+        (await boardDisciplineService.getRecommendations()).some(
+          (recommendation) => recommendation.sourceEntityId === loan!.id
+        )
+      ).toBe(false);
     });
   });
 
@@ -306,25 +333,17 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
 
     it("enforces Superadmin-only gate for sensitive CSV dataset exports", async () => {
       // 1. Board member attempts to export users -> Throws
-      await expect(
-        boardExportService.exportCsv("USERS", "p-board-logistics", "OPERATOR")
-      ).rejects.toThrow(/Superadmin/i);
+      await expect(boardExportService.exportCsv("USERS", "p-board-logistics")).rejects.toThrow(
+        /Superadmin/i
+      );
 
       // 2. Board member can export inventory -> Succeeds
-      const invExport = await boardExportService.exportCsv(
-        "INVENTORY",
-        "p-board-logistics",
-        "OPERATOR"
-      );
+      const invExport = await boardExportService.exportCsv("INVENTORY", "p-board-logistics");
       expect(invExport.csvContent).toContain("Item ID,Name,Category,Equipment Class");
       expect(invExport.rowCount).toBeGreaterThan(0);
 
       // 3. Superadmin can export sensitive users dataset
-      const userExport = await boardExportService.exportCsv(
-        "USERS",
-        "p-superadmin-chair",
-        "SUPERADMIN"
-      );
+      const userExport = await boardExportService.exportCsv("USERS", "p-superadmin-chair");
       expect(userExport.csvContent).toContain("User ID,Name,Email,Role,Clearance");
       expect(userExport.rowCount).toBeGreaterThan(0);
     });
@@ -338,7 +357,7 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
           title: "Fall 2026 Midterm Cabinet Audit",
           notes: "Verification of microcontrollers and sensors",
         },
-        "user-emna",
+        "p-board-logistics",
         "OPERATOR"
       );
 
@@ -346,6 +365,13 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
       expect(audit.items.length).toBeGreaterThan(0);
 
       const firstItem = audit.items[0];
+      const initialInventoryItem = await boardInventoryService.getItemById(firstItem.itemId);
+      expect(firstItem.expectedSnapshotQuantity).toBe(
+        initialInventoryItem!.availableQuantity +
+          initialInventoryItem!.allocatedQuantity +
+          initialInventoryItem!.damagedQuantity +
+          initialInventoryItem!.maintenanceQuantity
+      );
 
       // 2. Record physical counts with a deliberate discrepancy (-1 missing)
       const recorded = await boardAuditService.recordCounts(
@@ -359,7 +385,7 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
             },
           ],
         },
-        "user-emna",
+        "p-board-logistics",
         "OPERATOR"
       );
 
@@ -371,19 +397,17 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
 
       // 3. Attempting to complete audit while discrepancy exists must throw
       await expect(
-        boardAuditService.completeAudit(audit.id, "user-emna", "OPERATOR")
-      ).rejects.toThrow(/Cannot complete audit/i);
+        boardAuditService.completeAudit(audit.id, "p-board-logistics", "OPERATOR")
+      ).rejects.toThrow(/Count and reconcile/i);
 
       // 4. Reconcile discrepancy
       const reconciled = await boardAuditService.reconcileItem(
         {
           auditId: audit.id,
           itemId: firstItem.itemId,
-          resolutionType: "RETIRE",
-          discrepancyQuantity: 1,
           reason: "Confirmed lost during competition testing",
         },
-        "user-emna",
+        "p-board-logistics",
         "OPERATOR"
       );
 
@@ -391,6 +415,14 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
         (i: InventoryAuditItem) => i.itemId === firstItem.itemId
       );
       expect(reconciledItem!.status).toBe("RECONCILED");
+      expect((await boardInventoryService.getItemById(firstItem.itemId))!.totalQuantity).toBe(
+        initialInventoryItem!.totalQuantity - 1
+      );
+      const correctionEvent = (
+        await boardInventoryService.getMovementHistory(firstItem.itemId)
+      ).find((event) => event.id === reconciledItem!.resolutionEventId);
+      expect(correctionEvent?.quantity).toBe(-1);
+      expect(correctionEvent?.reason).toContain("Confirmed lost");
 
       // 5. Match remaining items so all are reconciled/matched
       const matchAllPayload = audit.items.map((i: InventoryAuditItem) => ({
@@ -406,14 +438,193 @@ describe("Stage 3 Board & Superadmin Domain Operations", () => {
           auditId: audit.id,
           counts: matchAllPayload,
         },
-        "user-emna",
+        "p-board-logistics",
         "OPERATOR"
       );
 
       // 6. Complete audit
-      const completed = await boardAuditService.completeAudit(audit.id, "user-emna", "OPERATOR");
+      const completed = await boardAuditService.completeAudit(
+        audit.id,
+        "p-board-logistics",
+        "OPERATOR"
+      );
       expect(completed.status).toBe("RECONCILED");
-      expect(completed.completedBy).toBe("user-emna");
+      expect(completed.completedBy).toBe("p-board-logistics");
+    });
+
+    it("reconciles a positive physical discrepancy with an audited signed addition", async () => {
+      const audit = await boardAuditService.startAudit(
+        { title: "Positive count check", categoryFilter: "Consumables" },
+        "p-board-logistics",
+        "OPERATOR"
+      );
+      const target = audit.items.find((item) => item.itemId === "item-glue-sticks")!;
+      const before = await boardInventoryService.getItemById(target.itemId);
+      await boardAuditService.recordCounts(
+        {
+          auditId: audit.id,
+          counts: [{ itemId: target.itemId, physicalCount: target.expectedSnapshotQuantity + 2 }],
+        },
+        "p-board-logistics",
+        "OPERATOR"
+      );
+
+      const corrected = await boardAuditService.reconcileItem(
+        {
+          auditId: audit.id,
+          itemId: target.itemId,
+          reason: "Two additional units physically verified",
+        },
+        "p-board-logistics",
+        "OPERATOR"
+      );
+      const line = corrected.items.find((item) => item.itemId === target.itemId)!;
+      const after = await boardInventoryService.getItemById(target.itemId);
+      const event = (await boardInventoryService.getMovementHistory(target.itemId)).find(
+        (candidate) => candidate.id === line.resolutionEventId
+      );
+
+      expect(after!.totalQuantity).toBe(before!.totalQuantity + 2);
+      expect(event?.quantity).toBe(2);
+      expect(event?.reason).toContain("Two additional units");
+      expect(
+        mockDb
+          .getSnapshot()
+          .auditEvents.some((entry) => entry.action === "INVENTORY_PHYSICAL_CORRECTION")
+      ).toBe(true);
+    });
+  });
+
+  describe("Actor identity authorization", () => {
+    it("does not accept a caller-supplied operator role for inventory writes", async () => {
+      await expect(
+        boardInventoryService.mutateStock(
+          {
+            itemId: "item-glue-sticks",
+            type: "ADD",
+            quantity: 1,
+            reason: "spoofed actor test",
+          },
+          "p-member-ieee",
+          "OPERATOR"
+        )
+      ).rejects.toThrow(/active operator/i);
+    });
+
+    it("requires superadmin authorization for retirement and keeps asset count equal to owned total", async () => {
+      const item = await boardInventoryService.getItemById("item-stm32-f4");
+      const asset = item!.assets!.find((entry) => entry.state === "AVAILABLE")!;
+      const payload = {
+        itemId: item!.id,
+        type: "RETIRE" as const,
+        quantity: 1,
+        reason: "Asset reached end of useful life",
+        assetIds: [asset.id],
+      };
+
+      await expect(
+        boardInventoryService.mutateStock(payload, "p-board-logistics", "SUPERADMIN")
+      ).rejects.toThrow(/superadmin access/i);
+      await boardInventoryService.mutateStock(payload, "p-superadmin-chair", "MEMBER");
+
+      const retired = await boardInventoryService.getItemById(item!.id);
+      expect(retired!.assets).toHaveLength(retired!.totalQuantity);
+      expect(retired!.assets!.some((entry) => entry.id === asset.id)).toBe(false);
+    });
+
+    it("does not allow project membership or a forged role to change member identity", async () => {
+      const before = mockDb.getSnapshot().userProfiles["p-member-ieee"];
+      await expect(
+        boardProjectService.assignMember(
+          "proj-eurobot-2027",
+          "p-member-ieee",
+          "p-member-ieee",
+          "OPERATOR"
+        )
+      ).rejects.toThrow(/active operator/i);
+
+      await boardProjectService.assignMember(
+        "proj-eurobot-2027",
+        "p-member-ieee",
+        "p-board-logistics",
+        "OPERATOR"
+      );
+      const after = mockDb.getSnapshot().userProfiles["p-member-ieee"];
+      expect(after.role).toBe(before.role);
+      expect(after.affiliation).toBe(before.affiliation);
+      expect(after.clearance).toBe(before.clearance);
+    });
+
+    it("requires a real superadmin for Strike 5 even when the caller claims that role", async () => {
+      await expect(
+        boardDisciplineService.issueStrike(
+          { userId: "p-member-ieee", level: 5, reason: "spoofed authorization test" },
+          "p-board-logistics",
+          "SUPERADMIN"
+        )
+      ).rejects.toThrow(/superadmin access/i);
+    });
+  });
+
+  describe("Derived analytics and current periods", () => {
+    it("uses calendar-month request counts and omits averages when there is no loan data", async () => {
+      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const expiredAt = new Date(monthStart.getTime() - 1).toISOString();
+      mockDb.mutate((draft) => {
+        draft.loans = [];
+        draft.requests.forEach((request) => {
+          request.createdAt = expiredAt;
+        });
+        draft.requests[0].createdAt = monthStart.toISOString();
+        draft.strikes = [
+          {
+            id: "strike-expired-analytics-test",
+            userId: "p-member-ieee",
+            userName: "Rami Troudi",
+            level: 1,
+            status: "ACTIVE",
+            reason: "Expired strike used to check derived analytics",
+            issuedBy: "p-board-logistics",
+            issuedByName: "Operator",
+            issuedAt: expiredAt,
+            expiresAt: expiredAt,
+          },
+        ];
+        draft.userProfiles["p-member-ieee"].status = "RESTRICTED";
+      });
+
+      const insights = await boardInsightsService.getInsights();
+      const profile = await boardUserService.getUserById("p-member-ieee");
+      expect(insights.borrowing.requestsThisMonth).toBe(1);
+      expect(insights.borrowing.averageDurationDays).toBeNull();
+      expect(insights.discipline.activeStrikesByLevel[1]).toBe(0);
+      expect(profile?.strikesCount).toBe(0);
+      expect(profile?.status).toBe("ACTIVE");
+    });
+
+    it("rebuilds a stale semester configuration from the current date before issuing a strike", async () => {
+      mockDb.mutate((draft) => {
+        draft.semesters = [
+          {
+            id: "stale-semester",
+            name: "Spring 2024",
+            startDate: "2024-02-01T00:00:00.000Z",
+            endDate: "2024-08-31T23:59:59.999Z",
+            isCurrent: true,
+          },
+        ];
+      });
+
+      const strike = await boardDisciplineService.issueStrike(
+        { userId: "p-member-ieee", level: 1, reason: "Current semester lifecycle check" },
+        "p-board-logistics",
+        "MEMBER"
+      );
+      const currentSemester = mockDb.getSnapshot().semesters.find((semester) => semester.isCurrent);
+
+      expect(currentSemester).toBeDefined();
+      expect(strike.expiresAt).toBe(currentSemester!.endDate);
+      expect(Date.parse(strike.expiresAt!)).toBeGreaterThan(Date.now());
     });
   });
 });

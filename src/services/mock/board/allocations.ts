@@ -63,10 +63,11 @@ class MockBoardAllocationService implements IBoardAllocationService {
     return released;
   }
 
-  async checkAndExpireAllocations(): Promise<number> {
+  async checkAndExpireAllocations(actorUserId: string): Promise<number> {
     const timestamp = new Date().toISOString();
     let count = 0;
     mockDb.mutate((draft) => {
+      const actor = requireOperatorInDraft(draft, actorUserId);
       for (const allocation of draft.allocations) {
         if (allocation.status !== "ACTIVE" || Date.parse(allocation.expiresAt) > Date.now())
           continue;
@@ -84,10 +85,23 @@ class MockBoardAllocationService implements IBoardAllocationService {
           "RELEASE_ALLOCATION",
           allocation.quantity,
           before,
-          allocation.allocatedBy,
-          "System",
+          actorUserId,
+          actor.name,
           allocation.releaseReason
         );
+        draft.auditEvents.unshift({
+          id: `aev-${crypto.randomUUID()}`,
+          createdAt: timestamp,
+          actorUserId,
+          actorName: actor.name,
+          actorRole: actor.role,
+          action: "ALLOCATION_EXPIRED",
+          entityType: "INVENTORY",
+          entityId: item.id,
+          before,
+          after: inventoryState(item),
+          reason: allocation.releaseReason,
+        });
         const request = draft.requests.find((entry) => entry.id === allocation.requestId);
         if (request && request.handoverStatus === "WAITING") {
           const remaining = draft.allocations.some(

@@ -13,6 +13,8 @@ export interface MutateStockPayload {
   quantity: number;
   reason: string;
   assetId?: string;
+  assetIds?: string[];
+  newAssets?: { serialNumber: string; condition: AssetCondition }[];
   condition?: AssetCondition;
 }
 

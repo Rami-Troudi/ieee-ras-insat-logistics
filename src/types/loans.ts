@@ -32,7 +32,7 @@ export interface LoanRecord {
   projectId?: string;
   projectName?: string;
   borrowDate: string;
-  dueDate: string; // official due date - not changed by pending extensions
+  dueDate: string; // Expected return date; operators can update it after handover
   lifecycleStatus: LoanLifecycleStatus;
   dueStatus: LoanDueStatus;
   returnStatus: LoanReturnStatus;

@@ -18,7 +18,9 @@ The system strictly recognizes **three (3)** roles:
 2. `OPERATOR`: Logistics desk managers, executive board officers, Eurobot team leads.
 3. `SUPERADMIN`: Chapter presidents, systems administrators, high-clearance managers.
 
-> **Deprecated / Prohibited Roles**: `BOARD` has been completely deleted as an independent role string. All executive affiliations (`RAS_BOARD`, `EUROBOT`) map to `OPERATOR` with Clearance Level V.
+> **Deprecated / Prohibited Roles**: `BOARD` has been completely deleted as an independent role string. Authorized identity administration may assign `OPERATOR` and Clearance Level V to verified executive affiliations (`RAS_BOARD`, `EUROBOT`); affiliation or project assignment alone does not grant either.
+
+Roles are resolved from the authenticated actor's user profile for every mutation. Callers cannot authorize an action by supplying an actor role, display name, clearance, or project membership. Project membership grants project context only; role, affiliation, and clearance changes belong to authorized identity-administration workflows.
 
 ### 2.2 Clearance Hierarchy
 
@@ -31,18 +33,22 @@ The system strictly recognizes **three (3)** roles:
 
 ### 2.3 Access Control Boundaries
 
-| Area / Action                   | MEMBER                    | OPERATOR     | SUPERADMIN  |
-| ------------------------------- | ------------------------- | ------------ | ----------- |
-| Browse Borrower Catalogue       | Read-only (Privacy DTO)   | Full Access  | Full Access |
-| Submit Online Equipment Request | Class C & E only          | Yes          | Yes         |
-| Member Activity View            | Own requests & loans      | Full Access  | Full Access |
-| Logistics Dashboard (`/board`)  | **Forbidden** (Redirects) | Full Access  | Full Access |
-| Approve / Reject Requests       | Forbidden                 | Yes          | Yes         |
-| Physical Equipment Handover     | Forbidden                 | Yes          | Yes         |
-| Direct Loan Due-Date Adjustment | Forbidden                 | Yes          | Yes         |
-| Physical Return & Inspection    | Forbidden                 | Yes          | Yes         |
-| Inventory Asset Management      | Forbidden                 | Read / Write | Full Access |
-| Audit Trail Inspection          | Forbidden                 | Read-only    | Full Access |
+| Area / Action                            | MEMBER                    | OPERATOR     | SUPERADMIN  |
+| ---------------------------------------- | ------------------------- | ------------ | ----------- |
+| Browse Borrower Catalogue                | Read-only (Privacy DTO)   | Full Access  | Full Access |
+| Submit Online Equipment Request          | Class C & E only          | Forbidden    | Forbidden   |
+| Member Activity View                     | Own requests & loans      | Full Access  | Full Access |
+| Logistics Dashboard (`/board`)           | **Forbidden** (Redirects) | Full Access  | Full Access |
+| Approve / Reject Requests                | Forbidden                 | Yes          | Yes         |
+| Physical Equipment Handover              | Forbidden                 | Yes          | Yes         |
+| Direct Loan Due-Date Adjustment          | Forbidden                 | Yes          | Yes         |
+| Physical Return & Inspection             | Forbidden                 | Yes          | Yes         |
+| Inventory Asset Management               | Forbidden                 | Read / Write | Full Access |
+| Direct Ownership Correction / Retirement | Forbidden                 | Forbidden    | Yes         |
+| Physical Audit Correction                | Forbidden                 | Yes          | Yes         |
+| Audit Trail Inspection                   | Forbidden                 | Read-only    | Full Access |
+| Strike Levels 1–4                        | Forbidden                 | Yes          | Yes         |
+| Strike Level 5 / Permanent Blacklist     | Forbidden                 | Forbidden    | Yes         |
 
 ---
 
@@ -66,7 +72,7 @@ Attempts to submit requests with Class A, B, D, F, or G items via handcrafted pa
 
 Borrowers consume `BorrowerCatalogItem`, which hides internal tracking and physical storage details:
 
-- **Exposed to Borrower**: `id`, `name`, `category`, `equipmentClass`, `imageUrl`, `datasheetUrl`, `statusLabel` (`Available` | `Limited` | `Out of stock`), `action` (`REQUEST` | `WORKSPACE` | `ASK_OPERATOR` | `UNAVAILABLE`).
+- **Exposed to Borrower**: `id`, `name`, `description`, `category`, `imageUrl`, optional `datasheetUrl`, `availability` (`AVAILABLE` | `LIMITED` | `UNAVAILABLE`), and `action` (`REQUEST` | `ASK_OPERATOR` | `WORKSPACE` | `NONE`).
 - **Strictly Redacted from Borrower**:
   - `totalQuantity`, `availableQuantity`, `allocatedQuantity`, `borrowedQuantity`, `damagedQuantity`, `maintenanceQuantity`, `lostQuantity`.
   - `storageLocation` (Cabinet, Shelf, Bin).
@@ -124,8 +130,8 @@ stateDiagram-v2
 - **Physical Inspection Conditions**:
   - `GOOD`: All units functional $\rightarrow$ stock restored to `available`.
   - `MINOR_ISSUE`: Functioning with minor defect $\rightarrow$ stock restored to `available` with maintenance note.
-  - `DAMAGED`: Physical damage $\rightarrow$ units moved to `damagedQuantity`, incident created, disciplinary strike recommendation generated.
-  - `LOST`: Equipment lost $\rightarrow$ units moved to `lostQuantity`, incident created.
+  - `DAMAGED`: Units move to `damagedQuantity`; condition notes and inventory history are recorded. The operator may explicitly request a damage incident. No strike recommendation or punishment is generated by the return itself.
+  - `LOST`: Equipment lost $\rightarrow$ units moved to `lostQuantity`.
 
 > **Notice**: Members cannot declare returns or request extensions online. Physical return occurs exclusively in-person at the logistics desk.
 
@@ -133,14 +139,21 @@ stateDiagram-v2
 
 ## 5. Disciplinary & Audit Models
 
-### 5.1 Disciplinary Automation
+### 5.1 Strike Lifecycle and Operator Escalation
 
-- Returns with condition `DAMAGED` automatically spawn:
-  1. An `IncidentRecord` with severity `HIGH` and category `DAMAGE`.
-  2. A `DisciplinaryRecommendation` recommending Strike Level 2 for board review.
-- Accounts with 4 or more active strikes are automatically barred from creating online requests.
+- A `StrikeRecord` is active only when its status is `ACTIVE` and it has no expiration or expires after the current time. Active counts and derived user restrictions are calculated from strike records; `strikesCount` is a read projection, never the source of truth.
+- Strike levels 1–4 require an active operator. Strike 5 and permanent blacklist changes require a superadmin.
+- A damage incident is created only when the operator explicitly requests escalation during return inspection. Incidents do not issue or recommend strikes automatically.
+- Accounts with 4 or more active strikes are barred from creating online requests. Strike 4 applies a restriction through its configured semester end; semesters are selected by their current date range.
 
-### 5.2 Structured Audit Logging
+### 5.2 Physical Audit and Correction
+
+- Physical stock on site is `available + allocated + damaged + maintenance`. Borrowed and lost equipment is not on site.
+- Audit start snapshots this physical quantity. Later inventory events adjust expected physical quantity by the change in this same on-site formula.
+- A discrepancy is `physicalCount - adjustedExpectedQuantity` and may be positive or negative. Positive corrections add available stock; individually tracked additions require one unique serial number per unit. Negative corrections remove the explicitly identified available unit(s) from the owned inventory registry and total. Individually tracked removals require exact asset identifiers.
+- Each reconciliation records before/after inventory state, signed quantity, reason, actor, and timestamp in an `InventoryEvent` and `AuditEvent`. Retirement follows the same registry invariant: retired units are removed from owned total and asset registry, with a superadmin-authorized event.
+
+### 5.3 Structured Audit Logging
 
 Every critical mutation emits an immutable `AuditEvent`:
 

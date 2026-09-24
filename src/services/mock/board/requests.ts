@@ -7,7 +7,7 @@ import {
 import { BorrowRequest, LoanRecord, LoanLineItem, AllocationRecord } from "@/types";
 import { mockDb } from "@/mocks/db";
 import { mockBoardAuditLogService } from "./audit-log";
-import { requireOperatorInDraft } from "../authorization";
+import { refreshStrikeDerivedProfile, requireOperatorInDraft } from "../authorization";
 import {
   inventoryState,
   moveUnits,
@@ -56,7 +56,9 @@ class MockBoardRequestService implements IBoardRequestService {
       )
         throw new Error("Review must include each request line exactly once");
       const borrower = draft.userProfiles[req.userId];
-      if (!borrower || borrower.status !== "ACTIVE" || (borrower.strikesCount ?? 0) >= 4)
+      if (!borrower) throw new Error("Member is not currently eligible to borrow");
+      refreshStrikeDerivedProfile(draft, borrower.id);
+      if (borrower.status !== "ACTIVE" || borrower.strikesCount >= 4)
         throw new Error("Member is not currently eligible to borrow");
 
       const plan = payload.lines.map((input) => {

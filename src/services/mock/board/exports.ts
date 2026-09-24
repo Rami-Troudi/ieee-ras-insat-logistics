@@ -4,7 +4,8 @@ import {
   ExportResult,
   IBoardExportService,
 } from "@/services/contracts/board/exports";
-import { AuditEvent, Role } from "@/types";
+import { refreshStrikeDerivedProfile, requireOperator, requireSuperadmin } from "../authorization";
+import { mockBoardAuditLogService } from "./audit-log";
 
 function escapeCsvField(val: unknown): string {
   if (val === null || val === undefined) return "";
@@ -25,11 +26,8 @@ function toCsv(
 }
 
 export class MockBoardExportService implements IBoardExportService {
-  async exportCsv(
-    dataset: ExportDatasetType,
-    actorUserId: string,
-    actorRole: string
-  ): Promise<ExportResult> {
+  async exportCsv(dataset: ExportDatasetType, actorUserId: string): Promise<ExportResult> {
+    const actor = requireOperator(actorUserId);
     const superadminOnlyDatasets: ExportDatasetType[] = [
       "USERS",
       "AUDITS",
@@ -39,13 +37,12 @@ export class MockBoardExportService implements IBoardExportService {
       "AUDIT_LOG",
     ];
 
-    if (superadminOnlyDatasets.includes(dataset) && actorRole !== "SUPERADMIN") {
-      throw new Error(
-        `Access denied: Dataset '${dataset}' requires Superadmin (Clearance VI) authorization.`
-      );
-    }
+    if (superadminOnlyDatasets.includes(dataset)) requireSuperadmin(actorUserId);
 
     const snapshot = mockDb.getSnapshot();
+    Object.keys(snapshot.userProfiles).forEach((userId) =>
+      refreshStrikeDerivedProfile(snapshot, userId)
+    );
     let headers: string[] = [];
     let rows: (string | number | boolean | null | undefined)[][] = [];
     const nowStr = new Date().toISOString().split("T")[0];
@@ -64,6 +61,8 @@ export class MockBoardExportService implements IBoardExportService {
           "Allocated Qty",
           "Borrowed Qty",
           "Damaged Qty",
+          "Maintenance Qty",
+          "Lost Qty",
           "Location",
         ];
         rows = snapshot.inventory.map((item) => [
@@ -77,6 +76,8 @@ export class MockBoardExportService implements IBoardExportService {
           item.allocatedQuantity,
           item.borrowedQuantity,
           item.damagedQuantity,
+          item.maintenanceQuantity,
+          item.lostQuantity,
           item.location || "",
         ]);
         break;
@@ -98,7 +99,7 @@ export class MockBoardExportService implements IBoardExportService {
         const activeLoans = snapshot.loans.filter((l) => l.lifecycleStatus === "ACTIVE");
         rows = activeLoans.map((loan) => {
           const totalUnits = loan.items.reduce(
-            (acc, i) => acc + (i.borrowedQuantity - i.returnedQuantity),
+            (acc, i) => acc + (i.borrowedQuantity - i.returnedQuantity - i.lostQuantity),
             0
           );
           return [
@@ -135,7 +136,9 @@ export class MockBoardExportService implements IBoardExportService {
           const nowTime = Date.now();
           const daysOverdue = Math.max(0, Math.floor((nowTime - dueTime) / (1000 * 60 * 60 * 24)));
           const itemsSummary = loan.items
-            .map((i) => `${i.borrowedQuantity - i.returnedQuantity}x ${i.itemName}`)
+            .map(
+              (i) => `${i.borrowedQuantity - i.returnedQuantity - i.lostQuantity}x ${i.itemName}`
+            )
             .join("; ");
           return [
             loan.id,
@@ -380,19 +383,14 @@ export class MockBoardExportService implements IBoardExportService {
     const csvContent = toCsv(headers, rows);
 
     // Audit log
-    const auditEvt: AuditEvent = {
-      id: `evt-exp-${Date.now()}`,
-      createdAt: new Date().toISOString(),
+    await mockBoardAuditLogService.logEvent({
       actorUserId,
-      actorName: actorUserId,
-      actorRole: actorRole as Role,
+      actorName: actor.name,
+      actorRole: actor.role,
       action: "EXPORT_CREATED",
       entityType: "EXPORT",
       entityId: dataset,
       reason: `Exported ${rows.length} rows for dataset ${dataset}`,
-    };
-    mockDb.mutate((draft) => {
-      draft.auditEvents.unshift(auditEvt);
     });
 
     return {

@@ -9,9 +9,7 @@ export function useExportCsv() {
     mutationFn: (params: {
       dataset: ExportDatasetType;
       actorUserId: string;
-      actorRole: string;
-    }): Promise<ExportResult> =>
-      boardExportService.exportCsv(params.dataset, params.actorUserId, params.actorRole),
+    }): Promise<ExportResult> => boardExportService.exportCsv(params.dataset, params.actorUserId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardAuditLog.all });
     },

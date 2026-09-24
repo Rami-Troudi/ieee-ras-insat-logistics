@@ -3,250 +3,186 @@ import {
   CreateProjectPayload,
   UpdateProjectPayload,
 } from "@/services/contracts/board/projects";
-import { ProjectSummary, ClearanceLevel, Affiliation, Role } from "@/types";
+import { ProjectSummary } from "@/types";
 import { mockDb } from "@/mocks/db";
 import { mockBoardAuditLogService } from "./audit-log";
-
-function deriveClearanceFromAffiliation(aff: Affiliation): ClearanceLevel {
-  switch (aff) {
-    case "EXTERNAL":
-      return "I";
-    case "AEROBOTIX":
-      return "II";
-    case "IEEE":
-      return "III";
-    case "EUROBOT":
-      return "V";
-    case "RAS_BOARD":
-      return "V";
-    default:
-      return "I";
-  }
-}
+import { requireOperatorInDraft } from "../authorization";
 
 class MockBoardProjectService implements IBoardProjectService {
-  private async simulateLatency(): Promise<void> {
-    await new Promise((res) => setTimeout(res, 50));
+  private async simulateLatency() {
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
   async getProjects(filters?: { search?: string; status?: string }): Promise<ProjectSummary[]> {
     await this.simulateLatency();
-    const snapshot = mockDb.getSnapshot();
-    let projects = [...snapshot.projects];
-
-    if (filters?.status && filters.status !== "ALL") {
-      projects = projects.filter((p) => p.status === filters.status);
-    }
+    let projects = mockDb.getSnapshot().projects;
+    if (filters?.status && filters.status !== "ALL")
+      projects = projects.filter((project) => project.status === filters.status);
     if (filters?.search) {
-      const q = filters.search.toLowerCase();
+      const query = filters.search.toLowerCase();
       projects = projects.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.code.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q)
+        (project) =>
+          project.name.toLowerCase().includes(query) ||
+          project.code.toLowerCase().includes(query) ||
+          project.description.toLowerCase().includes(query)
       );
     }
-
     return projects;
   }
 
   async getProjectById(projectId: string): Promise<ProjectSummary | null> {
     await this.simulateLatency();
-    const snapshot = mockDb.getSnapshot();
-    const project = snapshot.projects.find((p) => p.id === projectId);
-    return project ? { ...project } : null;
+    return mockDb.getSnapshot().projects.find((project) => project.id === projectId) ?? null;
   }
 
   async createProject(
     payload: CreateProjectPayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<ProjectSummary> {
     await this.simulateLatency();
-    let newProj: ProjectSummary | null = null;
-
+    let result!: ProjectSummary;
+    let actorName = "";
+    let actorRole: "OPERATOR" | "SUPERADMIN" = "OPERATOR";
     mockDb.mutate((draft) => {
-      const id = `proj-${payload.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36).slice(-4)}`;
-      newProj = {
-        id,
+      const actor = requireOperatorInDraft(draft, actorUserId);
+      actorName = actor.name;
+      actorRole = actor.role === "SUPERADMIN" ? "SUPERADMIN" : "OPERATOR";
+      const memberIds = [...new Set(payload.memberIds ?? [])];
+      if (memberIds.some((userId) => !draft.userProfiles[userId]))
+        throw new Error("Project member not found");
+      result = {
+        id: `proj-${crypto.randomUUID()}`,
         name: payload.name,
         code: payload.code,
         description: payload.description,
         status: "ACTIVE",
-        leadName: payload.leadId || "Team Lead",
+        leadName: payload.leadId
+          ? (draft.userProfiles[payload.leadId]?.name ?? "Team Lead")
+          : "Team Lead",
         leadId: payload.leadId,
-        membersCount: (payload.memberIds || []).length,
-        memberIds: payload.memberIds || [],
+        membersCount: memberIds.length,
+        memberIds,
       };
-
-      draft.projects.unshift(newProj);
+      draft.projects.unshift(result);
     });
-
-    if (newProj) {
-      await mockBoardAuditLogService.logEvent({
-        actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
-        action: "PROJECT_CREATED",
-        entityType: "PROJECT",
-        entityId: (newProj as ProjectSummary).id,
-        after: newProj,
-        reason: `Project ${payload.name} created`,
-      });
-
-      return newProj;
-    }
-    throw new Error("Failed to create project");
+    await mockBoardAuditLogService.logEvent({
+      actorUserId,
+      actorName,
+      actorRole,
+      action: "PROJECT_CREATED",
+      entityType: "PROJECT",
+      entityId: result.id,
+      after: result,
+      reason: `Project ${payload.name} created`,
+    });
+    return result;
   }
 
   async updateProject(
     payload: UpdateProjectPayload,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<ProjectSummary> {
     await this.simulateLatency();
-    let updatedProj: ProjectSummary | null = null;
-
+    let result!: ProjectSummary;
+    let actorName = "";
+    let actorRole: "OPERATOR" | "SUPERADMIN" = "OPERATOR";
     mockDb.mutate((draft) => {
-      const proj = draft.projects.find((p) => p.id === payload.projectId);
-      if (!proj) throw new Error("Project not found");
-
-      if (payload.name) proj.name = payload.name;
-      if (payload.description) proj.description = payload.description;
-      if (payload.status) proj.status = payload.status;
-      if (payload.leadId) proj.leadId = payload.leadId;
-
-      updatedProj = { ...proj };
+      const actor = requireOperatorInDraft(draft, actorUserId);
+      actorName = actor.name;
+      actorRole = actor.role === "SUPERADMIN" ? "SUPERADMIN" : "OPERATOR";
+      const project = draft.projects.find((entry) => entry.id === payload.projectId);
+      if (!project) throw new Error("Project not found");
+      if (payload.name !== undefined) project.name = payload.name;
+      if (payload.description !== undefined) project.description = payload.description;
+      if (payload.status !== undefined) project.status = payload.status;
+      if (payload.leadId !== undefined) {
+        if (payload.leadId && !draft.userProfiles[payload.leadId])
+          throw new Error("Project lead not found");
+        project.leadId = payload.leadId;
+        project.leadName = payload.leadId ? draft.userProfiles[payload.leadId].name : "Team Lead";
+      }
+      result = structuredClone(project);
     });
-
-    if (updatedProj) {
-      await mockBoardAuditLogService.logEvent({
-        actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
-        action: "PROJECT_UPDATED",
-        entityType: "PROJECT",
-        entityId: payload.projectId,
-        after: updatedProj,
-        reason: "Project details updated",
-      });
-
-      return updatedProj;
-    }
-    throw new Error("Failed to update project");
+    await mockBoardAuditLogService.logEvent({
+      actorUserId,
+      actorName,
+      actorRole,
+      action: "PROJECT_UPDATED",
+      entityType: "PROJECT",
+      entityId: payload.projectId,
+      after: result,
+      reason: "Project details updated",
+    });
+    return result;
   }
 
   async assignMember(
     projectId: string,
     userId: string,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<ProjectSummary> {
     await this.simulateLatency();
-    let updatedProj: ProjectSummary | null = null;
-
+    let result!: ProjectSummary;
+    let actorName = "";
+    let actorRole: "OPERATOR" | "SUPERADMIN" = "OPERATOR";
     mockDb.mutate((draft) => {
-      const proj = draft.projects.find((p) => p.id === projectId);
-      if (!proj) throw new Error("Project not found");
-
-      if (!proj.memberIds) proj.memberIds = [];
-      if (!proj.memberIds.includes(userId)) {
-        proj.memberIds.push(userId);
-      }
-
-      // Check if Eurobot project -> elevate clearance to Level V
-      const isEurobot =
-        proj.id.includes("eurobot") ||
-        proj.code.toLowerCase().includes("eur") ||
-        proj.name.toLowerCase().includes("eurobot");
-
-      if (isEurobot) {
-        const user = draft.userProfiles[userId];
-        if (user && user.role === "MEMBER") {
-          user.affiliation = "EUROBOT";
-          user.clearance = "V";
-          user.clearanceSource = "EUROBOT";
-        }
-      }
-
-      updatedProj = { ...proj };
+      const actor = requireOperatorInDraft(draft, actorUserId);
+      actorName = actor.name;
+      actorRole = actor.role === "SUPERADMIN" ? "SUPERADMIN" : "OPERATOR";
+      const project = draft.projects.find((entry) => entry.id === projectId);
+      if (!project) throw new Error("Project not found");
+      if (!draft.userProfiles[userId]) throw new Error("User not found");
+      project.memberIds = [...new Set([...(project.memberIds ?? []), userId])];
+      project.membersCount = project.memberIds.length;
+      result = structuredClone(project);
     });
-
-    if (updatedProj) {
-      await mockBoardAuditLogService.logEvent({
-        actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
-        action: "PROJECT_MEMBER_ADDED",
-        entityType: "PROJECT",
-        entityId: projectId,
-        after: { userId, memberIds: (updatedProj as ProjectSummary).memberIds },
-        reason: `Assigned user ${userId} to project ${projectId}`,
-      });
-
-      return updatedProj;
-    }
-    throw new Error("Failed to assign member to project");
+    await mockBoardAuditLogService.logEvent({
+      actorUserId,
+      actorName,
+      actorRole,
+      action: "PROJECT_MEMBER_ADDED",
+      entityType: "PROJECT",
+      entityId: projectId,
+      after: { userId, memberIds: result.memberIds },
+      reason: `Assigned user ${userId} to project ${projectId}`,
+    });
+    return result;
   }
 
   async removeMember(
     projectId: string,
     userId: string,
     actorUserId: string,
-    actorRole: string
+    _actorRole: string
   ): Promise<ProjectSummary> {
     await this.simulateLatency();
-    let updatedProj: ProjectSummary | null = null;
-
+    let result!: ProjectSummary;
+    let actorName = "";
+    let actorRole: "OPERATOR" | "SUPERADMIN" = "OPERATOR";
     mockDb.mutate((draft) => {
-      const proj = draft.projects.find((p) => p.id === projectId);
-      if (!proj) throw new Error("Project not found");
-
-      proj.memberIds = (proj.memberIds || []).filter((id) => id !== userId);
-
-      const isEurobot =
-        proj.id.includes("eurobot") ||
-        proj.code.toLowerCase().includes("eur") ||
-        proj.name.toLowerCase().includes("eurobot");
-
-      if (isEurobot) {
-        // Check if user is still in any other Eurobot project
-        const otherEurobot = draft.projects.some(
-          (p) =>
-            p.id !== projectId &&
-            (p.id.includes("eurobot") || p.code.toLowerCase().includes("eur")) &&
-            (p.memberIds || []).includes(userId)
-        );
-
-        if (!otherEurobot) {
-          const user = draft.userProfiles[userId];
-          if (user && user.clearanceSource === "EUROBOT") {
-            // Recalculate clearance from remaining authoritative source
-            user.affiliation = user.verifiedAffiliation || user.claimedAffiliation || "IEEE";
-            user.clearance = deriveClearanceFromAffiliation(user.affiliation);
-            user.clearanceSource = "AFFILIATION";
-          }
-        }
-      }
-
-      updatedProj = { ...proj };
+      const actor = requireOperatorInDraft(draft, actorUserId);
+      actorName = actor.name;
+      actorRole = actor.role === "SUPERADMIN" ? "SUPERADMIN" : "OPERATOR";
+      const project = draft.projects.find((entry) => entry.id === projectId);
+      if (!project) throw new Error("Project not found");
+      project.memberIds = (project.memberIds ?? []).filter((memberId) => memberId !== userId);
+      project.membersCount = project.memberIds.length;
+      result = structuredClone(project);
     });
-
-    if (updatedProj) {
-      await mockBoardAuditLogService.logEvent({
-        actorUserId,
-        actorName: "Board Custodian",
-        actorRole: actorRole as Role,
-        action: "PROJECT_MEMBER_REMOVED",
-        entityType: "PROJECT",
-        entityId: projectId,
-        after: { userId, memberIds: (updatedProj as ProjectSummary).memberIds },
-        reason: `Removed user ${userId} from project ${projectId}`,
-      });
-
-      return updatedProj;
-    }
-    throw new Error("Failed to remove member from project");
+    await mockBoardAuditLogService.logEvent({
+      actorUserId,
+      actorName,
+      actorRole,
+      action: "PROJECT_MEMBER_REMOVED",
+      entityType: "PROJECT",
+      entityId: projectId,
+      after: { userId, memberIds: result.memberIds },
+      reason: `Removed user ${userId} from project ${projectId}`,
+    });
+    return result;
   }
 }
 

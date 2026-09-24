@@ -8,6 +8,8 @@ export interface ReturnInspectionLineItem {
   damagedQuantity?: number;
   lostQuantity?: number;
   assetIds?: string[];
+  /** Create a damage incident only when the inspecting operator explicitly opts in. */
+  escalateIncident?: boolean;
 }
 
 export interface ConfirmReturnPayload {

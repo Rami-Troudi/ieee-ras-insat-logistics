@@ -13,6 +13,9 @@ import {
   memberClearance,
   requireOperator,
   requireSuperadmin,
+  refreshStrikeDerivedProfile,
+  requireOperatorInDraft,
+  requireSuperadminInDraft,
 } from "../authorization";
 
 class MockBoardUserService implements IBoardUserService {
@@ -30,7 +33,9 @@ class MockBoardUserService implements IBoardUserService {
   }): Promise<UserProfile[]> {
     await this.simulateLatency();
     const snapshot = mockDb.getSnapshot();
-    let users = Object.values(snapshot.userProfiles);
+    let users = Object.values(snapshot.userProfiles).map((user) =>
+      refreshStrikeDerivedProfile(snapshot, user.id)
+    );
 
     if (filters?.role && filters.role !== "ALL") {
       users = users.filter((u) => u.role === filters.role);
@@ -65,6 +70,7 @@ class MockBoardUserService implements IBoardUserService {
     await this.simulateLatency();
     const snapshot = mockDb.getSnapshot();
     const user = snapshot.userProfiles[userId];
+    if (user) refreshStrikeDerivedProfile(snapshot, userId);
     return user ? { ...user } : null;
   }
 
@@ -78,11 +84,12 @@ class MockBoardUserService implements IBoardUserService {
     let updatedUser: UserProfile | null = null;
 
     mockDb.mutate((draft) => {
+      const draftActor = requireOperatorInDraft(draft, actorUserId);
+      const privilegedAffiliation = ["EUROBOT", "RAS_BOARD"].includes(payload.verifiedAffiliation);
+      if (privilegedAffiliation && draft.userProfiles[payload.userId]?.role === "MEMBER")
+        requireSuperadminInDraft(draft, actorUserId);
       const user = draft.userProfiles[payload.userId];
       if (!user) throw new Error("User not found");
-
-      const privilegedAffiliation = ["EUROBOT", "RAS_BOARD"].includes(payload.verifiedAffiliation);
-      if (privilegedAffiliation && user.role === "MEMBER") requireSuperadmin(actorUserId);
 
       user.isProcessed = true;
       user.verifiedAffiliation = payload.verifiedAffiliation;
@@ -93,7 +100,7 @@ class MockBoardUserService implements IBoardUserService {
       }
       if (user.role === "OPERATOR") user.clearanceSource = "OPERATOR_ROLE";
       user.clearance = canonicalClearance(user);
-      user.verifiedBy = actor.name;
+      user.verifiedBy = draftActor.name;
       user.verifiedAt = new Date().toISOString();
       if (payload.notes) user.notes = payload.notes;
 
@@ -128,11 +135,13 @@ class MockBoardUserService implements IBoardUserService {
     let updatedUser: UserProfile | null = null;
 
     mockDb.mutate((draft) => {
+      requireOperatorInDraft(draft, actorUserId);
       const user = draft.userProfiles[payload.userId];
       if (!user) throw new Error("User not found");
 
       if (user.role !== "MEMBER") throw new Error("Operator clearance is role-derived");
-      if (payload.newClearance === "IV" || user.clearance === "IV") requireSuperadmin(actorUserId);
+      if (payload.newClearance === "IV" || user.clearance === "IV")
+        requireSuperadminInDraft(draft, actorUserId);
       if (
         payload.newClearance !== "IV" &&
         payload.newClearance !== memberClearance(user.affiliation)
@@ -172,6 +181,7 @@ class MockBoardUserService implements IBoardUserService {
     let updatedUser: UserProfile | null = null;
 
     mockDb.mutate((draft) => {
+      requireSuperadminInDraft(draft, actorUserId);
       const user = draft.userProfiles[payload.userId];
       if (!user) throw new Error("User not found");
 
@@ -226,14 +236,22 @@ class MockBoardUserService implements IBoardUserService {
     let updatedUser: UserProfile | null = null;
 
     mockDb.mutate((draft) => {
+      const actualActor = requireOperatorInDraft(draft, actorUserId);
       const user = draft.userProfiles[payload.userId];
       if (!user) throw new Error("User not found");
 
       if (payload.status === "BLACKLISTED" || user.status === "BLACKLISTED") {
-        requireSuperadmin(actorUserId);
+        requireSuperadminInDraft(draft, actorUserId);
       }
 
+      if (payload.status === "BLACKLISTED") user.manualBlacklisted = true;
+      else if (user.manualBlacklisted) {
+        requireSuperadminInDraft(draft, actorUserId);
+        user.manualBlacklisted = false;
+      }
       user.status = payload.status;
+      user.isBanned = payload.status === "BLACKLISTED" || payload.status === "BANNED";
+      void actualActor;
       updatedUser = { ...user };
     });
 

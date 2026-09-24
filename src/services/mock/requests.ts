@@ -2,7 +2,7 @@ import { IRequestService } from "../contracts/requests";
 import { BorrowRequest, CreateBorrowRequestPayload, RequestLineItem } from "@/types";
 import { mockDb } from "@/mocks/db";
 import { scenarioManager } from "./scenario";
-import { requireMember } from "./authorization";
+import { requireMemberInDraft } from "./authorization";
 import {
   getBorrowerCatalogAccess,
   isFormalRequestClass,
@@ -34,7 +34,6 @@ export class MockRequestService implements IRequestService {
 
   async createRequest(userId: string, payload: CreateBorrowRequestPayload): Promise<BorrowRequest> {
     await this.simulateLatency();
-    requireMember(userId);
     if (!Array.isArray(payload.items) || payload.items.length === 0) {
       throw new Error("Add at least one item");
     }
@@ -48,10 +47,7 @@ export class MockRequestService implements IRequestService {
     if (new Set(ids).size !== ids.length) throw new Error("Duplicate items are not allowed");
 
     return mockDb.mutate((draft) => {
-      const user = draft.userProfiles[userId];
-      if (!user || user.role !== "MEMBER" || user.status !== "ACTIVE" || user.strikesCount >= 4) {
-        throw new Error("This account cannot request equipment");
-      }
+      const user = requireMemberInDraft(draft, userId);
       const now = new Date().toISOString();
       const requestId = `REQ-${crypto.randomUUID()}`;
       const items: RequestLineItem[] = payload.items.map((line, index) => {
