@@ -90,6 +90,7 @@ export const QuickOnboardingModal: React.FC = () => {
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent
+        showCloseButton={false}
         className="sm:max-w-md p-6 rounded-2xl"
         onEscapeKeyDown={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}

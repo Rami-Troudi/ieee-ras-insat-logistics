@@ -5,6 +5,7 @@ import { useBorrowCart } from "@/features/cart";
 import { Button } from "@/components/ui/button";
 import { Plus, Minus, Check, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DEFAULT_EQUIPMENT_IMAGE } from "@/assets/equipmentImages";
 
 interface EquipmentCardProps {
   item: BorrowerCatalogItem;
@@ -57,7 +58,7 @@ export const EquipmentCard: React.FC<EquipmentCardProps> = ({ item }) => {
         {/* Photo Container with fixed 4:3 aspect ratio */}
         <div className="relative aspect-[4/3] w-full bg-muted/40 overflow-hidden">
           <img
-            src={imageError ? "/equipment/fallback.svg" : item.imageUrl}
+            src={imageError ? DEFAULT_EQUIPMENT_IMAGE : item.imageUrl}
             alt={item.name}
             onError={() => setImageError(true)}
             className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"

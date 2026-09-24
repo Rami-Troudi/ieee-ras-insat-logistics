@@ -6,6 +6,7 @@ import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/FeedbackStates";
 import { useBorrowCart } from "@/features/cart";
 import { useInventoryItem } from "../hooks/useInventory";
+import { DEFAULT_EQUIPMENT_IMAGE } from "@/assets/equipmentImages";
 
 export const MemberItemDetailPage: React.FC = () => {
   const { itemId = "" } = useParams<{ itemId: string }>();
@@ -42,7 +43,7 @@ export const MemberItemDetailPage: React.FC = () => {
       </Link>
       <article className="overflow-hidden rounded-xl border border-border bg-card">
         <img
-          src={imageError ? "/equipment/fallback.svg" : item.imageUrl}
+          src={imageError ? DEFAULT_EQUIPMENT_IMAGE : item.imageUrl}
           alt={item.name}
           onError={() => setImageError(true)}
           className="aspect-[4/3] w-full object-contain bg-muted"

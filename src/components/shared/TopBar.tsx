@@ -53,11 +53,11 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
       </div>
 
       {/* Right Controls: Cart (Member), Dev Persona Switcher, Notifications, Reusable UserMenu */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-1 sm:gap-2.5">
         {!isBoardRole && (
           <Link
             to="/app/cart"
-            className="relative flex items-center justify-center w-10 h-10 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-[44px] min-h-[44px]"
+            className="relative hidden items-center justify-center w-10 h-10 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-[44px] min-h-[44px] sm:flex"
             aria-label={`View Borrow Cart (${totalItemCount} items)`}
           >
             <ShoppingBag className="w-4 h-4" />
@@ -69,7 +69,9 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
           </Link>
         )}
 
-        <DevPersonaSwitcher />
+        <div className="hidden sm:block">
+          <DevPersonaSwitcher />
+        </div>
 
         {/* In-App Notifications Button with real unread state */}
         <Link

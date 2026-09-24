@@ -64,6 +64,13 @@ export const router = createBrowserRouter([
     },
   },
   {
+    path: "/_dev/design",
+    async lazy() {
+      const { DesignLabPage } = await import("@/pages/system/DesignLabPage");
+      return { Component: DesignLabPage };
+    },
+  },
+  {
     path: "/app",
     element: <MemberLayout />,
     children: [

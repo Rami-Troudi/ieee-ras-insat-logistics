@@ -13,3 +13,4 @@ package-lock.json
 tsconfig.tsbuildinfo
 docs/design/screenshots
 graphify-out/
+.playwright-cli/

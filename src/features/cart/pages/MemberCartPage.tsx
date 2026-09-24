@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useBorrowCart } from "@/features/cart";
 import { useSession } from "@/hooks/useSession";
 import { useCreateRequest } from "@/features/requests/hooks/useRequests";
+import { DEFAULT_EQUIPMENT_IMAGE } from "@/assets/equipmentImages";
 
 export const MemberCartPage: React.FC = () => {
   const { currentPersona } = useSession();
@@ -62,7 +63,7 @@ export const MemberCartPage: React.FC = () => {
                   alt={item.name}
                   className="h-16 w-16 shrink-0 rounded-lg object-contain bg-muted"
                   onError={(event) => {
-                    event.currentTarget.src = "/equipment/fallback.svg";
+                    event.currentTarget.src = DEFAULT_EQUIPMENT_IMAGE;
                   }}
                 />
                 <div className="min-w-0 flex-1">
