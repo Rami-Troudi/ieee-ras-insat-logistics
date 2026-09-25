@@ -56,7 +56,20 @@ export const remoteRequestService = {
   getRequest: async (_id: string) => null,
   async createRequest(_userId: string, payload: any) {
     const contactEmail = localStorage.getItem("ras_borrower_email") ?? "";
-    const requestPayload = { ...payload, contactEmail };
+    let savedProfile: { name?: string; phone?: string; membership?: string } | null = null;
+    try {
+      const raw = localStorage.getItem("ras_borrower_profile");
+      if (raw) savedProfile = JSON.parse(raw);
+    } catch {
+      // Ignore storage errors
+    }
+    const requestPayload = {
+      ...payload,
+      contactEmail,
+      borrowerName: savedProfile?.name || cachedPersona.name,
+      borrowerPhone: savedProfile?.phone || "",
+      borrowerAffiliation: savedProfile?.membership || cachedPersona.affiliation,
+    };
     const digest = await crypto.subtle.digest(
       "SHA-256",
       new TextEncoder().encode(JSON.stringify({ contactEmail, payload }))
@@ -98,15 +111,25 @@ export const remoteNotificationService = {
 };
 
 export const remoteProfileService = {
-  getUserProfile: async () =>
-    ({
+  getUserProfile: async () => {
+    let savedProfile: { name?: string; phone?: string; membership?: string } | null = null;
+    try {
+      const raw = localStorage.getItem("ras_borrower_profile");
+      if (raw) savedProfile = JSON.parse(raw);
+    } catch {
+      // Ignore storage errors
+    }
+    return {
       ...cachedPersona,
-      phone: "",
+      name: savedProfile?.name || cachedPersona.name,
+      phone: savedProfile?.phone || "",
+      affiliation: (savedProfile?.membership as any) || cachedPersona.affiliation,
       status: "ACTIVE",
       strikesCount: 0,
       totalRequestsCount: 0,
       activeLoansCount: 0,
-    }) as any,
+    } as any;
+  },
   updateContactInfo: async (_userId: string, _data: unknown) =>
     ({ ...cachedPersona, phone: "" }) as any,
   resetDemoData: async () => {
@@ -127,21 +150,25 @@ let cachedPersona: UserPersona = PROD_DEFAULT_PERSONA;
 const listeners = new Set<(persona: UserPersona) => void>();
 async function refreshSession() {
   let email = "";
+  let savedProfile: { name?: string; phone?: string; membership?: string } | null = null;
   try {
     email = localStorage.getItem("ras_borrower_email") ?? "";
+    const raw = localStorage.getItem("ras_borrower_profile");
+    if (raw) savedProfile = JSON.parse(raw);
   } catch {
     /* storage may be disabled */
   }
   const boardContext =
     location.pathname.startsWith("/board") || location.pathname.startsWith("/auth/board-login");
   if (email && !boardContext) {
+    const affiliation = (savedProfile?.membership as any) || "EXTERNAL";
     cachedPersona = {
-      id: "anonymous-member",
-      name: "Borrower",
+      id: `borrower-${email}`,
+      name: savedProfile?.name || "Borrower",
       email,
       role: "MEMBER",
-      clearance: "I",
-      affiliation: "EXTERNAL",
+      clearance: affiliation === "IEEE" ? "III" : affiliation === "AEROBOTIX" ? "II" : "I",
+      affiliation,
       isProcessed: false,
       status: "ACTIVE",
       strikesCount: 0,
@@ -158,17 +185,20 @@ async function refreshSession() {
     if (error instanceof ApiError && error.status === 401) {
       try {
         email = localStorage.getItem("ras_borrower_email") ?? "";
+        const raw = localStorage.getItem("ras_borrower_profile");
+        if (raw) savedProfile = JSON.parse(raw);
       } catch {
         email = "";
       }
+      const affiliation = (savedProfile?.membership as any) || "EXTERNAL";
       cachedPersona = email
         ? {
-            id: "anonymous-member",
-            name: "Borrower",
+            id: `borrower-${email}`,
+            name: savedProfile?.name || "Borrower",
             email,
             role: "MEMBER",
-            clearance: "I",
-            affiliation: "EXTERNAL",
+            clearance: affiliation === "IEEE" ? "III" : affiliation === "AEROBOTIX" ? "II" : "I",
+            affiliation,
             isProcessed: false,
             status: "ACTIVE",
             strikesCount: 0,
@@ -181,13 +211,78 @@ async function refreshSession() {
   }
 }
 export const remoteAuthService = {
-  async registerMember(input: { name: string; email: string; phone: string; membership: string }) {
-    void input;
-    throw new ApiError(
-      400,
-      "REGISTRATION_DISABLED",
-      "Borrower accounts are not used. Enter your email to continue."
-    );
+  async registerMember(input: {
+    firstName?: string;
+    lastName?: string;
+    name: string;
+    email: string;
+    phone: string;
+    membership: string;
+  }) {
+    const normalizedEmail = input.email.trim().toLowerCase();
+    const name = input.name.trim();
+    const affiliation = input.membership;
+    const phone = input.phone.trim();
+
+    let apiUser: any = null;
+    try {
+      const resp = await post<{ ok: boolean; user: any }>("/api/v1/auth/borrower", {
+        firstName: input.firstName,
+        lastName: input.lastName,
+        name,
+        email: normalizedEmail,
+        phone,
+        membership: affiliation,
+      });
+      apiUser = resp?.user;
+    } catch (err) {
+      console.warn("Remote borrower registration failed, falling back to local storage:", err);
+    }
+
+    const persona: UserPersona = {
+      id: apiUser?.id ?? `borrower-${normalizedEmail}`,
+      name,
+      email: normalizedEmail,
+      role: "MEMBER",
+      clearance: affiliation === "IEEE" ? "III" : affiliation === "AEROBOTIX" ? "II" : "I",
+      affiliation: (affiliation as any) || "EXTERNAL",
+      isProcessed: false,
+      status: "ACTIVE",
+      strikesCount: 0,
+    };
+
+    const profile = {
+      ...persona,
+      phone,
+      claimedAffiliation: affiliation,
+      joinedDate: new Date().toISOString(),
+      strikes: [],
+      activeLoansCount: 0,
+      totalRequestsCount: 0,
+    };
+
+    try {
+      localStorage.setItem("ras_borrower_email", normalizedEmail);
+      localStorage.setItem("ras_onboarding_completed", "true");
+      localStorage.setItem(
+        "ras_borrower_profile",
+        JSON.stringify({
+          firstName: input.firstName,
+          lastName: input.lastName,
+          name,
+          email: normalizedEmail,
+          phone,
+          membership: affiliation,
+        })
+      );
+    } catch {
+      // Ignore storage errors
+    }
+
+    cachedPersona = persona;
+    listeners.forEach((listener) => listener(persona));
+
+    return { persona, profile: profile as any };
   },
   getCurrentUser: () => cachedPersona,
   getCurrentSession: () => refreshSession(),
@@ -195,11 +290,14 @@ export const remoteAuthService = {
     cachedPersona = { ...persona, status: "ACTIVE" };
     if (persona.role === "MEMBER" && persona.email) {
       localStorage.setItem("ras_borrower_email", persona.email.trim().toLowerCase());
+      localStorage.setItem("ras_onboarding_completed", "true");
     }
     listeners.forEach((listener) => listener(cachedPersona));
   },
   clearSession: () => {
     localStorage.removeItem("ras_borrower_email");
+    localStorage.removeItem("ras_borrower_profile");
+    localStorage.removeItem("ras_onboarding_completed");
     localStorage.removeItem("ras_board_device_key");
     void api("/api/auth/sign-out", { method: "POST" })
       .catch(() => undefined)

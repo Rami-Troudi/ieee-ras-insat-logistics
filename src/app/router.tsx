@@ -44,10 +44,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/auth/login",
-    async lazy() {
-      const { LoginPage } = await import("@/pages/auth/LoginPage");
-      return { Component: LoginPage };
-    },
+    element: <Navigate to="/app?auth=login" replace />,
   },
   {
     path: "/auth/board-login",
@@ -58,11 +55,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/auth/register",
-    element: <Navigate to="/auth/login" replace />,
+    element: <Navigate to="/app?auth=login" replace />,
   },
   {
     path: "/auth/forgot-password",
-    element: <Navigate to="/auth/login" replace />,
+    element: <Navigate to="/app?auth=login" replace />,
   },
   {
     path: "/_dev/design",

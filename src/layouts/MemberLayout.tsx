@@ -2,13 +2,13 @@ import React from "react";
 import { DesktopSidebar } from "@/components/shared/DesktopSidebar";
 import { MobileBottomNav } from "@/components/shared/MobileBottomNav";
 import { TopBar } from "@/components/shared/TopBar";
+import { BorrowerAuthModal } from "@/components/auth/BorrowerAuthModal";
 import { Navigate, Outlet } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
 
 export const MemberLayout: React.FC = () => {
   const { currentPersona, isLoading } = useSession();
   if (isLoading) return <div className="min-h-screen" aria-busy="true" />;
-  if (currentPersona.status !== "ACTIVE") return <Navigate to="/auth/login" replace />;
   if (currentPersona.role !== "MEMBER") return <Navigate to="/board" replace />;
 
   return (
@@ -26,6 +26,9 @@ export const MemberLayout: React.FC = () => {
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav />
+
+      {/* In-app Borrower Onboarding / Login Popup Dialog */}
+      <BorrowerAuthModal />
     </div>
   );
 };

@@ -219,6 +219,79 @@ app.post("/api/v1/auth/board-login", async (c) => {
   });
 });
 
+app.post("/api/v1/auth/borrower", async (c) => {
+  const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
+  const rateDecision = await c.env.AUTH_RATE_LIMITER.limit({ key: `borrower-auth:${ip}` });
+  if (!rateDecision.success) {
+    return jsonError(c, 429, "RATE_LIMITED", "Too many requests; slow down and try again");
+  }
+
+  const body = await c.req
+    .json<{
+      firstName?: string;
+      lastName?: string;
+      name?: string;
+      email?: string;
+      phone?: string;
+      membership?: string;
+    }>()
+    .catch(() => null);
+
+  if (
+    !body ||
+    typeof body.email !== "string" ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim())
+  ) {
+    return jsonError(c, 400, "VALIDATION", "A valid email address is required");
+  }
+
+  const email = body.email.trim().toLowerCase();
+  const name =
+    (body.name || `${body.firstName ?? ""} ${body.lastName ?? ""}`).trim() || "Borrower";
+  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const membership = ["IEEE", "AEROBOTIX", "EXTERNAL"].includes(body.membership ?? "")
+    ? (body.membership as string)
+    : "EXTERNAL";
+
+  const existing = await c.env.DB.prepare(
+    "SELECT * FROM app_users WHERE email=? COLLATE NOCASE"
+  )
+    .bind(email)
+    .first<AppUser>();
+
+  const userId = existing?.id ?? `borrower-${await digest(email)}`;
+  const clearance = membership === "IEEE" ? "III" : membership === "AEROBOTIX" ? "II" : "I";
+  const timestamp = Date.now();
+
+  if (existing) {
+    await c.env.DB.prepare(
+      "UPDATE app_users SET name=?, phone=?, claimed_affiliation=?, updated_at=? WHERE id=?"
+    )
+      .bind(name, phone, membership, timestamp, existing.id)
+      .run();
+  } else {
+    await c.env.DB.prepare(
+      "INSERT INTO app_users(id, email, name, phone, role, clearance, affiliation, claimed_affiliation, affiliation_verified, status, data, created_at, updated_at) VALUES(?, ?, ?, ?, 'MEMBER', ?, ?, ?, 0, 'ACTIVE', '{}', ?, ?)"
+    )
+      .bind(userId, email, name, phone, clearance, membership, membership, timestamp, timestamp)
+      .run();
+  }
+
+  const user = {
+    id: userId,
+    email,
+    name,
+    phone,
+    role: "MEMBER",
+    clearance,
+    affiliation: existing?.affiliation ?? membership,
+    claimedAffiliation: membership,
+    status: "ACTIVE",
+  };
+
+  return c.json({ ok: true, user });
+});
+
 app.post("/api/v1/staff/challenge", async (c) => {
   const actor = await resolveIdentity(c);
   if (!actor || !["OPERATOR", "SUPERADMIN"].includes(actor.role) || actor.status !== "ACTIVE")
@@ -684,6 +757,9 @@ app.post("/api/v1/requests", async (c) => {
       items?: { itemId: string; quantity: number }[];
       note?: string;
       expectedReturnDate?: string;
+      borrowerName?: string;
+      borrowerPhone?: string;
+      borrowerAffiliation?: string;
     }>()
     .catch(() => null);
   if (
@@ -724,7 +800,7 @@ app.post("/api/v1/requests", async (c) => {
     .bind(email)
     .first<{ id: string; name: string; clearance: string }>();
   const borrowerId = existing?.id ?? `borrower-${await digest(email)}`;
-  const borrowerName = "Unverified borrower";
+  const borrowerName = body.borrowerName?.trim() || existing?.name || "Unverified borrower";
   const key = await digest(`${borrowerId}:${idempotencyKey}`);
   const replay = await c.env.DB.prepare(
     "SELECT response FROM idempotency_keys WHERE key=? AND actor_id=?"
@@ -803,13 +879,39 @@ app.post("/api/v1/requests", async (c) => {
       },
     ],
   };
+  const affiliation = ["IEEE", "AEROBOTIX", "EXTERNAL"].includes(body.borrowerAffiliation ?? "")
+    ? (body.borrowerAffiliation as string)
+    : "EXTERNAL";
+  const phone = body.borrowerPhone?.trim() || "";
+  const clearance = affiliation === "IEEE" ? "III" : affiliation === "AEROBOTIX" ? "II" : "I";
+
   const statements = [
     ...(existing
-      ? []
+      ? [
+          c.env.DB.prepare(
+            "UPDATE app_users SET name=COALESCE(NULLIF(?,''),name), phone=COALESCE(NULLIF(?,''),phone), claimed_affiliation=COALESCE(NULLIF(?,''),claimed_affiliation), updated_at=? WHERE id=?"
+          ).bind(
+            body.borrowerName?.trim() || "",
+            phone,
+            affiliation,
+            Date.parse(createdAt),
+            existing.id
+          ),
+        ]
       : [
           c.env.DB.prepare(
-            "INSERT OR IGNORE INTO app_users(id,email,name,role,clearance,affiliation,claimed_affiliation,affiliation_verified,status,data,created_at,updated_at) VALUES(?,?,?,'MEMBER','I','EXTERNAL','EXTERNAL',0,'PENDING','{}',?,?)"
-          ).bind(borrowerId, email, borrowerName, Date.parse(createdAt), Date.parse(createdAt)),
+            "INSERT OR IGNORE INTO app_users(id,email,name,phone,role,clearance,affiliation,claimed_affiliation,affiliation_verified,status,data,created_at,updated_at) VALUES(?,?,?,?,'MEMBER',?,?,?,0,'PENDING','{}',?,?)"
+          ).bind(
+            borrowerId,
+            email,
+            borrowerName,
+            phone,
+            clearance,
+            affiliation,
+            affiliation,
+            Date.parse(createdAt),
+            Date.parse(createdAt)
+          ),
         ]),
     c.env.DB.prepare(
       "INSERT INTO requests(id,user_id,status,created_at,data) VALUES(?,?,?,?,?)"

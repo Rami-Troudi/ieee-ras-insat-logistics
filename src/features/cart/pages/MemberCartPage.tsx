@@ -8,7 +8,7 @@ import { useCreateRequest } from "@/features/requests/hooks/useRequests";
 import { DEFAULT_EQUIPMENT_IMAGE } from "@/assets/equipmentImages";
 
 export const MemberCartPage: React.FC = () => {
-  const { currentPersona } = useSession();
+  const { currentPersona, openBorrowerAuthModal } = useSession();
   const { state, updateQuantity, removeItem, clearCart, setNote, setReturnDate } = useBorrowCart();
   const createRequest = useCreateRequest(currentPersona.id);
   const [sent, setSent] = useState(false);
@@ -18,6 +18,12 @@ export const MemberCartPage: React.FC = () => {
     event.preventDefault();
     if (!state.items.length) return;
     setError("");
+
+    const savedEmail = localStorage.getItem("ras_borrower_email");
+    if (!savedEmail && (!currentPersona.email || currentPersona.id === "anonymous")) {
+      openBorrowerAuthModal();
+      return;
+    }
     try {
       await createRequest.mutateAsync({
         expectedReturnDate: state.expectedReturnDate,

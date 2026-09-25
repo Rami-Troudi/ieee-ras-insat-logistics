@@ -128,8 +128,8 @@ describe("Dev Persona Switching & Shell Transition", () => {
     fireEvent.click(boardOption);
 
     // Shell transitions to /board
-    expect(router.state.location.pathname).toBe("/board");
     expect(await screen.findByText("Logistics Dashboard")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/board");
     expect(screen.getByText("Board Operations")).toBeInTheDocument();
   });
 });

@@ -59,11 +59,11 @@ test.describe("Operator Journeys (Pre-Backend Freeze)", () => {
     await expect(handoverBtn).toBeVisible();
     await handoverBtn.click();
 
-    // 2. Handover confirmed, button disappears, history records physical handover
+    // 2. Handover confirmed, button disappears and navigates to requests dashboard
     await expect(page.getByRole("button", { name: /Confirm handover/i })).not.toBeVisible({
       timeout: 10000,
     });
-    await expect(page.getByText(/Physical handover confirmed/i)).toBeVisible();
+    await expect(page).toHaveURL(/\/board\/requests/);
   });
 
   test("Operator Journey 4: Direct loan due date update", async ({ page }) => {

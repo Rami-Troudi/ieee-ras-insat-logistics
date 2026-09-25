@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { AppBrand } from "@/components/shared/AppBrand";
 import { UserMenu } from "@/components/shared/UserMenu";
 import { DevPersonaSwitcher } from "@/components/shared/DevPersonaSwitcher";
-import { Bell, ShieldCheck, ShoppingBag } from "lucide-react";
+import { Bell, LogIn, ShieldCheck, ShoppingBag } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
 import { useBorrowCart } from "@/features/cart";
 import { useUserNotifications } from "@/features/profile/hooks/useProfile";
@@ -13,7 +13,7 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
-  const { currentPersona } = useSession();
+  const { currentPersona, openBorrowerAuthModal } = useSession();
   const { totalItemCount } = useBorrowCart();
 
   const isBoardRole =
@@ -46,14 +46,14 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-md border border-border">
             <span className="w-2 h-2 rounded-full bg-primary" />
             <span>
-              {currentPersona.id === "anonymous-member"
-                ? "Borrower access"
+              {currentPersona.name && currentPersona.name !== "Guest"
+                ? currentPersona.name
                 : "Robotics Logistics Desk"}
             </span>
             <span>•</span>
             <span className="text-foreground font-semibold">
-              {currentPersona.id === "anonymous-member"
-                ? "Email contact only"
+              {currentPersona.affiliation
+                ? `${currentPersona.affiliation} Member`
                 : "INSAT Student Workspace"}
             </span>
           </div>
@@ -62,6 +62,17 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
 
       {/* Right Controls: Cart (Member), Dev Persona Switcher, Notifications, Reusable UserMenu */}
       <div className="flex items-center gap-1 sm:gap-2.5">
+        {!isBoardRole && (!currentPersona.email || currentPersona.id === "anonymous") && (
+          <button
+            type="button"
+            onClick={openBorrowerAuthModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs min-h-[36px]"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Sign In</span>
+          </button>
+        )}
+
         {!isBoardRole && (
           <Link
             to="/app/cart"

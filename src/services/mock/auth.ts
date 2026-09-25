@@ -23,8 +23,63 @@ class MockAuthService implements IAuthService {
   }
 
   async registerMember(input: RegisterMemberInput): Promise<RegisterResult> {
-    void input;
-    throw new Error("Borrower accounts are not used. Enter your email to continue.");
+    await new Promise((res) => setTimeout(res, 50));
+    const affiliation = input.membership;
+    const normalizedEmail = input.email.trim().toLowerCase();
+    const name = input.name.trim();
+
+    const newPersona: UserPersona = {
+      id: `borrower-${normalizedEmail}`,
+      name,
+      email: normalizedEmail,
+      role: "MEMBER",
+      clearance: affiliation === "IEEE" ? "III" : affiliation === "AEROBOTIX" ? "II" : "I",
+      affiliation,
+      isProcessed: false,
+      status: "ACTIVE",
+      strikesCount: 0,
+    };
+
+    const profile = {
+      ...newPersona,
+      phone: input.phone.trim(),
+      claimedAffiliation: affiliation,
+      joinedDate: new Date().toISOString(),
+      strikes: [],
+      activeLoansCount: 0,
+      totalRequestsCount: 0,
+    };
+
+    mockDb.mutate((draft) => {
+      draft.userProfiles[newPersona.id] = profile;
+    });
+
+    try {
+      localStorage.setItem("ras_borrower_email", normalizedEmail);
+      localStorage.setItem("ras_onboarding_completed", "true");
+      localStorage.setItem(
+        "ras_borrower_profile",
+        JSON.stringify({
+          firstName: input.firstName,
+          lastName: input.lastName,
+          name,
+          email: normalizedEmail,
+          phone: input.phone.trim(),
+          membership: affiliation,
+        })
+      );
+      localStorage.setItem("ras_active_user_id", newPersona.id);
+    } catch {
+      // Ignore storage errors
+    }
+
+    this.sessionUserId = newPersona.id;
+    this.notifySubscribers();
+
+    return {
+      persona: newPersona,
+      profile,
+    };
   }
 
   async getCurrentSession(): Promise<UserPersona | null> {
@@ -33,26 +88,39 @@ class MockAuthService implements IAuthService {
 
   getCurrentUser(): UserPersona {
     const email = localStorage.getItem("ras_borrower_email");
-    if (email)
+    if (email) {
+      let savedProfile: { name?: string; membership?: "IEEE" | "AEROBOTIX" | "EXTERNAL" } | null =
+        null;
+      try {
+        const raw = localStorage.getItem("ras_borrower_profile");
+        if (raw) savedProfile = JSON.parse(raw);
+      } catch {
+        // Ignore JSON error
+      }
+      const affiliation = savedProfile?.membership || "EXTERNAL";
       return {
-        id: "anonymous-member",
-        name: "Borrower",
+        id: this.sessionUserId === "anonymous-member" ? "anonymous-member" : `borrower-${email}`,
+        name: savedProfile?.name || "Borrower",
         email,
         role: "MEMBER",
-        clearance: "I",
-        affiliation: "EXTERNAL",
+        clearance: affiliation === "IEEE" ? "III" : affiliation === "AEROBOTIX" ? "II" : "I",
+        affiliation,
         isProcessed: false,
         status: "ACTIVE",
         strikesCount: 0,
       };
+    }
     const snapshot = mockDb.getSnapshot();
     if (!snapshot.userProfiles[this.sessionUserId]) return PROD_DEFAULT_PERSONA;
     return refreshStrikeDerivedProfile(snapshot, this.sessionUserId);
   }
 
   setSession(persona: UserPersona): void {
-    if (persona.id === "anonymous-member" && persona.email) {
-      localStorage.setItem("ras_borrower_email", persona.email.trim().toLowerCase());
+    if (persona.id.startsWith("borrower-") || persona.id === "anonymous-member") {
+      if (persona.email) {
+        localStorage.setItem("ras_borrower_email", persona.email.trim().toLowerCase());
+        localStorage.setItem("ras_onboarding_completed", "true");
+      }
       this.sessionUserId = persona.id;
       this.notifySubscribers();
       return;
@@ -76,10 +144,12 @@ class MockAuthService implements IAuthService {
   clearSession(): void {
     this.sessionUserId = PROD_DEFAULT_PERSONA.id;
     localStorage.removeItem("ras_borrower_email");
+    localStorage.removeItem("ras_borrower_profile");
+    localStorage.removeItem("ras_onboarding_completed");
     try {
       localStorage.removeItem("ras_active_user_id");
       if (import.meta.env.DEV) {
-        localStorage.removeItem("ras_dev_persona_id");
+        localStorage.setItem("ras_dev_persona_id", PROD_DEFAULT_PERSONA.id);
       }
     } catch {
       // Ignore storage errors

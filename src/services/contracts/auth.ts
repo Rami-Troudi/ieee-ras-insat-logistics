@@ -3,6 +3,8 @@ import { UserPersona, UserProfile } from "@/types";
 export type MembershipType = "IEEE" | "AEROBOTIX" | "EXTERNAL";
 
 export interface RegisterMemberInput {
+  firstName?: string;
+  lastName?: string;
   name: string;
   email: string;
   membership: MembershipType;

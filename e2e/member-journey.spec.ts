@@ -120,4 +120,42 @@ test.describe("Member Journeys (Pre-Backend Freeze)", () => {
       page.getByText(/Bring equipment to the logistics desk for physical return inspection/i)
     ).toBeVisible();
   });
+
+  test("Member Journey 5: First-time borrower popup onboarding/login creates account on device", async ({
+    page,
+  }) => {
+    // 1. Clear onboarding storage to simulate first-time borrower
+    await page.addInitScript(() => {
+      window.localStorage.removeItem("ras_onboarding_completed");
+      window.localStorage.removeItem("ras_borrower_email");
+      window.localStorage.removeItem("ras_borrower_profile");
+      window.localStorage.removeItem("ras_active_user_id");
+    });
+
+    // 2. Borrower visits /app
+    await page.goto("/app");
+
+    // 3. Popup modal is immediately visible
+    await expect(page.getByText("Welcome to RAS Logistics!")).toBeVisible();
+    await expect(
+      page.getByText(/Please enter your student details to link your borrow requests/i)
+    ).toBeVisible();
+
+    // 4. Fill in borrower information
+    await page.locator('input[name="firstName"]').fill("Mohamed");
+    await page.locator('input[name="lastName"]').fill("Trabelsi");
+    await page.locator('input[name="email"]').fill("mohamed.t@insat.u-carthage.tn");
+    await page.locator('input[name="phone"]').fill("+216 55 123 789");
+
+    // 5. Select affiliation
+    await page.getByRole("button", { name: "IEEE" }).click();
+
+    // 6. Submit onboarding
+    await page.getByRole("button", { name: /Get Started & Save Info/i }).click();
+
+    // 7. Modal closes and borrower is on catalogue with saved profile
+    await expect(page.getByText("Welcome to RAS Logistics!")).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "Equipment Catalogue" })).toBeVisible();
+    await expect(page.getByText("Mohamed Trabelsi")).toBeVisible();
+  });
 });
