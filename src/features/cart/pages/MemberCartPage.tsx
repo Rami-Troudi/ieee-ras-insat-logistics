@@ -35,7 +35,10 @@ export const MemberCartPage: React.FC = () => {
     return (
       <div className="max-w-xl mx-auto p-6 text-center space-y-4">
         <h1 className="text-2xl font-bold">Request sent</h1>
-        <p>We will notify you when your equipment is ready to pick up.</p>
+        <p>
+          The logistics team will review your request. Ask at the logistics desk for status and
+          pickup instructions.
+        </p>
         <Button asChild className="min-h-11">
           <Link to="/app/activity">View Activity</Link>
         </Button>

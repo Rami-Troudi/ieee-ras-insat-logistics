@@ -45,9 +45,17 @@ export const TopBar: React.FC<TopBarProps> = ({ isBoard = false }) => {
         ) : (
           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-md border border-border">
             <span className="w-2 h-2 rounded-full bg-primary" />
-            <span>Robotics Logistics Desk</span>
+            <span>
+              {currentPersona.id === "anonymous-member"
+                ? "Borrower access"
+                : "Robotics Logistics Desk"}
+            </span>
             <span>•</span>
-            <span className="text-foreground font-semibold">INSAT Student Workspace</span>
+            <span className="text-foreground font-semibold">
+              {currentPersona.id === "anonymous-member"
+                ? "Email contact only"
+                : "INSAT Student Workspace"}
+            </span>
           </div>
         )}
       </div>

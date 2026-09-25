@@ -5,13 +5,6 @@ import { INotificationService } from "./contracts/notifications";
 import { IProfileService, IProjectService } from "./contracts/profile";
 import { IAuthService } from "./contracts/auth";
 
-import { mockInventoryService } from "./mock/inventory";
-import { mockRequestService } from "./mock/requests";
-import { mockLoanService } from "./mock/loans";
-import { mockNotificationService } from "./mock/notifications";
-import { mockProfileService, mockProjectService } from "./mock/profile";
-import { mockAuthService } from "./mock/auth";
-
 // Board services
 import { IBoardAllocationService } from "./contracts/board/allocations";
 import { IBoardRequestService } from "./contracts/board/requests";
@@ -25,39 +18,72 @@ import { IBoardInsightsService } from "./contracts/board/insights";
 import { IBoardExportService } from "./contracts/board/exports";
 import { IBoardAuditLogService } from "./contracts/board/audit-log";
 
-import { mockBoardAllocationService } from "./mock/board/allocations";
-import { mockBoardRequestService } from "./mock/board/requests";
-import { mockBoardLoanService } from "./mock/board/loans";
-import { mockBoardInventoryService } from "./mock/board/inventory";
-import { mockBoardUserService } from "./mock/board/users";
-import { mockBoardProjectService } from "./mock/board/projects";
-import { mockBoardAuditService } from "./mock/board/audits";
-import { mockBoardDisciplineService } from "./mock/board/discipline";
-import { mockBoardInsightsService } from "./mock/board/insights";
-import { mockBoardExportService } from "./mock/board/exports";
-import { mockBoardAuditLogService } from "./mock/board/audit-log";
+import {
+  remoteInventoryService,
+  remoteRequestService,
+  remoteLoanService,
+  remoteNotificationService,
+  remoteProfileService,
+  remoteProjectService,
+  remoteAuthService,
+  remoteBoardAllocationService,
+  remoteBoardRequestService,
+  remoteBoardLoanService,
+  remoteBoardInventoryService,
+  remoteBoardUserService,
+  remoteBoardProjectService,
+  remoteBoardAuditService,
+  remoteBoardDisciplineService,
+  remoteBoardInsightsService,
+  remoteBoardExportService,
+  remoteBoardAuditLogService,
+} from "./remote";
+
+const mockServices =
+  import.meta.env.MODE !== "production" ? await import("./mock/implementations") : undefined;
 
 // Member Public Services
-export const inventoryService: IInventoryService = mockInventoryService;
-export const requestService: IRequestService = mockRequestService;
-export const loanService: ILoanService = mockLoanService;
-export const notificationService: INotificationService = mockNotificationService;
-export const profileService: IProfileService = mockProfileService;
-export const projectService: IProjectService = mockProjectService;
-export const authService: IAuthService = mockAuthService;
+export const inventoryService: IInventoryService =
+  mockServices?.mockInventoryService ?? (remoteInventoryService as IInventoryService);
+export const requestService: IRequestService =
+  mockServices?.mockRequestService ?? (remoteRequestService as IRequestService);
+export const loanService: ILoanService =
+  mockServices?.mockLoanService ?? (remoteLoanService as ILoanService);
+export const notificationService: INotificationService =
+  mockServices?.mockNotificationService ?? (remoteNotificationService as INotificationService);
+export const profileService: IProfileService =
+  mockServices?.mockProfileService ?? (remoteProfileService as IProfileService);
+export const projectService: IProjectService =
+  mockServices?.mockProjectService ?? (remoteProjectService as IProjectService);
+export const authService: IAuthService =
+  mockServices?.mockAuthService ?? (remoteAuthService as IAuthService);
 
 // Board Public Services
-export const boardAllocationService: IBoardAllocationService = mockBoardAllocationService;
-export const boardRequestService: IBoardRequestService = mockBoardRequestService;
-export const boardLoanService: IBoardLoanService = mockBoardLoanService;
-export const boardInventoryService: IBoardInventoryService = mockBoardInventoryService;
-export const boardUserService: IBoardUserService = mockBoardUserService;
-export const boardProjectService: IBoardProjectService = mockBoardProjectService;
-export const boardAuditService: IBoardAuditService = mockBoardAuditService;
-export const boardDisciplineService: IBoardDisciplineService = mockBoardDisciplineService;
-export const boardInsightsService: IBoardInsightsService = mockBoardInsightsService;
-export const boardExportService: IBoardExportService = mockBoardExportService;
-export const boardAuditLogService: IBoardAuditLogService = mockBoardAuditLogService;
+export const boardAllocationService: IBoardAllocationService =
+  mockServices?.mockBoardAllocationService ??
+  (remoteBoardAllocationService as IBoardAllocationService);
+export const boardRequestService: IBoardRequestService =
+  mockServices?.mockBoardRequestService ?? (remoteBoardRequestService as IBoardRequestService);
+export const boardLoanService: IBoardLoanService =
+  mockServices?.mockBoardLoanService ?? (remoteBoardLoanService as IBoardLoanService);
+export const boardInventoryService: IBoardInventoryService =
+  mockServices?.mockBoardInventoryService ??
+  (remoteBoardInventoryService as IBoardInventoryService);
+export const boardUserService: IBoardUserService =
+  mockServices?.mockBoardUserService ?? (remoteBoardUserService as IBoardUserService);
+export const boardProjectService: IBoardProjectService =
+  mockServices?.mockBoardProjectService ?? (remoteBoardProjectService as IBoardProjectService);
+export const boardAuditService: IBoardAuditService =
+  mockServices?.mockBoardAuditService ?? (remoteBoardAuditService as IBoardAuditService);
+export const boardDisciplineService: IBoardDisciplineService =
+  mockServices?.mockBoardDisciplineService ??
+  (remoteBoardDisciplineService as IBoardDisciplineService);
+export const boardInsightsService: IBoardInsightsService =
+  mockServices?.mockBoardInsightsService ?? (remoteBoardInsightsService as IBoardInsightsService);
+export const boardExportService: IBoardExportService =
+  mockServices?.mockBoardExportService ?? (remoteBoardExportService as IBoardExportService);
+export const boardAuditLogService: IBoardAuditLogService =
+  mockServices?.mockBoardAuditLogService ?? (remoteBoardAuditLogService as IBoardAuditLogService);
 
 // Re-exports
 export * from "./contracts/inventory";

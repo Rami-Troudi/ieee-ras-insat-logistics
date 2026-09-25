@@ -127,6 +127,8 @@ describe("Stage 1 Navigation & Shell Architecture", () => {
   });
 
   it("renders structural detail placeholder routes", async () => {
+    authService.setSession(PRESET_PERSONAS.find((p) => p.role === "MEMBER")!);
+
     const detailRouter = createMemoryRouter(
       [
         {

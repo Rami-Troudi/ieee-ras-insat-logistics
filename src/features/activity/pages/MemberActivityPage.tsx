@@ -60,6 +60,10 @@ export const MemberActivityPage = () => {
           <Link to="/app/inventory">Browse equipment</Link>
         </Button>
       </header>
+      <p className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+        This browser does not show request or loan history because an email address alone does not
+        prove mailbox ownership. The logistics team can check your request in person.
+      </p>
       {sections.map((section) => (
         <section key={section.title} className="space-y-3">
           <h2 className="text-sm font-semibold">{section.title}</h2>

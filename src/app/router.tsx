@@ -50,22 +50,24 @@ export const router = createBrowserRouter([
     },
   },
   {
-    path: "/auth/register",
+    path: "/auth/board-login",
     async lazy() {
-      const { RegisterPage } = await import("@/pages/auth/RegisterPage");
-      return { Component: RegisterPage };
+      const { BoardLoginPage } = await import("@/pages/auth/BoardLoginPage");
+      return { Component: BoardLoginPage };
     },
   },
   {
+    path: "/auth/register",
+    element: <Navigate to="/auth/login" replace />,
+  },
+  {
     path: "/auth/forgot-password",
-    async lazy() {
-      const { ForgotPasswordPage } = await import("@/pages/auth/ForgotPasswordPage");
-      return { Component: ForgotPasswordPage };
-    },
+    element: <Navigate to="/auth/login" replace />,
   },
   {
     path: "/_dev/design",
     async lazy() {
+      if (!import.meta.env.DEV) return { Component: NotFoundPage };
       const { DesignLabPage } = await import("@/pages/system/DesignLabPage");
       return { Component: DesignLabPage };
     },

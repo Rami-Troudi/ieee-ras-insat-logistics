@@ -22,4 +22,3 @@ export * from "./Metric";
 export * from "./KeyValueRow";
 export * from "./LoadingState";
 export * from "./UserMenu";
-export * from "./QuickOnboardingModal";

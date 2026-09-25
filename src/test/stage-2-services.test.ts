@@ -11,34 +11,32 @@ describe("Stage 2 Domain Services Workflow", () => {
     mockDb.resetToDefault();
   });
 
-  it("registers a provisional member via authService and updates session", async () => {
+  it("stores a borrower contact email without creating or authenticating a member account", async () => {
     let notifiedPersona: UserPersona | null = null;
     const unsubscribe = authService.subscribeSession((p) => {
       notifiedPersona = p;
     });
 
-    const result = await authService.registerMember({
-      name: "Test Candidate",
+    authService.setSession({
+      id: "anonymous-member",
+      name: "Borrower",
       email: "candidate@insat.u-carthage.tn",
-      phone: "+216 55 123 456",
-      membership: "EXTERNAL",
+      role: "MEMBER",
+      clearance: "I",
+      affiliation: "EXTERNAL",
+      isProcessed: false,
+      status: "ACTIVE",
+      strikesCount: 0,
     });
 
-    expect(result.persona.name).toBe("Test Candidate");
-    expect(result.persona.role).toBe("MEMBER");
-    expect(result.persona.clearance).toBe("I");
-    expect(result.persona.affiliation).toBe("EXTERNAL");
-    expect(result.persona.isProcessed).toBe(false);
-    expect(result.persona.status).toBe("ACTIVE");
-
-    expect(result.profile.phone).toBe("+216 55 123 456");
-
-    // Check that session subscribers were notified
     expect(notifiedPersona).not.toBeNull();
     const persona: UserPersona = notifiedPersona!;
-    expect(persona.name).toBe("Test Candidate");
+    expect(persona.email).toBe("candidate@insat.u-carthage.tn");
+    expect(persona.id).toBe("anonymous-member");
+    expect(mockDb.getSnapshot().userProfiles[persona.id]).toBeUndefined();
 
     unsubscribe();
+    authService.clearSession();
   });
 
   it("submits a new borrow request with multi-dimensional states and line quantities", async () => {

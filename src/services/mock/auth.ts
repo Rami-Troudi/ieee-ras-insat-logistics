@@ -23,43 +23,8 @@ class MockAuthService implements IAuthService {
   }
 
   async registerMember(input: RegisterMemberInput): Promise<RegisterResult> {
-    await new Promise((res) => setTimeout(res, 200));
-
-    if (!["EXTERNAL", "AEROBOTIX", "IEEE"].includes(input.membership)) {
-      throw new Error("Public registration only accepts member affiliations");
-    }
-    const affiliation = input.membership;
-    const newPersona: UserPersona = {
-      id: `member-${crypto.randomUUID()}`,
-      name: input.name.trim(),
-      email: input.email.trim().toLowerCase(),
-      role: "MEMBER",
-      clearance: affiliation === "IEEE" ? "III" : affiliation === "AEROBOTIX" ? "II" : "I",
-      affiliation: affiliation,
-      isProcessed: false,
-      status: "ACTIVE",
-      strikesCount: 0,
-    };
-
-    mockDb.mutate((draft) => {
-      draft.userProfiles[newPersona.id] = {
-        ...newPersona,
-        phone: input.phone.trim(),
-        claimedAffiliation: affiliation,
-        joinedDate: new Date().toISOString(),
-        strikes: [],
-        activeLoansCount: 0,
-        totalRequestsCount: 0,
-      };
-    });
-
-    this.setSession(newPersona);
-
-    const snapshot = mockDb.getSnapshot();
-    return {
-      persona: newPersona,
-      profile: snapshot.userProfiles[newPersona.id],
-    };
+    void input;
+    throw new Error("Borrower accounts are not used. Enter your email to continue.");
   }
 
   async getCurrentSession(): Promise<UserPersona | null> {
@@ -67,17 +32,35 @@ class MockAuthService implements IAuthService {
   }
 
   getCurrentUser(): UserPersona {
+    const email = localStorage.getItem("ras_borrower_email");
+    if (email)
+      return {
+        id: "anonymous-member",
+        name: "Borrower",
+        email,
+        role: "MEMBER",
+        clearance: "I",
+        affiliation: "EXTERNAL",
+        isProcessed: false,
+        status: "ACTIVE",
+        strikesCount: 0,
+      };
     const snapshot = mockDb.getSnapshot();
-    const userId = snapshot.userProfiles[this.sessionUserId]
-      ? this.sessionUserId
-      : PROD_DEFAULT_PERSONA.id;
-    return refreshStrikeDerivedProfile(snapshot, userId);
+    if (!snapshot.userProfiles[this.sessionUserId]) return PROD_DEFAULT_PERSONA;
+    return refreshStrikeDerivedProfile(snapshot, this.sessionUserId);
   }
 
   setSession(persona: UserPersona): void {
+    if (persona.id === "anonymous-member" && persona.email) {
+      localStorage.setItem("ras_borrower_email", persona.email.trim().toLowerCase());
+      this.sessionUserId = persona.id;
+      this.notifySubscribers();
+      return;
+    }
     if (!mockDb.getSnapshot().userProfiles[persona.id]) {
       throw new Error("Unknown account");
     }
+    localStorage.removeItem("ras_borrower_email");
     this.sessionUserId = persona.id;
     try {
       localStorage.setItem("ras_active_user_id", persona.id);
@@ -92,6 +75,7 @@ class MockAuthService implements IAuthService {
 
   clearSession(): void {
     this.sessionUserId = PROD_DEFAULT_PERSONA.id;
+    localStorage.removeItem("ras_borrower_email");
     try {
       localStorage.removeItem("ras_active_user_id");
       if (import.meta.env.DEV) {

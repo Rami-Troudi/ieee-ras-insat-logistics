@@ -16,6 +16,7 @@ import { NotificationType } from "@/types";
 
 export const MemberNotificationsPage: React.FC = () => {
   const { currentPersona } = useSession();
+  const isEmailOnly = currentPersona.id === "anonymous-member";
   const { data: notifications = [], isLoading, refetch } = useUserNotifications(currentPersona.id);
   const markAsRead = useMarkNotificationAsRead(currentPersona.id);
   const markAllAsRead = useMarkAllNotificationsAsRead(currentPersona.id);
@@ -92,11 +93,19 @@ export const MemberNotificationsPage: React.FC = () => {
         <LoadingState message="Loading your notifications..." />
       ) : filteredNotifications.length === 0 ? (
         <EmptyState
-          title={filter === "UNREAD" ? "No Unread Notifications" : "No Notifications"}
+          title={
+            isEmailOnly
+              ? "Notifications unavailable"
+              : filter === "UNREAD"
+                ? "No Unread Notifications"
+                : "No Notifications"
+          }
           description={
-            filter === "UNREAD"
-              ? "You have read all notifications. Switch to 'All Notifications' to view history."
-              : "You are completely caught up! Operational announcements and loan events will show up here."
+            isEmailOnly
+              ? "Email-only access does not load private notification history. Ask the logistics desk for request updates."
+              : filter === "UNREAD"
+                ? "You have read all notifications. Switch to 'All Notifications' to view history."
+                : "You are completely caught up! Operational announcements and loan events will show up here."
           }
           actionLabel="Refresh"
           onAction={() => refetch()}

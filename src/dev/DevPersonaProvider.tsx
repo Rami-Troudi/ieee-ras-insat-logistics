@@ -8,11 +8,14 @@ import { authService } from "@/services";
 export { PRESET_PERSONAS, PROD_DEFAULT_PERSONA };
 
 export const DevPersonaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const isDev = import.meta.env.DEV;
+  const isDev = import.meta.env.MODE !== "production";
 
-  const [currentPersona, setCurrentPersona] = useState<UserPersona>(() =>
-    authService.getCurrentUser()
-  );
+  const [currentPersona, setCurrentPersona] = useState<UserPersona>(() => {
+    const session = authService.getCurrentUser();
+    return session.id === PROD_DEFAULT_PERSONA.id
+      ? (PRESET_PERSONAS.find((persona) => persona.role === "MEMBER") ?? session)
+      : session;
+  });
 
   useEffect(() => {
     const unsubscribe = authService.subscribeSession((session) => {
@@ -50,7 +53,7 @@ export const DevPersonaProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isDev,
       }}
     >
-      <SessionContext.Provider value={{ currentPersona, isDev }}>
+      <SessionContext.Provider value={{ currentPersona, isDev, isLoading: false }}>
         {children}
       </SessionContext.Provider>
     </DevPersonaContext.Provider>

@@ -22,6 +22,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isBoard = false }) => {
   const { currentPersona } = useSession();
   const isBoardRole =
     isBoard || currentPersona.role === "OPERATOR" || currentPersona.role === "SUPERADMIN";
+  const isEmailOnly = currentPersona.id === "anonymous-member";
 
   const profilePath = isBoardRole ? "/board/profile" : "/app/profile";
   const notificationPath = isBoardRole ? "/board/notifications" : "/app/notifications";
@@ -41,7 +42,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isBoard = false }) => {
               {currentPersona.name.split(" ")[0]}
             </span>
             <span className="text-[10px] text-muted-foreground leading-tight">
-              Level {currentPersona.clearance}
+              {isEmailOnly ? "Email contact" : `Level ${currentPersona.clearance}`}
             </span>
           </div>
           <ChevronDown className="hidden md:block w-3 h-3 text-muted-foreground" />
@@ -58,7 +59,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isBoard = false }) => {
             </span>
             <div className="flex items-center gap-1.5 pt-1">
               <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-mono">
-                Lvl {currentPersona.clearance}
+                {isEmailOnly ? "CONTACT ONLY" : `Lvl ${currentPersona.clearance}`}
               </Badge>
               <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-semibold">
                 {currentPersona.role}

@@ -11,7 +11,8 @@ interface ProvidersProps {
 }
 
 export const Providers: React.FC<ProvidersProps> = ({ children }) => {
-  const ProviderComponent = import.meta.env.DEV ? DevPersonaProvider : SessionProvider;
+  const ProviderComponent =
+    import.meta.env.MODE !== "production" ? DevPersonaProvider : SessionProvider;
 
   return (
     <QueryClientProvider client={queryClient}>

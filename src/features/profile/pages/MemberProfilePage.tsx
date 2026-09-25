@@ -7,6 +7,7 @@ import { Mail, Phone, RotateCcw, AlertTriangle } from "lucide-react";
 
 export const MemberProfilePage: React.FC = () => {
   const { currentPersona } = useSession();
+  const isEmailOnly = currentPersona.id === "anonymous-member";
   const { data: profile, isLoading, refetch } = useUserProfile(currentPersona.id);
   const updateContactMutation = useUpdateContactInfo(currentPersona.id);
   const resetDemoMutation = useResetDemoData();
@@ -55,7 +56,9 @@ export const MemberProfilePage: React.FC = () => {
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Profile</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Your student information and contact details.
+          {isEmailOnly
+            ? "Your email is a contact address only; no account or student status is verified."
+            : "Your student information and contact details."}
         </p>
       </div>
 
@@ -78,12 +81,18 @@ export const MemberProfilePage: React.FC = () => {
           <div>
             <h2 className="font-bold text-base text-foreground">{p.name}</h2>
             <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary">
-              Membership:{" "}
-              {p.affiliation === "AEROBOTIX"
-                ? "Aerobotix"
-                : p.affiliation === "EXTERNAL"
-                  ? "External"
-                  : "IEEE"}
+              {isEmailOnly ? (
+                "Email contact only · not verified"
+              ) : (
+                <>
+                  Membership:{" "}
+                  {p.affiliation === "AEROBOTIX"
+                    ? "Aerobotix"
+                    : p.affiliation === "EXTERNAL"
+                      ? "External"
+                      : "IEEE"}
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -92,46 +101,48 @@ export const MemberProfilePage: React.FC = () => {
           <div className="py-2.5 flex items-center justify-between">
             <span className="text-muted-foreground flex items-center gap-2">
               <Mail className="w-3.5 h-3.5" />
-              <span>Email</span>
+              <span>{isEmailOnly ? "Contact email" : "Email"}</span>
             </span>
             <span className="font-medium text-foreground">{p.email}</span>
           </div>
 
-          <div className="py-2.5 flex items-center justify-between">
-            <span className="text-muted-foreground flex items-center gap-2">
-              <Phone className="w-3.5 h-3.5" />
-              <span>Phone</span>
-            </span>
-            {isEditingPhone ? (
-              <form onSubmit={handleSavePhone} className="flex items-center gap-1.5">
-                <input
-                  type="text"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+216 ..."
-                  autoFocus
-                  className="px-2 py-0.5 rounded border border-input text-xs w-28 text-foreground"
-                />
-                <button type="submit" className="text-xs text-primary font-bold hover:underline">
-                  Save
-                </button>
-              </form>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-foreground">{p.phone || "Not provided"}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPhoneNumber(p.phone || "");
-                    setIsEditingPhone(true);
-                  }}
-                  className="text-[11px] text-primary hover:underline"
-                >
-                  Edit
-                </button>
-              </div>
-            )}
-          </div>
+          {!isEmailOnly && (
+            <div className="py-2.5 flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-2">
+                <Phone className="w-3.5 h-3.5" />
+                <span>Phone</span>
+              </span>
+              {isEditingPhone ? (
+                <form onSubmit={handleSavePhone} className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+216 ..."
+                    autoFocus
+                    className="px-2 py-0.5 rounded border border-input text-xs w-28 text-foreground"
+                  />
+                  <button type="submit" className="text-xs text-primary font-bold hover:underline">
+                    Save
+                  </button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground">{p.phone || "Not provided"}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhoneNumber(p.phone || "");
+                      setIsEditingPhone(true);
+                    }}
+                    className="text-[11px] text-primary hover:underline"
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

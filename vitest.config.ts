@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      "@/dev/DevPersonaProvider": path.resolve(__dirname, "./src/dev/DevPersonaProvider.tsx"),
       "@": path.resolve(__dirname, "./src"),
     },
   },

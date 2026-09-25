@@ -21,6 +21,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
     lostQuantity: 0,
     location: "Cabinet C-01, Shelf 4",
     isFavorite: false,
+    borrowerVisible: true,
     aliases: ["glue", "adhesive", "hot glue", "sticks"],
     tags: ["prototyping", "fastening", "consumable"],
     specifications: {
@@ -396,6 +397,7 @@ export const INITIAL_INVENTORY: InventoryItemSummary[] = [
     lostQuantity: 0,
     location: "Workshop Lab Bench 3",
     isFavorite: false,
+    borrowerVisible: true,
     aliases: ["soldering iron", "weller", "soldering station", "iron"],
     tags: ["soldering", "heavy equipment", "workshop"],
     specifications: {

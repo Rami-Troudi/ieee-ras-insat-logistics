@@ -15,23 +15,29 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
   isDev = false,
 }) => {
   const [currentPersona, setCurrentPersona] = useState<UserPersona>(() =>
-    initialPersona.id === PROD_DEFAULT_PERSONA.id ? authService.getCurrentUser() : initialPersona
+    initialPersona.id === PROD_DEFAULT_PERSONA.id ? PROD_DEFAULT_PERSONA : initialPersona
   );
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    authService.getCurrentSession().then((session) => {
-      if (session) {
-        setCurrentPersona(session);
-      }
-    });
+    authService
+      .getCurrentSession()
+      .then((session) => {
+        setCurrentPersona(session ?? PROD_DEFAULT_PERSONA);
+      })
+      .catch(() => setCurrentPersona(PROD_DEFAULT_PERSONA))
+      .finally(() => setIsLoading(false));
 
     const unsubscribe = authService.subscribeSession((session) => {
-      setCurrentPersona(session);
+      setCurrentPersona(session ?? PROD_DEFAULT_PERSONA);
+      setIsLoading(false);
     });
     return unsubscribe;
   }, []);
 
   return (
-    <SessionContext.Provider value={{ currentPersona, isDev }}>{children}</SessionContext.Provider>
+    <SessionContext.Provider value={{ currentPersona, isDev, isLoading }}>
+      {children}
+    </SessionContext.Provider>
   );
 };

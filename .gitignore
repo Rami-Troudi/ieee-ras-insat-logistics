@@ -28,6 +28,9 @@ dist-ssr
 .env
 .env.*
 !.env.example
+.wrangler/
+.vercel/
+local.db*
 
 # TypeScript
 *.tsbuildinfo
@@ -41,4 +44,8 @@ dist-ssr
 
 # Graphify generated local snapshots
 graphify-out/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
-graphify-out/cache/last_query_stamp
+graphify-out/cache/
+.vercel
+.env*
+.agents/
+skills-lock.json
