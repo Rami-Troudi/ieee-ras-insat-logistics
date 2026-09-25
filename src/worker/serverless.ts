@@ -1,6 +1,6 @@
 import { getRequestListener } from "@hono/node-server";
-import { app } from "../src/worker/index";
-import { createRuntimeEnv } from "../src/worker/runtime-env";
+import { app } from "./index";
+import { createRuntimeEnv } from "./runtime-env";
 
 const handler = getRequestListener((incomingRequest) => {
   const requestUrl = new URL(incomingRequest.url);
