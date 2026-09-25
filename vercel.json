@@ -10,6 +10,10 @@
     {
       "source": "/api/(.*)",
       "destination": "/api/[...path]?__api_path=$1"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ],
   "crons": [
