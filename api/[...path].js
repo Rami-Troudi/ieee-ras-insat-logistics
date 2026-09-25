@@ -1979,8 +1979,17 @@ function jsonError(c, status, code, message) {
 var sameOrigin = async (c, next) => {
   if (["GET", "HEAD", "OPTIONS"].includes(c.req.method)) return next();
   const origin = c.req.header("Origin");
-  if (!origin || origin !== new URL(c.req.url).origin)
+  if (!origin) return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
+  try {
+    const originUrl = new URL(origin);
+    const host = c.req.header("x-forwarded-host") || c.req.header("host") || new URL(c.req.url).host;
+    const hostWithoutPort = host.split(":")[0];
+    if (originUrl.hostname !== hostWithoutPort && origin !== new URL(c.req.url).origin) {
+      return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
+    }
+  } catch {
     return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
+  }
   return next();
 };
 async function verifyTurnstile(env, token, ip, origin) {
@@ -3127,7 +3136,9 @@ function createRuntimeEnv(source = process.env) {
 
 // src/worker/serverless.ts
 var handler = getRequestListener((incomingRequest) => {
-  const requestUrl = new URL(incomingRequest.url);
+  const host = incomingRequest.headers.get("x-forwarded-host") || incomingRequest.headers.get("host") || "localhost";
+  const proto = incomingRequest.headers.get("x-forwarded-proto") || "https";
+  const requestUrl = new URL(incomingRequest.url ?? "/", `${proto}://${host}`);
   const rewrittenPath = requestUrl.searchParams.get("__api_path");
   requestUrl.searchParams.delete("__api_path");
   if (rewrittenPath !== null) requestUrl.pathname = `/api/${rewrittenPath}`;

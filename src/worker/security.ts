@@ -9,8 +9,23 @@ export function jsonError(c: Context, status: number, code: string, message: str
 export const sameOrigin: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
   if (["GET", "HEAD", "OPTIONS"].includes(c.req.method)) return next();
   const origin = c.req.header("Origin");
-  if (!origin || origin !== new URL(c.req.url).origin)
+  if (!origin) return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
+  try {
+    const originUrl = new URL(origin);
+    const host =
+      c.req.header("x-forwarded-host") ||
+      c.req.header("host") ||
+      new URL(c.req.url).host;
+    const hostWithoutPort = host.split(":")[0];
+    if (
+      originUrl.hostname !== hostWithoutPort &&
+      origin !== new URL(c.req.url).origin
+    ) {
+      return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
+    }
+  } catch {
     return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
+  }
   return next();
 };
 
