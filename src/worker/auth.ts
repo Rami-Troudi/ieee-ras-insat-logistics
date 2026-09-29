@@ -11,7 +11,12 @@ export function trustedAuthOrigin(env: Env, requestUrl: string) {
   const isLocal = ["localhost", "127.0.0.1"].includes(requestOrigin.hostname);
   if (env.APP_ORIGIN && requestOrigin.origin !== new URL(env.APP_ORIGIN).origin && !isLocal)
     throw new Error("Request host is not the configured application address");
-  if (!env.APP_ORIGIN && !isLocal && !allowedHosts.has(requestOrigin.host))
+  if (
+    !env.APP_ORIGIN &&
+    !isLocal &&
+    !allowedHosts.has(requestOrigin.host) &&
+    !requestOrigin.hostname.endsWith(".vercel.app")
+  )
     throw new Error("Request host is not a Vercel deployment address");
   const origin =
     env.APP_ORIGIN && !isLocal ? new URL(env.APP_ORIGIN) : new URL(requestOrigin.origin);

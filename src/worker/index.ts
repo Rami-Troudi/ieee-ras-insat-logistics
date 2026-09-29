@@ -177,13 +177,25 @@ app.post("/api/v1/auth/borrower", async (c) => {
 
   if (!existing) {
     const userId = `borrower-${await digest(email)}`;
+    const existingUser = await c.env.DB.prepare(
+      "SELECT id FROM user WHERE email=? COLLATE NOCASE OR id=?"
+    )
+      .bind(email, userId)
+      .first<{ id: string }>();
+    const finalUserId = existingUser?.id ?? userId;
     await c.env.DB.batch([
-      c.env.DB.prepare(
-        "INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,1,?,?)"
-      ).bind(userId, name, email, timestamp, timestamp),
+      existingUser
+        ? c.env.DB.prepare("UPDATE user SET name=?,updatedAt=? WHERE id=?").bind(
+            name,
+            timestamp,
+            finalUserId
+          )
+        : c.env.DB.prepare(
+            "INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,1,?,?)"
+          ).bind(finalUserId, name, email, timestamp, timestamp),
       c.env.DB.prepare(
         "INSERT INTO app_users(id,email,name,phone,role,clearance,affiliation,claimed_affiliation,affiliation_verified,status,data,created_at,updated_at) VALUES(?,?,?,?,'MEMBER','I','EXTERNAL',?,0,'ACTIVE','{}',?,?)"
-      ).bind(userId, email, name, phone, membership, timestamp, timestamp),
+      ).bind(finalUserId, email, name, phone, membership, timestamp, timestamp),
     ]);
   } else {
     const authUser = await c.env.DB.prepare("SELECT id FROM user WHERE id=?")
