@@ -13,6 +13,8 @@ const handler = getRequestListener((incomingRequest) => {
     ? incomingRequest.headers.get("x-forwarded-proto")?.split(",", 1)[0]?.trim() || "http"
     : "https";
   const requestUrl = new URL(incomingRequest.url ?? "/", `${proto}://${host}`);
+  // incomingRequest.url is already absolute (and may say http behind the proxy), so set the scheme here.
+  requestUrl.protocol = `${proto}:`;
   const rewrittenPath = requestUrl.searchParams.get("__api_path");
   requestUrl.searchParams.delete("__api_path");
   if (rewrittenPath !== null) requestUrl.pathname = `/api/${rewrittenPath}`;
