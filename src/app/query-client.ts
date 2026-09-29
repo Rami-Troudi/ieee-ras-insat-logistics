@@ -1,6 +1,23 @@
-import { QueryClient } from "@tanstack/react-query";
+import { MutationCache, QueryClient } from "@tanstack/react-query";
+
+export const MUTATION_ERROR_EVENT = "app:mutation-error";
+export interface MutationErrorDetail {
+  code?: string;
+  message: string;
+}
 
 export const queryClient = new QueryClient({
+  // Surface failures of mutations that do not handle their own errors, instead of failing silently.
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      if (mutation.options.onError) return;
+      const detail: MutationErrorDetail = {
+        code: (error as { code?: string }).code,
+        message: error instanceof Error ? error.message : "The action could not be completed.",
+      };
+      window.dispatchEvent(new CustomEvent(MUTATION_ERROR_EVENT, { detail }));
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 2, // 2 minutes

@@ -5,6 +5,8 @@ import { TopBar } from "@/components/shared/TopBar";
 import { Link, Navigate, Outlet } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
 import { Button } from "@/components/ui/button";
+import { StaffVerification } from "@/features/auth/StaffVerification";
+import { MutationErrorHost } from "@/features/auth/MutationErrorHost";
 
 const BoardChallengeGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const developmentMode = import.meta.env.MODE !== "production";
@@ -38,8 +40,9 @@ const BoardChallengeGate: React.FC<{ children: React.ReactNode }> = ({ children 
         <p className="text-sm text-muted-foreground">
           Your operational board session has expired or is not verified on this device.
         </p>
-        <Button asChild className="w-full min-h-[44px]">
-          <Link to="/auth/board-login">Sign in with staff credentials</Link>
+        <StaffVerification onVerified={() => void refresh()} />
+        <Button asChild variant="ghost" className="w-full min-h-[44px]">
+          <Link to="/auth/board-login">Sign in again with staff credentials</Link>
         </Button>
       </section>
     </div>
@@ -54,6 +57,7 @@ export const BoardLayout: React.FC = () => {
 
   return (
     <BoardChallengeGate>
+      <MutationErrorHost />
       <div className="flex min-h-screen bg-background text-foreground">
         {/* High-density Desktop Board Sidebar */}
         <DesktopBoardSidebar />

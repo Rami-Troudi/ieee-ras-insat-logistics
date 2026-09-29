@@ -62,18 +62,19 @@ export const BoardInventoryPage: React.FC = () => {
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItemName.trim()) return;
+    const name = newItemName.trim();
+    if (!name || name.length > 160) return;
 
     try {
       await createItemMutation.mutateAsync({
         payload: {
-          name: newItemName,
-          category: newItemCategory,
+          name,
+          category: newItemCategory.trim() || "Uncategorized",
           equipmentClass: newItemClass,
           trackingMode: "QUANTITY",
           totalQuantity: newItemQty,
-          location: newItemLocation,
-          description: newItemDescription,
+          location: newItemLocation.trim(),
+          description: newItemDescription.trim(),
         },
         actorUserId: currentPersona.id,
         actorRole: currentPersona.role,
@@ -82,8 +83,9 @@ export const BoardInventoryPage: React.FC = () => {
       setShowAddModal(false);
       setNewItemName("");
       setNewItemDescription("");
-    } catch (err) {
-      console.error(err);
+      setNewItemQty(1);
+    } catch {
+      // Keep the modal open so input is preserved; the global MutationErrorHost reports the error.
     }
   };
 
@@ -320,6 +322,7 @@ export const BoardInventoryPage: React.FC = () => {
                 <label className="font-semibold text-foreground block mb-1">Item Name:</label>
                 <Input
                   required
+                  maxLength={160}
                   placeholder="e.g. STM32 Nucleo F401RE"
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
@@ -332,6 +335,7 @@ export const BoardInventoryPage: React.FC = () => {
                   <label className="font-semibold text-foreground block mb-1">Category:</label>
                   <Input
                     required
+                    maxLength={80}
                     value={newItemCategory}
                     onChange={(e) => setNewItemCategory(e.target.value)}
                     className="h-8 text-xs"
@@ -364,7 +368,10 @@ export const BoardInventoryPage: React.FC = () => {
                     type="number"
                     min={1}
                     value={newItemQty}
-                    onChange={(e) => setNewItemQty(parseInt(e.target.value) || 1)}
+                    max={100000}
+                    onChange={(e) =>
+                      setNewItemQty(Math.min(100000, Math.max(1, parseInt(e.target.value) || 1)))
+                    }
                     className="h-8 text-xs"
                   />
                 </div>
