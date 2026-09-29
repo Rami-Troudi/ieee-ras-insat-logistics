@@ -245,16 +245,19 @@ describe("Vercel API backend on SQLite-compatible storage", () => {
     });
     expect(response.status).toBe(404);
     await seedUser({ id: "member-login-disabled", email: "member@example.test" });
+    // Magic links and the generic Better Auth sign-in routes are not exposed.
     const login = await request("/api/auth/sign-in/magic-link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: "member@example.test",
-        callbackURL: `${origin}/app`,
-        turnstileToken: "valid-test-token",
-      }),
+      body: JSON.stringify({ email: "member@example.test", callbackURL: `${origin}/app` }),
     });
-    expect(login.status).toBe(200);
+    expect(login.status).toBe(404);
+    const emailLogin = await request("/api/auth/sign-in/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "member@example.test", password: "irrelevant-password" }),
+    });
+    expect(emailLogin.status).toBe(404);
     expect(sentEmails).toHaveLength(0);
   });
 
@@ -385,32 +388,134 @@ describe("Vercel API backend on SQLite-compatible storage", () => {
     expect(contact).toMatchObject({ status: "PENDING", affiliation_verified: 0 });
   });
 
-  it("enforces staff email-code verification before board authorization", async () => {
-    const operator = await seedUser({
-      id: "operator-1",
-      email: "operator@example.test",
-      role: "OPERATOR",
+  it("signs staff in with an assigned password and requires it again for sensitive changes", async () => {
+    const admin = await seedUser({
+      id: "admin-1",
+      email: "admin@example.test",
+      role: "SUPERADMIN",
     });
-    const challenge = await request("/api/v1/staff/challenge", { method: "POST" }, operator.cookie);
-    expect(challenge.status).toBe(202);
-    expect(sentEmails).toHaveLength(1);
-    const code = String(sentEmails[0].htmlContent).match(/>(\d{6})</)?.[1];
-    expect(code).toMatch(/^\d{6}$/);
-    const denied = await request("/api/v1/board/inventory", {}, operator.cookie);
-    expect(denied.status).toBe(403);
+    // Board reads need an active staff session; a browser cookie alone is not enough.
+    expect((await request("/api/v1/board/inventory", {}, admin.cookie)).status).toBe(403);
 
-    const verified = await request(
-      "/api/v1/staff/verify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      },
-      operator.cookie
+    const json = (body: unknown) => ({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const created = await request(
+      "/api/v1/board/rpc",
+      json({
+        service: "user",
+        method: "createUser",
+        args: [{ name: "New Operator", email: "op@example.test", role: "OPERATOR" }],
+      }),
+      admin.cookie
     );
-    expect(verified.status).toBe(200);
-    expect((await request("/api/v1/board/session", {}, operator.cookie)).status).toBe(200);
-    expect((await request("/api/v1/board/inventory", {}, operator.cookie)).status).toBe(200);
+    expect(created.status).toBe(403); // no fresh session yet
+
+    await client.execute({
+      sql: "INSERT INTO staff_sessions(user_id,expires_at,fresh_until) VALUES(?,?,?)",
+      args: ["admin-1", Date.now() + 3_600_000, Date.now() + 600_000],
+    });
+    const ok = await request(
+      "/api/v1/board/rpc",
+      json({
+        service: "user",
+        method: "createUser",
+        args: [{ name: "New Operator", email: "op@example.test", role: "OPERATOR" }],
+      }),
+      admin.cookie
+    );
+    expect(ok.status).toBe(201);
+    const { temporaryPassword } = (await ok.json()) as { temporaryPassword: string };
+    expect(temporaryPassword).toMatch(/^[A-Za-z0-9]{16}$/);
+    const stored = await client.execute(
+      "SELECT password FROM account WHERE providerId='credential' AND accountId != 'admin-1'"
+    );
+    expect(stored.rows).toHaveLength(1);
+    expect(String(stored.rows[0].password)).not.toContain(temporaryPassword);
+    const audit = await client.execute("SELECT data FROM audit_events WHERE action='USER_CREATED'");
+    expect(JSON.stringify(audit.rows)).not.toContain(temporaryPassword);
+
+    const wrong = await request(
+      "/api/v1/auth/board-login",
+      json({ email: "op@example.test", password: "not-the-password" })
+    );
+    expect(wrong.status).toBe(401);
+    const login = await request(
+      "/api/v1/auth/board-login",
+      json({ email: "op@example.test", password: temporaryPassword })
+    );
+    expect(login.status).toBe(200);
+    const cookie = login.headers
+      .getSetCookie()
+      .map((value) => value.split(";")[0])
+      .join("; ");
+    expect((await request("/api/v1/board/session", {}, cookie)).status).toBe(200);
+    expect((await request("/api/v1/board/inventory", {}, cookie)).status).toBe(200);
+
+    // Fresh window expired: writes are refused until the password is confirmed again.
+    await client.execute({
+      sql: "UPDATE staff_sessions SET fresh_until=? WHERE user_id != 'admin-1'",
+      args: [Date.now() - 1000],
+    });
+    const item = json({
+      service: "inventory",
+      method: "createItem",
+      args: [
+        {
+          name: "Test Item",
+          category: "Tools",
+          equipmentClass: "B",
+          trackingMode: "QUANTITY",
+          totalQuantity: 2,
+        },
+      ],
+    });
+    expect((await request("/api/v1/board/rpc", item, cookie)).status).toBe(403);
+    expect(
+      (await request("/api/v1/staff/verify", json({ password: "not-the-password" }), cookie)).status
+    ).toBe(401);
+    expect(
+      (await request("/api/v1/staff/verify", json({ password: temporaryPassword }), cookie)).status
+    ).toBe(200);
+    expect((await request("/api/v1/board/rpc", item, cookie)).status).toBe(201);
+
+    // Resetting the password signs the account out everywhere and invalidates the old password.
+    const reset = await request(
+      "/api/v1/board/rpc",
+      json({
+        service: "user",
+        method: "resetPassword",
+        args: [
+          {
+            userId: (await client.execute("SELECT id FROM app_users WHERE email='op@example.test'"))
+              .rows[0].id,
+          },
+        ],
+      }),
+      admin.cookie
+    );
+    expect(reset.status).toBe(200);
+    const { temporaryPassword: next } = (await reset.json()) as { temporaryPassword: string };
+    expect(next).not.toBe(temporaryPassword);
+    expect((await request("/api/v1/board/session", {}, cookie)).status).toBe(403);
+    expect(
+      (
+        await request(
+          "/api/v1/auth/board-login",
+          json({ email: "op@example.test", password: temporaryPassword })
+        )
+      ).status
+    ).toBe(401);
+    expect(
+      (
+        await request(
+          "/api/v1/auth/board-login",
+          json({ email: "op@example.test", password: next })
+        )
+      ).status
+    ).toBe(200);
   });
 
   it("requires the cron secret and expires overdue stock on catalogue access", async () => {

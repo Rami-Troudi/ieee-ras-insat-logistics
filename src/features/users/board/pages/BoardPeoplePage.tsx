@@ -7,6 +7,7 @@ import { LoadingState } from "@/components/shared/LoadingState";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { AlertBanner } from "@/components/shared/AlertBanner";
 import { Button } from "@/components/ui/button";
+import { CredentialDialog } from "@/features/auth/CredentialDialog";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -29,6 +30,11 @@ export const BoardPeoplePage: React.FC = () => {
 
   const [search, setSearch] = useState("");
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [credential, setCredential] = useState<{
+    name: string;
+    email: string;
+    password: string;
+  } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Add person dialog state
@@ -134,7 +140,7 @@ export const BoardPeoplePage: React.FC = () => {
     }
 
     try {
-      await createUserMutation.mutateAsync({
+      const created = await createUserMutation.mutateAsync({
         payload: {
           name: addForm.name.trim(),
           email: addForm.email.trim(),
@@ -147,6 +153,12 @@ export const BoardPeoplePage: React.FC = () => {
         actorRole: currentPersona.role,
       });
 
+      if (created.temporaryPassword)
+        setCredential({
+          name: addForm.name.trim(),
+          email: addForm.email.trim().toLowerCase(),
+          password: created.temporaryPassword,
+        });
       setIsAddModalOpen(false);
       setSuccessBanner(`User "${addForm.name}" created successfully.`);
       resetAddForm();
@@ -194,6 +206,7 @@ export const BoardPeoplePage: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {credential && <CredentialDialog {...credential} onClose={() => setCredential(null)} />}
       {successBanner && (
         <AlertBanner
           variant="success"

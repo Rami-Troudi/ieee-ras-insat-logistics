@@ -37,7 +37,7 @@ export const MutationErrorHost: React.FC = () => {
           title={needsReverify ? "Staff verification required" : "Action failed"}
           description={
             needsReverify
-              ? "Sensitive changes need a fresh staff code (valid for 10 minutes)."
+              ? "Confirm your password to continue. Sensitive changes need it every 10 minutes."
               : error.message
           }
           onDismiss={dismiss}

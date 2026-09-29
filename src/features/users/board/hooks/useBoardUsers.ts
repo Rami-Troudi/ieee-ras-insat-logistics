@@ -142,6 +142,17 @@ export function useCreateUser() {
   });
 }
 
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (params: { userId: string; actorUserId: string; actorRole: string }) =>
+      boardUserService.resetPassword(
+        { userId: params.userId },
+        params.actorUserId,
+        params.actorRole
+      ),
+  });
+}
+
 export function useRemoveUser() {
   const queryClient = useQueryClient();
 

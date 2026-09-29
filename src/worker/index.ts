@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
 import { requestId } from "hono/request-id";
@@ -6,11 +6,14 @@ import type { AppUser, D1PreparedStatement, Env } from "./env";
 import { dispatchBoardRpc } from "./board-rpc";
 import { createAuth, trustedAuthOrigin } from "./auth";
 import { requireBoard, requireMember, resolveIdentity } from "./identity";
-import { digest, jsonError, rateLimit, sameOrigin, verifyTurnstile } from "./security";
+import { digest, jsonError, randomToken, rateLimit, sameOrigin } from "./security";
+import { checkPassword, credentialStatements, generatePassword } from "./password";
 
 type Vars = { actor: AppUser };
 export const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 const now = () => Date.now();
+const STAFF_SESSION_MS = 8 * 60 * 60_000;
+const STAFF_FRESH_MS = 10 * 60_000;
 const iso = (time = now()) => new Date(time).toISOString();
 const uuid = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 const parseJson = <T>(value: string): T => JSON.parse(value) as T;
@@ -87,49 +90,108 @@ app.get("/api/cron/maintenance", async (c) => {
   return c.json({ ok: true });
 });
 
+// Sign-in only happens through /api/v1/auth/board-login (staff) and the borrower endpoint, so the
+// generic Better Auth routes (email sign-in, password change/reset, ...) are not exposed.
 app.all("/api/auth/*", async (c) => {
-  const pathname = new URL(c.req.url).pathname;
-  if (c.req.method === "POST" && pathname.endsWith("/sign-in/magic-link")) {
-    const workerLimit = await c.env.AUTH_RATE_LIMITER.limit({
-      key: c.req.header("CF-Connecting-IP") ?? "unknown",
-    });
-    if (!workerLimit.success)
-      return jsonError(c, 429, "RATE_LIMITED", "Too many sign-in attempts; try again later");
-    const body = (await c.req.raw
-      .clone()
-      .json()
-      .catch(() => ({}))) as { email?: string; callbackURL?: string; turnstileToken?: string };
-    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "invalid";
-    const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
-    if (!(await rateLimit(c.env.DB, `magic:${email}:${ip}`, 3, 3600)))
-      return jsonError(
-        c,
-        429,
-        "RATE_LIMITED",
-        "Please wait before requesting another sign-in link"
-      );
-    if (
-      !(await verifyTurnstile(c.env, body.turnstileToken, ip, trustedAuthOrigin(c.env, c.req.url)))
-    )
-      return jsonError(c, 403, "CHALLENGE_FAILED", "Complete the security check and try again");
-    const callback = body.callbackURL;
-    if (callback) {
-      try {
-        if (new URL(callback).origin !== trustedAuthOrigin(c.env, c.req.url))
-          return jsonError(c, 400, "VALIDATION", "Invalid sign-in destination");
-      } catch {
-        return jsonError(c, 400, "VALIDATION", "Invalid sign-in destination");
-      }
-    }
-    const allowed = await c.env.DB.prepare(
-      `SELECT user.id FROM user INNER JOIN app_users ON app_users.id=user.id
-      WHERE user.email=? COLLATE NOCASE AND app_users.role IN ('OPERATOR','SUPERADMIN') AND app_users.status='ACTIVE'`
-    )
-      .bind(email)
-      .first();
-    if (!allowed) return c.json({ status: true }, 200);
-  }
+  const path = new URL(c.req.url).pathname.replace(/\/$/, "");
+  if (!["/api/auth/get-session", "/api/auth/sign-out"].includes(path))
+    return jsonError(c, 404, "NOT_FOUND", "API route not found");
   return createAuth(c.env, trustedAuthOrigin(c.env, c.req.url)).handler(c.req.raw);
+});
+
+async function issueMemberSession(
+  c: Context<{ Bindings: Env; Variables: Vars }>,
+  userId: string,
+  ip: string
+) {
+  const token = randomToken(32);
+  const timestamp = now();
+  await c.env.DB.prepare(
+    "INSERT INTO session(id,expiresAt,token,createdAt,updatedAt,ipAddress,userAgent,userId) VALUES(?,?,?,?,?,?,?,?)"
+  )
+    .bind(
+      uuid("sess"),
+      timestamp + 30 * 24 * 60 * 60_000,
+      token,
+      timestamp,
+      timestamp,
+      ip,
+      c.req.header("User-Agent") ?? null,
+      userId
+    )
+    .run();
+  const secure = c.req.url.startsWith("https:") ? "; Secure" : "";
+  c.header(
+    "Set-Cookie",
+    `better-auth.session_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`,
+    { append: true }
+  );
+}
+
+app.post("/api/v1/auth/board-login", async (c) => {
+  const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
+  const body = await c.req.json<{ email?: string; password?: string }>().catch(() => null);
+  if (
+    !body ||
+    typeof body.email !== "string" ||
+    typeof body.password !== "string" ||
+    !body.password ||
+    body.password.length > 256
+  )
+    return jsonError(c, 400, "VALIDATION", "Staff email and password are required");
+  const email = body.email.trim().toLowerCase();
+  if (
+    !(await rateLimit(c.env.DB, `board-login:${email}:${ip}`, 5, 300)) ||
+    !(await rateLimit(c.env.DB, `board-login-ip:${ip}`, 30, 300))
+  )
+    return jsonError(c, 429, "RATE_LIMITED", "Too many attempts; wait a few minutes and retry");
+  const invalid = () => jsonError(c, 401, "UNAUTHENTICATED", "Invalid email or password");
+  const user = await c.env.DB.prepare(
+    "SELECT id,name,email,role,clearance,affiliation,status FROM app_users WHERE email=? COLLATE NOCASE"
+  )
+    .bind(email)
+    .first<AppUser>();
+  if (!user || !["OPERATOR", "SUPERADMIN"].includes(user.role) || user.status !== "ACTIVE")
+    return invalid();
+  const signIn = await createAuth(c.env, trustedAuthOrigin(c.env, c.req.url))
+    .api.signInEmail({
+      body: { email, password: body.password },
+      headers: c.req.raw.headers,
+      asResponse: true,
+    })
+    .catch(() => null);
+  if (!signIn?.ok) return invalid();
+  const timestamp = now();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO staff_sessions(user_id,expires_at,fresh_until,revoked_at) VALUES(?,?,?,NULL)
+      ON CONFLICT(user_id) DO UPDATE SET expires_at=excluded.expires_at,fresh_until=excluded.fresh_until,revoked_at=NULL`
+    ).bind(user.id, timestamp + STAFF_SESSION_MS, timestamp + STAFF_FRESH_MS),
+    c.env.DB.prepare(
+      "INSERT INTO audit_events(id,actor_user_id,entity_type,entity_id,action,created_at,data) VALUES(?,?,?,?,?,?,?)"
+    ).bind(
+      uuid("audit"),
+      user.id,
+      "AUTH",
+      user.id,
+      "BOARD_LOGIN_SUCCESS",
+      timestamp,
+      JSON.stringify({ ip })
+    ),
+  ]);
+  const response = c.json({
+    ok: true,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      clearance: user.clearance,
+      affiliation: user.affiliation,
+    },
+  });
+  for (const cookie of signIn.headers.getSetCookie()) response.headers.append("Set-Cookie", cookie);
+  return response;
 });
 
 app.post("/api/v1/auth/borrower", async (c) => {
@@ -170,6 +232,8 @@ app.post("/api/v1/auth/borrower", async (c) => {
   let user = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE")
     .bind(email)
     .first<AppUser>();
+  if (user && user.role !== "MEMBER")
+    return jsonError(c, 403, "FORBIDDEN", "Staff accounts sign in from the board login");
 
   const existing = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE")
     .bind(email)
@@ -216,25 +280,15 @@ app.post("/api/v1/auth/borrower", async (c) => {
     await c.env.DB.batch(statements);
   }
 
-  const origin = trustedAuthOrigin(c.env, c.req.url);
-  try {
-    await createAuth(c.env, origin).api.signInMagicLink({
-      body: { email, name, callbackURL: `${origin}/app` },
-      headers: c.req.raw.headers,
-    });
-  } catch {
-    return jsonError(c, 503, "AUTH_UNAVAILABLE", "The sign-in link could not be sent");
-  }
-
   user = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE")
     .bind(email)
     .first<AppUser>();
   if (!user) return jsonError(c, 500, "INTERNAL", "Member account could not be loaded");
+  await issueMemberSession(c, user.id, ip);
 
   return c.json(
     {
       ok: true,
-      magicLinkSent: true,
       user: {
         id: user.id,
         name: user.name,
@@ -247,36 +301,7 @@ app.post("/api/v1/auth/borrower", async (c) => {
         strikesCount: 0,
       },
     },
-    202
-  );
-});
-
-app.post("/api/v1/staff/challenge", async (c) => {
-  const actor = await resolveIdentity(c);
-  if (!actor || !["OPERATOR", "SUPERADMIN"].includes(actor.role) || actor.status !== "ACTIVE")
-    return jsonError(c, 403, "FORBIDDEN", "Board access is not enabled for this account");
-  const email = actor.email;
-  const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
-  if (!(await rateLimit(c.env.DB, `staff-code:${actor.id}:${ip}`, 3, 3600)))
-    return jsonError(c, 429, "RATE_LIMITED", "Please wait before requesting another code");
-  const entropy = new Uint32Array(1);
-  let value: number;
-  do {
-    crypto.getRandomValues(entropy);
-    value = entropy[0];
-  } while (value >= Math.floor(0x1_0000_0000 / 1_000_000) * 1_000_000);
-  const code = String(value % 1_000_000).padStart(6, "0");
-  const codeHash = await otpHash(c.env, actor.id, code);
-  const created = now();
-  await c.env.DB.prepare(
-    "INSERT INTO staff_challenges(id,user_id,code_hash,expires_at,attempts,created_at) VALUES(?,?,?,?,0,?)"
-  )
-    .bind(crypto.randomUUID(), actor.id, codeHash, created + 10 * 60_000, created)
-    .run();
-  await sendStaffCode(c.env, email, code);
-  return c.json(
-    { ok: true, message: "A verification code has been sent to your staff email." },
-    202
+    200
   );
 });
 
@@ -297,42 +322,27 @@ app.get("/api/v1/board/session", async (c) => {
   });
 });
 
+// Sensitive board changes need a "fresh" session: staff re-enter their password to renew it.
 app.post("/api/v1/staff/verify", async (c) => {
   const actor = await resolveIdentity(c);
   if (!actor || !["OPERATOR", "SUPERADMIN"].includes(actor.role) || actor.status !== "ACTIVE")
     return jsonError(c, 403, "FORBIDDEN", "Board access is not enabled for this account");
-  const body = await c.req.json<{ code?: string }>().catch(() => null);
-  if (!body || !/^\d{6}$/.test(body.code ?? ""))
-    return jsonError(c, 400, "VALIDATION", "Enter the six-digit code");
-  const challenge = await c.env.DB.prepare(
-    `SELECT id,code_hash,expires_at,attempts FROM staff_challenges
-    WHERE user_id=? AND consumed_at IS NULL ORDER BY created_at DESC LIMIT 1`
-  )
-    .bind(actor.id)
-    .first<{ id: string; code_hash: string; expires_at: number; attempts: number }>();
-  if (!challenge || challenge.expires_at <= now() || challenge.attempts >= 5)
-    return jsonError(c, 401, "CHALLENGE_EXPIRED", "Request a new verification code");
-  const hash = await otpHash(c.env, actor.id, body.code ?? "");
-  if (!timingSafeEqual(hash, challenge.code_hash)) {
-    await c.env.DB.prepare(
-      "UPDATE staff_challenges SET attempts=attempts+1 WHERE id=? AND attempts<5"
-    )
-      .bind(challenge.id)
-      .run();
-    return jsonError(c, 401, "CHALLENGE_INVALID", "The code is incorrect or expired");
-  }
+  const body = await c.req.json<{ password?: string }>().catch(() => null);
+  if (!body || typeof body.password !== "string" || !body.password || body.password.length > 256)
+    return jsonError(c, 400, "VALIDATION", "Enter your password");
+  if (!(await rateLimit(c.env.DB, `staff-verify:${actor.id}`, 5, 300)))
+    return jsonError(c, 429, "RATE_LIMITED", "Too many attempts; wait a few minutes and retry");
+  if (!(await checkPassword(c.env, actor.id, body.password)))
+    return jsonError(c, 401, "UNAUTHENTICATED", "Incorrect password");
   const timestamp = now();
-  const batch = await c.env.DB.batch([
-    c.env.DB.prepare(
-      "UPDATE staff_challenges SET consumed_at=? WHERE id=? AND consumed_at IS NULL AND attempts<5"
-    ).bind(timestamp, challenge.id),
-    c.env.DB.prepare(
-      `INSERT INTO staff_sessions(user_id,expires_at,fresh_until,revoked_at) VALUES(?,?,?,NULL)
-      ON CONFLICT(user_id) DO UPDATE SET expires_at=excluded.expires_at,fresh_until=excluded.fresh_until,revoked_at=NULL`
-    ).bind(actor.id, timestamp + 8 * 60 * 60_000, timestamp + 10 * 60_000),
-  ]);
-  if (!batch[0]?.success) return jsonError(c, 409, "CONFLICT", "The code was already used");
-  return c.json({ ok: true, expiresAt: timestamp + 8 * 60 * 60_000 });
+  const renewed = await c.env.DB.prepare(
+    "UPDATE staff_sessions SET fresh_until=? WHERE user_id=? AND revoked_at IS NULL AND expires_at>?"
+  )
+    .bind(timestamp + STAFF_FRESH_MS, actor.id, timestamp)
+    .run();
+  if (!renewed.meta?.changes)
+    return jsonError(c, 401, "SESSION_EXPIRED", "Your board session expired; sign in again");
+  return c.json({ ok: true, freshUntil: timestamp + STAFF_FRESH_MS });
 });
 
 app.post("/api/v1/staff/revoke", async (c) => {
@@ -371,11 +381,13 @@ app.post("/api/v1/board/users/invite", async (c) => {
   if (current) return jsonError(c, 409, "CONFLICT", "An account already exists for this email");
   const id = crypto.randomUUID();
   const timestamp = now();
+  const temporaryPassword = generatePassword();
   try {
     await c.env.DB.batch([
       c.env.DB.prepare(
         "INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,0,?,?)"
       ).bind(id, body.name.trim(), email, timestamp, timestamp),
+      ...(await credentialStatements(c.env, id, temporaryPassword)),
       c.env.DB.prepare(
         `INSERT INTO app_users(id,email,name,role,clearance,clearance_source,affiliation,claimed_affiliation,affiliation_verified,status,data,created_at,updated_at)
         VALUES(?,?,?,'OPERATOR','V','OPERATOR_ROLE','RAS_BOARD','RAS_BOARD',1,'ACTIVE','{}',?,?)`
@@ -392,20 +404,10 @@ app.post("/api/v1/board/users/invite", async (c) => {
         JSON.stringify({ email })
       ),
     ]);
-    const origin = trustedAuthOrigin(c.env, c.req.url);
-    await createAuth(c.env, origin).api.signInMagicLink({
-      body: { email, name: body.name.trim(), callbackURL: `${origin}/board` },
-      headers: c.req.raw.headers,
-    });
   } catch {
-    return jsonError(
-      c,
-      503,
-      "INVITE_UNAVAILABLE",
-      "The operator record was created but the sign-in email could not be sent; ask the operator to request a sign-in link"
-    );
+    return jsonError(c, 500, "INTERNAL", "The operator account could not be created");
   }
-  return c.json({ ok: true }, 202);
+  return c.json({ ok: true, temporaryPassword }, 201);
 });
 
 app.get("/api/v1/me", async (c) => {
@@ -1164,17 +1166,6 @@ app.notFound((c) =>
     : c.text("Not found", 404)
 );
 
-async function otpHash(env: Env, userId: string, code: string) {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(env.BETTER_AUTH_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const data = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${userId}:${code}`));
-  return [...new Uint8Array(data)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 function timingSafeEqual(left: string, right: string) {
   if (left.length !== right.length) return false;
   let value = 0;
@@ -1199,27 +1190,6 @@ function safeImage(value: string | undefined) {
   } catch {
     return "";
   }
-}
-async function sendStaffCode(env: Env, email: string, code: string) {
-  if (!env.BREVO_API_KEY) return;
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      "api-key": env.BREVO_API_KEY,
-    },
-    body: JSON.stringify({
-      sender: {
-        email: env.BREVO_SENDER_EMAIL ?? "noreply@ras-insat.org",
-        name: env.BREVO_SENDER_NAME ?? "IEEE RAS INSAT",
-      },
-      to: [{ email }],
-      subject: "Your board sign-in code",
-      htmlContent: `<p>Your board sign-in code is:</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px">${code}</p><p>It expires in 10 minutes. Never share this code.</p>`,
-    }),
-  });
-  if (!response.ok) throw new Error("Email delivery failed");
 }
 
 async function cleanExpiredSecurityData(env: Env) {

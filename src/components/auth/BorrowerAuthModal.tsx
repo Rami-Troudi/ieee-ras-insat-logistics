@@ -1,3 +1,4 @@
+import { staffSignIn } from "@/features/auth/staffSignIn";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -50,6 +51,7 @@ export const BorrowerAuthModal: React.FC<BorrowerAuthModalProps> = ({
 
   // Staff login state
   const [staffEmail, setStaffEmail] = useState("");
+  const [staffPassword, setStaffPassword] = useState("");
   const [staffError, setStaffError] = useState("");
   const [staffSubmitting, setStaffSubmitting] = useState(false);
 
@@ -174,20 +176,9 @@ export const BorrowerAuthModal: React.FC<BorrowerAuthModalProps> = ({
     setStaffError("");
     setStaffSubmitting(true);
     try {
-      const response = await fetch("/api/auth/sign-in/magic-link", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: staffEmail.trim().toLowerCase(),
-          callbackURL: `${window.location.origin}/board`,
-        }),
-      });
-      if (!response.ok) throw new Error("Unable to send the staff sign-in link.");
-      setStaffError("A single-use sign-in link was sent to the staff mailbox.");
+      await staffSignIn(staffEmail, staffPassword);
     } catch (cause) {
       setStaffError(cause instanceof Error ? cause.message : "Unable to sign in right now.");
-    } finally {
       setStaffSubmitting(false);
     }
   };
@@ -385,7 +376,7 @@ export const BorrowerAuthModal: React.FC<BorrowerAuthModalProps> = ({
                 Board Staff Sign In
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Enter the staff email. A single-use sign-in link will be sent to that mailbox.
+                Sign in with your staff email and the password assigned to you.
               </DialogDescription>
             </DialogHeader>
 
@@ -411,13 +402,27 @@ export const BorrowerAuthModal: React.FC<BorrowerAuthModalProps> = ({
                 />
               </div>
 
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                  Assigned Password *
+                </label>
+                <Input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={staffPassword}
+                  onChange={(e) => setStaffPassword(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+
               <Button
                 type="submit"
                 disabled={staffSubmitting}
                 className="w-full h-10 text-xs font-bold gap-2 rounded-xl mt-3 shadow-xs"
               >
                 <ShieldCheck className="w-4 h-4" />
-                <span>{staffSubmitting ? "Sending link..." : "Send Sign-In Link"}</span>
+                <span>{staffSubmitting ? "Signing in..." : "Sign In"}</span>
               </Button>
             </form>
           </div>

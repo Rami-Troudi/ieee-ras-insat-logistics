@@ -155,7 +155,6 @@ export const remoteAuthService = {
     const response = await post<{
       ok: boolean;
       user: UserPersona;
-      magicLinkSent?: boolean;
     }>("/api/v1/auth/borrower", {
       firstName: input.firstName,
       lastName: input.lastName,
@@ -180,7 +179,6 @@ export const remoteAuthService = {
         activeLoansCount: 0,
         totalRequestsCount: 0,
       },
-      magicLinkSent: Boolean(response.magicLinkSent),
     };
   },
   getCurrentUser: () => cachedPersona,

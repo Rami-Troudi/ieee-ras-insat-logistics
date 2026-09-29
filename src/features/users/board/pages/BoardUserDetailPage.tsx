@@ -4,6 +4,7 @@ import { PageContainer, PageHeader } from "@/components/shared/PageContainer";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { AlertBanner } from "@/components/shared/AlertBanner";
 import { Button } from "@/components/ui/button";
+import { CredentialDialog } from "@/features/auth/CredentialDialog";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { useSession } from "@/hooks/useSession";
@@ -12,6 +13,7 @@ import {
   useProcessUser,
   useUpdateUserClearance,
   useUpdateUserRole,
+  useResetPassword,
 } from "../hooks/useBoardUsers";
 import { useBoardStrikes } from "@/features/discipline/board/hooks/useBoardDiscipline";
 import { ArrowLeft, User, Shield, ShieldAlert, ShieldCheck, Lock, Award } from "lucide-react";
@@ -27,6 +29,8 @@ export const BoardUserDetailPage: React.FC = () => {
   const processUserMutation = useProcessUser();
   const updateClearanceMutation = useUpdateUserClearance();
   const updateRoleMutation = useUpdateUserRole();
+  const resetPasswordMutation = useResetPassword();
+  const [credential, setCredential] = useState<string | null>(null);
 
   // Registration approval state
   const [approvalAffiliation, setApprovalAffiliation] = useState<Affiliation>("IEEE");
@@ -140,7 +144,7 @@ export const BoardUserDetailPage: React.FC = () => {
     e.preventDefault();
     try {
       setErrorMessage(null);
-      await updateRoleMutation.mutateAsync({
+      const result = await updateRoleMutation.mutateAsync({
         payload: {
           userId: user.id,
           newRole: targetRole,
@@ -150,6 +154,7 @@ export const BoardUserDetailPage: React.FC = () => {
         actorRole: currentPersona.role,
       });
 
+      if (result.temporaryPassword) setCredential(result.temporaryPassword);
       setSuccessMessage(`User role successfully changed to ${targetRole}.`);
       setRoleReason("");
     } catch (err: unknown) {
@@ -158,8 +163,30 @@ export const BoardUserDetailPage: React.FC = () => {
     }
   };
 
+  const handleResetPassword = async () => {
+    try {
+      setErrorMessage(null);
+      const result = await resetPasswordMutation.mutateAsync({
+        userId: user.id,
+        actorUserId: currentPersona.id,
+        actorRole: currentPersona.role,
+      });
+      setCredential(result.temporaryPassword);
+    } catch (err: unknown) {
+      setErrorMessage((err as Error).message || "Failed to reset password");
+    }
+  };
+
   return (
     <PageContainer maxWidth="wide">
+      {credential && (
+        <CredentialDialog
+          name={user.name}
+          email={user.email}
+          password={credential}
+          onClose={() => setCredential(null)}
+        />
+      )}
       <div className="pb-3">
         <Button asChild variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground">
           <Link to="/board/users">
@@ -418,6 +445,29 @@ export const BoardUserDetailPage: React.FC = () => {
                 </Button>
               </div>
             </div>
+
+            {/* Board password (staff accounts only) */}
+            {isSuperadmin && user.role !== "MEMBER" && (
+              <div className="p-3 rounded-lg border border-border bg-card space-y-2 text-xs">
+                <div className="font-semibold text-foreground">Board password</div>
+                <p className="text-muted-foreground">
+                  Generate a new password for this account. Existing sessions on every device are
+                  signed out immediately.
+                </p>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={resetPasswordMutation.isPending}
+                    onClick={handleResetPassword}
+                    className="text-xs"
+                  >
+                    {resetPasswordMutation.isPending ? "Generating..." : "Generate new password"}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Privileged Role Assignment */}
             <form

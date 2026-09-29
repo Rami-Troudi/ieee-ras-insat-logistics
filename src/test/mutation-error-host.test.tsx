@@ -17,8 +17,8 @@ describe("MutationErrorHost", () => {
 
   it("prompts for a staff code when the fresh session expired", () => {
     render(<MutationErrorHost />);
-    emit({ code: "FRESH_AUTH_REQUIRED", message: "Reverify with a new staff code" });
+    emit({ code: "FRESH_AUTH_REQUIRED", message: "Reverify with your staff password" });
     expect(screen.getByText("Staff verification required")).toBeTruthy();
-    expect(screen.getByText("Email me a verification code")).toBeTruthy();
+    expect(screen.getByText("Confirm password")).toBeTruthy();
   });
 });

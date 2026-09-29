@@ -7,6 +7,36 @@ import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
 import { requestId } from "hono/request-id";
 
+// src/worker/password.ts
+import { hashPassword, verifyPassword } from "better-auth/crypto";
+var ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+function generatePassword(length = 16) {
+  const limit = 256 - 256 % ALPHABET.length;
+  let out = "";
+  while (out.length < length) {
+    for (const byte of crypto.getRandomValues(new Uint8Array(length * 2))) {
+      if (byte < limit && out.length < length) out += ALPHABET[byte % ALPHABET.length];
+    }
+  }
+  return out;
+}
+async function credentialStatements(env, userId, password) {
+  const hash = await hashPassword(password);
+  const timestamp = Date.now();
+  return [
+    env.DB.prepare("DELETE FROM account WHERE userId=? AND providerId='credential'").bind(userId),
+    env.DB.prepare(
+      "INSERT INTO account(id,accountId,providerId,userId,password,createdAt,updatedAt) VALUES(?,?,?,?,?,?,?)"
+    ).bind(crypto.randomUUID(), userId, "credential", userId, hash, timestamp, timestamp)
+  ];
+}
+async function checkPassword(env, userId, password) {
+  const row = await env.DB.prepare(
+    "SELECT password FROM account WHERE userId=? AND providerId='credential'"
+  ).bind(userId).first();
+  return Boolean(row?.password) && verifyPassword({ hash: row.password, password });
+}
+
 // src/worker/board-rpc.ts
 var stamp = () => Date.now();
 var iso = (n = stamp()) => new Date(n).toISOString();
@@ -86,11 +116,12 @@ var isFresh = (method) => [
   "updateRole",
   "updateStatus",
   "createUser",
+  "resetPassword",
   "removeUser",
   "exportCsv",
   "logEvent"
 ].includes(method);
-var superadminOnly = (service, method, args) => service === "user" && ["updateClearance", "updateRole", "updateStatus"].includes(method) || service === "export" && ["USERS", "AUDITS", "STRIKES", "INCIDENTS", "COMPENSATIONS", "AUDIT_LOG"].includes(args[0]);
+var superadminOnly = (service, method, args) => service === "user" && ["updateClearance", "updateRole", "updateStatus", "resetPassword"].includes(method) || service === "export" && ["USERS", "AUDITS", "STRIKES", "INCIDENTS", "COMPENSATIONS", "AUDIT_LOG"].includes(args[0]);
 async function dispatchBoardRpc(env, actor, input) {
   if (!input || typeof input !== "object") return fail(400, "VALIDATION", "Invalid operation");
   const { service, method, args } = input;
@@ -101,7 +132,7 @@ async function dispatchBoardRpc(env, actor, input) {
       "SELECT fresh_until,revoked_at FROM staff_sessions WHERE user_id=?"
     ).bind(actor.id).first();
     if (!session || session.revoked_at || session.fresh_until <= stamp())
-      return fail(403, "FRESH_AUTH_REQUIRED", "Reverify with a new staff code");
+      return fail(403, "FRESH_AUTH_REQUIRED", "Confirm your password to continue");
   }
   if (superadminOnly(service, method, args) && actor.role !== "SUPERADMIN")
     return fail(403, "FORBIDDEN", "Superadmin access is required");
@@ -1361,6 +1392,7 @@ async function genericRecords(env, actor, service, method, args) {
     return ok(auditRecord);
   }
   if (service === "user" && method === "createUser") return createUser(env, actor, args[0]);
+  if (service === "user" && method === "resetPassword") return resetPassword(env, actor, args[0]);
   if (service === "user" && method === "removeUser") return removeUser(env, actor, args[0]);
   if (service === "user" && ["processUser", "updateClearance", "updateRole", "updateStatus"].includes(method))
     return updateUser(env, actor, method, args[0]);
@@ -1425,6 +1457,23 @@ async function updateUser(env, actor, method, input) {
       `UPDATE app_users SET ${Object.keys(values).map((key) => `${key}=?`).join(",")},updated_at=? WHERE id=?`
     ).bind(...Object.values(values), stamp(), targetId)
   ];
+  let temporaryPassword;
+  if (method === "updateRole" && values.role !== "MEMBER") {
+    const hasCredential = await env.DB.prepare(
+      "SELECT 1 AS present FROM account WHERE userId=? AND providerId='credential'"
+    ).bind(targetId).first();
+    if (!hasCredential) {
+      temporaryPassword = generatePassword();
+      statements.push(...await credentialStatements(env, targetId, temporaryPassword));
+    }
+  }
+  if (method === "updateRole" && values.role === "MEMBER")
+    statements.push(
+      env.DB.prepare("DELETE FROM account WHERE userId=? AND providerId='credential'").bind(
+        targetId
+      ),
+      env.DB.prepare("DELETE FROM session WHERE userId=?").bind(targetId)
+    );
   if (method === "updateRole" && values.role === "MEMBER" || method === "updateStatus" && values.status !== "ACTIVE")
     statements.push(
       env.DB.prepare(
@@ -1438,7 +1487,9 @@ async function updateUser(env, actor, method, input) {
   );
   await env.DB.batch(statements);
   const updated = await env.DB.prepare("SELECT * FROM app_users WHERE id=?").bind(targetId).first();
-  return ok(publicProfile(updated));
+  return ok(
+    temporaryPassword ? { ...publicProfile(updated), temporaryPassword } : publicProfile(updated)
+  );
 }
 async function createUser(env, actor, input) {
   if (actor.role !== "SUPERADMIN" && actor.role !== "OPERATOR")
@@ -1461,10 +1512,12 @@ async function createUser(env, actor, input) {
   const newId = crypto.randomUUID();
   const timestamp = stamp();
   const userData = {};
+  const temporaryPassword = targetRole === "MEMBER" ? void 0 : generatePassword();
   await env.DB.batch([
     env.DB.prepare(
       "INSERT INTO user(id, name, email, emailVerified, createdAt, updatedAt) VALUES(?,?,?,1,?,?)"
     ).bind(newId, input.name.trim(), email, timestamp, timestamp),
+    ...temporaryPassword ? await credentialStatements(env, newId, temporaryPassword) : [],
     env.DB.prepare(
       `INSERT INTO app_users(id, email, name, phone, role, clearance, clearance_source, affiliation, claimed_affiliation, affiliation_verified, status, data, created_at, updated_at)
       VALUES(?,?,?,?,?,?,?,?,?,1,'ACTIVE',?,?,?)`
@@ -1485,7 +1538,27 @@ async function createUser(env, actor, input) {
     audit(env, actor, "USER", newId, "USER_CREATED", { email, role: targetRole, clearance })
   ]);
   const createdRow = await env.DB.prepare("SELECT * FROM app_users WHERE id=?").bind(newId).first();
-  return ok(createdRow ? publicProfile(createdRow) : null, 201);
+  return ok(createdRow ? { ...publicProfile(createdRow), temporaryPassword } : null, 201);
+}
+async function resetPassword(env, actor, input) {
+  const targetId = typeof input === "string" ? input : String(input?.userId ?? "");
+  if (!targetId) return fail(400, "VALIDATION", "User ID is required");
+  const row = await env.DB.prepare("SELECT id,role FROM app_users WHERE id=?").bind(targetId).first();
+  if (!row) return fail(404, "NOT_FOUND", "User not found");
+  if (row.role === "MEMBER")
+    return fail(400, "VALIDATION", "Borrowers do not sign in with a password");
+  const temporaryPassword = generatePassword();
+  await env.DB.batch([
+    ...await credentialStatements(env, targetId, temporaryPassword),
+    // Force every existing device to sign in again with the new password.
+    env.DB.prepare("DELETE FROM session WHERE userId=?").bind(targetId),
+    env.DB.prepare("UPDATE staff_sessions SET revoked_at=? WHERE user_id=?").bind(
+      Date.now(),
+      targetId
+    ),
+    audit(env, actor, "USER", targetId, "USER_PASSWORD_RESET")
+  ]);
+  return ok({ userId: targetId, temporaryPassword });
 }
 async function removeUser(env, actor, input) {
   const targetId = typeof input === "string" ? input : String(input?.userId ?? "");
@@ -1519,6 +1592,7 @@ async function removeUser(env, actor, input) {
     env.DB.prepare("DELETE FROM app_users WHERE id=?").bind(targetId),
     env.DB.prepare("DELETE FROM user WHERE id=?").bind(targetId),
     env.DB.prepare("DELETE FROM session WHERE userId=?").bind(targetId),
+    env.DB.prepare("DELETE FROM account WHERE userId=?").bind(targetId),
     env.DB.prepare("DELETE FROM staff_sessions WHERE user_id=?").bind(targetId),
     env.DB.prepare("DELETE FROM record_store WHERE kind='notification' AND owner_id=?").bind(
       targetId
@@ -1656,45 +1730,6 @@ async function exportCsv(env, actor, dataset) {
 // src/worker/auth.ts
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { magicLink } from "better-auth/plugins";
-
-// src/worker/email.ts
-async function sendEmail(env, to, subject, htmlContent) {
-  if (!env.BREVO_API_KEY || !env.BREVO_SENDER_EMAIL) {
-    console.warn("Email service not configured; skipping email to:", to);
-    return;
-  }
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      "api-key": env.BREVO_API_KEY
-    },
-    body: JSON.stringify({
-      sender: {
-        email: env.BREVO_SENDER_EMAIL,
-        name: env.BREVO_SENDER_NAME ?? "IEEE RAS INSAT Logistics"
-      },
-      to: [{ email: to }],
-      subject,
-      htmlContent
-    })
-  });
-  if (!response.ok) throw new Error("Email delivery failed");
-}
-function escapeHtml(value) {
-  return value.replace(
-    /[&<>"']/g,
-    (character) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    })[character]
-  );
-}
 
 // src/worker/database.ts
 import { createClient } from "@libsql/client";
@@ -2055,22 +2090,8 @@ function createAuth(env, origin = env.APP_ORIGIN ?? "http://localhost:8787") {
       cookieCache: { enabled: false }
     },
     rateLimit: { enabled: true, window: 60, max: 10, storage: "database" },
-    emailAndPassword: { enabled: false },
-    plugins: [
-      magicLink({
-        expiresIn: 10 * 60,
-        storeToken: "hashed",
-        disableSignUp: true,
-        sendMagicLink: async ({ email, url }) => {
-          await sendEmail(
-            env,
-            email,
-            "Your IEEE RAS INSAT Logistics sign-in link",
-            `<p>Use this single-use link within 10 minutes to sign in:</p><p><a href="${escapeHtml(url)}">Sign in</a></p><p>If you did not request this email, you can ignore it.</p>`
-          );
-        }
-      })
-    ]
+    // Passwords are generated and assigned by staff; public sign-up stays disabled.
+    emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 12 }
   });
 }
 
@@ -2136,22 +2157,13 @@ var sameOrigin = async (c, next) => {
   }
   return next();
 };
-async function verifyTurnstile(env, token, ip, origin) {
-  if (!env.TURNSTILE_SECRET_KEY) return true;
-  if (!token || token.length > 2048) return false;
-  const body = new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: token });
-  if (ip) body.set("remoteip", ip);
-  const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    method: "POST",
-    body
-  });
-  if (!response.ok) return false;
-  const result = await response.json();
-  return result.success === true && result.hostname === new URL(origin).hostname;
-}
 async function digest(value) {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+function randomToken(bytes = 32) {
+  const data = crypto.getRandomValues(new Uint8Array(bytes));
+  return btoa(String.fromCharCode(...data)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 async function rateLimit(db, key, max, windowSeconds) {
   const now2 = Math.floor(Date.now() / 1e3);
@@ -2169,6 +2181,8 @@ async function rateLimit(db, key, max, windowSeconds) {
 // src/worker/index.ts
 var app = new Hono();
 var now = () => Date.now();
+var STAFF_SESSION_MS = 8 * 60 * 6e4;
+var STAFF_FRESH_MS = 10 * 6e4;
 var iso2 = (time = now()) => new Date(time).toISOString();
 var uuid = (prefix) => `${prefix}-${crypto.randomUUID()}`;
 var parseJson = (value) => JSON.parse(value);
@@ -2238,41 +2252,84 @@ app.get("/api/cron/maintenance", async (c) => {
   return c.json({ ok: true });
 });
 app.all("/api/auth/*", async (c) => {
-  const pathname = new URL(c.req.url).pathname;
-  if (c.req.method === "POST" && pathname.endsWith("/sign-in/magic-link")) {
-    const workerLimit = await c.env.AUTH_RATE_LIMITER.limit({
-      key: c.req.header("CF-Connecting-IP") ?? "unknown"
-    });
-    if (!workerLimit.success)
-      return jsonError(c, 429, "RATE_LIMITED", "Too many sign-in attempts; try again later");
-    const body = await c.req.raw.clone().json().catch(() => ({}));
-    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "invalid";
-    const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
-    if (!await rateLimit(c.env.DB, `magic:${email}:${ip}`, 3, 3600))
-      return jsonError(
-        c,
-        429,
-        "RATE_LIMITED",
-        "Please wait before requesting another sign-in link"
-      );
-    if (!await verifyTurnstile(c.env, body.turnstileToken, ip, trustedAuthOrigin(c.env, c.req.url)))
-      return jsonError(c, 403, "CHALLENGE_FAILED", "Complete the security check and try again");
-    const callback = body.callbackURL;
-    if (callback) {
-      try {
-        if (new URL(callback).origin !== trustedAuthOrigin(c.env, c.req.url))
-          return jsonError(c, 400, "VALIDATION", "Invalid sign-in destination");
-      } catch {
-        return jsonError(c, 400, "VALIDATION", "Invalid sign-in destination");
-      }
-    }
-    const allowed = await c.env.DB.prepare(
-      `SELECT user.id FROM user INNER JOIN app_users ON app_users.id=user.id
-      WHERE user.email=? COLLATE NOCASE AND app_users.role IN ('OPERATOR','SUPERADMIN') AND app_users.status='ACTIVE'`
-    ).bind(email).first();
-    if (!allowed) return c.json({ status: true }, 200);
-  }
+  const path = new URL(c.req.url).pathname.replace(/\/$/, "");
+  if (!["/api/auth/get-session", "/api/auth/sign-out"].includes(path))
+    return jsonError(c, 404, "NOT_FOUND", "API route not found");
   return createAuth(c.env, trustedAuthOrigin(c.env, c.req.url)).handler(c.req.raw);
+});
+async function issueMemberSession(c, userId, ip) {
+  const token = randomToken(32);
+  const timestamp = now();
+  await c.env.DB.prepare(
+    "INSERT INTO session(id,expiresAt,token,createdAt,updatedAt,ipAddress,userAgent,userId) VALUES(?,?,?,?,?,?,?,?)"
+  ).bind(
+    uuid("sess"),
+    timestamp + 30 * 24 * 60 * 6e4,
+    token,
+    timestamp,
+    timestamp,
+    ip,
+    c.req.header("User-Agent") ?? null,
+    userId
+  ).run();
+  const secure = c.req.url.startsWith("https:") ? "; Secure" : "";
+  c.header(
+    "Set-Cookie",
+    `better-auth.session_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${secure}`,
+    { append: true }
+  );
+}
+app.post("/api/v1/auth/board-login", async (c) => {
+  const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body.email !== "string" || typeof body.password !== "string" || !body.password || body.password.length > 256)
+    return jsonError(c, 400, "VALIDATION", "Staff email and password are required");
+  const email = body.email.trim().toLowerCase();
+  if (!await rateLimit(c.env.DB, `board-login:${email}:${ip}`, 5, 300) || !await rateLimit(c.env.DB, `board-login-ip:${ip}`, 30, 300))
+    return jsonError(c, 429, "RATE_LIMITED", "Too many attempts; wait a few minutes and retry");
+  const invalid = () => jsonError(c, 401, "UNAUTHENTICATED", "Invalid email or password");
+  const user = await c.env.DB.prepare(
+    "SELECT id,name,email,role,clearance,affiliation,status FROM app_users WHERE email=? COLLATE NOCASE"
+  ).bind(email).first();
+  if (!user || !["OPERATOR", "SUPERADMIN"].includes(user.role) || user.status !== "ACTIVE")
+    return invalid();
+  const signIn = await createAuth(c.env, trustedAuthOrigin(c.env, c.req.url)).api.signInEmail({
+    body: { email, password: body.password },
+    headers: c.req.raw.headers,
+    asResponse: true
+  }).catch(() => null);
+  if (!signIn?.ok) return invalid();
+  const timestamp = now();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO staff_sessions(user_id,expires_at,fresh_until,revoked_at) VALUES(?,?,?,NULL)
+      ON CONFLICT(user_id) DO UPDATE SET expires_at=excluded.expires_at,fresh_until=excluded.fresh_until,revoked_at=NULL`
+    ).bind(user.id, timestamp + STAFF_SESSION_MS, timestamp + STAFF_FRESH_MS),
+    c.env.DB.prepare(
+      "INSERT INTO audit_events(id,actor_user_id,entity_type,entity_id,action,created_at,data) VALUES(?,?,?,?,?,?,?)"
+    ).bind(
+      uuid("audit"),
+      user.id,
+      "AUTH",
+      user.id,
+      "BOARD_LOGIN_SUCCESS",
+      timestamp,
+      JSON.stringify({ ip })
+    )
+  ]);
+  const response = c.json({
+    ok: true,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      clearance: user.clearance,
+      affiliation: user.affiliation
+    }
+  });
+  for (const cookie of signIn.headers.getSetCookie()) response.headers.append("Set-Cookie", cookie);
+  return response;
 });
 app.post("/api/v1/auth/borrower", async (c) => {
   const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
@@ -2288,6 +2345,8 @@ app.post("/api/v1/auth/borrower", async (c) => {
   const membership = ["IEEE", "AEROBOTIX", "EXTERNAL"].includes(body.membership ?? "") ? body.membership : "EXTERNAL";
   const timestamp = now();
   let user = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE").bind(email).first();
+  if (user && user.role !== "MEMBER")
+    return jsonError(c, 403, "FORBIDDEN", "Staff accounts sign in from the board login");
   const existing = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE").bind(email).first();
   if (!existing) {
     const userId = `borrower-${await digest(email)}`;
@@ -2323,21 +2382,12 @@ app.post("/api/v1/auth/borrower", async (c) => {
     }
     await c.env.DB.batch(statements);
   }
-  const origin = trustedAuthOrigin(c.env, c.req.url);
-  try {
-    await createAuth(c.env, origin).api.signInMagicLink({
-      body: { email, name, callbackURL: `${origin}/app` },
-      headers: c.req.raw.headers
-    });
-  } catch {
-    return jsonError(c, 503, "AUTH_UNAVAILABLE", "The sign-in link could not be sent");
-  }
   user = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE").bind(email).first();
   if (!user) return jsonError(c, 500, "INTERNAL", "Member account could not be loaded");
+  await issueMemberSession(c, user.id, ip);
   return c.json(
     {
       ok: true,
-      magicLinkSent: true,
       user: {
         id: user.id,
         name: user.name,
@@ -2350,33 +2400,7 @@ app.post("/api/v1/auth/borrower", async (c) => {
         strikesCount: 0
       }
     },
-    202
-  );
-});
-app.post("/api/v1/staff/challenge", async (c) => {
-  const actor = await resolveIdentity(c);
-  if (!actor || !["OPERATOR", "SUPERADMIN"].includes(actor.role) || actor.status !== "ACTIVE")
-    return jsonError(c, 403, "FORBIDDEN", "Board access is not enabled for this account");
-  const email = actor.email;
-  const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
-  if (!await rateLimit(c.env.DB, `staff-code:${actor.id}:${ip}`, 3, 3600))
-    return jsonError(c, 429, "RATE_LIMITED", "Please wait before requesting another code");
-  const entropy = new Uint32Array(1);
-  let value;
-  do {
-    crypto.getRandomValues(entropy);
-    value = entropy[0];
-  } while (value >= Math.floor(4294967296 / 1e6) * 1e6);
-  const code = String(value % 1e6).padStart(6, "0");
-  const codeHash = await otpHash(c.env, actor.id, code);
-  const created = now();
-  await c.env.DB.prepare(
-    "INSERT INTO staff_challenges(id,user_id,code_hash,expires_at,attempts,created_at) VALUES(?,?,?,?,0,?)"
-  ).bind(crypto.randomUUID(), actor.id, codeHash, created + 10 * 6e4, created).run();
-  await sendStaffCode(c.env, email, code);
-  return c.json(
-    { ok: true, message: "A verification code has been sent to your staff email." },
-    202
+    200
   );
 });
 app.get("/api/v1/board/session", async (c) => {
@@ -2398,33 +2422,19 @@ app.post("/api/v1/staff/verify", async (c) => {
   if (!actor || !["OPERATOR", "SUPERADMIN"].includes(actor.role) || actor.status !== "ACTIVE")
     return jsonError(c, 403, "FORBIDDEN", "Board access is not enabled for this account");
   const body = await c.req.json().catch(() => null);
-  if (!body || !/^\d{6}$/.test(body.code ?? ""))
-    return jsonError(c, 400, "VALIDATION", "Enter the six-digit code");
-  const challenge = await c.env.DB.prepare(
-    `SELECT id,code_hash,expires_at,attempts FROM staff_challenges
-    WHERE user_id=? AND consumed_at IS NULL ORDER BY created_at DESC LIMIT 1`
-  ).bind(actor.id).first();
-  if (!challenge || challenge.expires_at <= now() || challenge.attempts >= 5)
-    return jsonError(c, 401, "CHALLENGE_EXPIRED", "Request a new verification code");
-  const hash = await otpHash(c.env, actor.id, body.code ?? "");
-  if (!timingSafeEqual(hash, challenge.code_hash)) {
-    await c.env.DB.prepare(
-      "UPDATE staff_challenges SET attempts=attempts+1 WHERE id=? AND attempts<5"
-    ).bind(challenge.id).run();
-    return jsonError(c, 401, "CHALLENGE_INVALID", "The code is incorrect or expired");
-  }
+  if (!body || typeof body.password !== "string" || !body.password || body.password.length > 256)
+    return jsonError(c, 400, "VALIDATION", "Enter your password");
+  if (!await rateLimit(c.env.DB, `staff-verify:${actor.id}`, 5, 300))
+    return jsonError(c, 429, "RATE_LIMITED", "Too many attempts; wait a few minutes and retry");
+  if (!await checkPassword(c.env, actor.id, body.password))
+    return jsonError(c, 401, "UNAUTHENTICATED", "Incorrect password");
   const timestamp = now();
-  const batch = await c.env.DB.batch([
-    c.env.DB.prepare(
-      "UPDATE staff_challenges SET consumed_at=? WHERE id=? AND consumed_at IS NULL AND attempts<5"
-    ).bind(timestamp, challenge.id),
-    c.env.DB.prepare(
-      `INSERT INTO staff_sessions(user_id,expires_at,fresh_until,revoked_at) VALUES(?,?,?,NULL)
-      ON CONFLICT(user_id) DO UPDATE SET expires_at=excluded.expires_at,fresh_until=excluded.fresh_until,revoked_at=NULL`
-    ).bind(actor.id, timestamp + 8 * 60 * 6e4, timestamp + 10 * 6e4)
-  ]);
-  if (!batch[0]?.success) return jsonError(c, 409, "CONFLICT", "The code was already used");
-  return c.json({ ok: true, expiresAt: timestamp + 8 * 60 * 6e4 });
+  const renewed = await c.env.DB.prepare(
+    "UPDATE staff_sessions SET fresh_until=? WHERE user_id=? AND revoked_at IS NULL AND expires_at>?"
+  ).bind(timestamp + STAFF_FRESH_MS, actor.id, timestamp).run();
+  if (!renewed.meta?.changes)
+    return jsonError(c, 401, "SESSION_EXPIRED", "Your board session expired; sign in again");
+  return c.json({ ok: true, freshUntil: timestamp + STAFF_FRESH_MS });
 });
 app.post("/api/v1/staff/revoke", async (c) => {
   const actor = await requireBoard(c, true);
@@ -2449,11 +2459,13 @@ app.post("/api/v1/board/users/invite", async (c) => {
   if (current) return jsonError(c, 409, "CONFLICT", "An account already exists for this email");
   const id2 = crypto.randomUUID();
   const timestamp = now();
+  const temporaryPassword = generatePassword();
   try {
     await c.env.DB.batch([
       c.env.DB.prepare(
         "INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,0,?,?)"
       ).bind(id2, body.name.trim(), email, timestamp, timestamp),
+      ...await credentialStatements(c.env, id2, temporaryPassword),
       c.env.DB.prepare(
         `INSERT INTO app_users(id,email,name,role,clearance,clearance_source,affiliation,claimed_affiliation,affiliation_verified,status,data,created_at,updated_at)
         VALUES(?,?,?,'OPERATOR','V','OPERATOR_ROLE','RAS_BOARD','RAS_BOARD',1,'ACTIVE','{}',?,?)`
@@ -2470,20 +2482,10 @@ app.post("/api/v1/board/users/invite", async (c) => {
         JSON.stringify({ email })
       )
     ]);
-    const origin = trustedAuthOrigin(c.env, c.req.url);
-    await createAuth(c.env, origin).api.signInMagicLink({
-      body: { email, name: body.name.trim(), callbackURL: `${origin}/board` },
-      headers: c.req.raw.headers
-    });
   } catch {
-    return jsonError(
-      c,
-      503,
-      "INVITE_UNAVAILABLE",
-      "The operator record was created but the sign-in email could not be sent; ask the operator to request a sign-in link"
-    );
+    return jsonError(c, 500, "INTERNAL", "The operator account could not be created");
   }
-  return c.json({ ok: true }, 202);
+  return c.json({ ok: true, temporaryPassword }, 201);
 });
 app.get("/api/v1/me", async (c) => {
   const user = await resolveIdentity(c);
@@ -3056,17 +3058,6 @@ app.post("/api/v1/board/rpc", async (c) => {
 app.notFound(
   (c) => c.req.path.startsWith("/api/") ? jsonError(c, 404, "NOT_FOUND", "API route not found") : c.text("Not found", 404)
 );
-async function otpHash(env, userId, code) {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(env.BETTER_AUTH_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const data = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${userId}:${code}`));
-  return [...new Uint8Array(data)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 function timingSafeEqual(left, right) {
   if (left.length !== right.length) return false;
   let value = 0;
@@ -3091,27 +3082,6 @@ function safeImage(value) {
   } catch {
     return "";
   }
-}
-async function sendStaffCode(env, email, code) {
-  if (!env.BREVO_API_KEY) return;
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      "api-key": env.BREVO_API_KEY
-    },
-    body: JSON.stringify({
-      sender: {
-        email: env.BREVO_SENDER_EMAIL ?? "noreply@ras-insat.org",
-        name: env.BREVO_SENDER_NAME ?? "IEEE RAS INSAT"
-      },
-      to: [{ email }],
-      subject: "Your board sign-in code",
-      htmlContent: `<p>Your board sign-in code is:</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px">${code}</p><p>It expires in 10 minutes. Never share this code.</p>`
-    })
-  });
-  if (!response.ok) throw new Error("Email delivery failed");
 }
 async function cleanExpiredSecurityData(env) {
   const nowMs = now();

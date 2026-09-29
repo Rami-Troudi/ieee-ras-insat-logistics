@@ -41,6 +41,9 @@ export interface CreateUserPayload {
   affiliation?: Affiliation;
 }
 
+/** Present only when the server generated a password; it is shown once and never stored in clear. */
+export type WithTemporaryPassword<T> = T & { temporaryPassword?: string };
+
 export interface IBoardUserService {
   getUsers(filters?: {
     search?: string;
@@ -55,7 +58,12 @@ export interface IBoardUserService {
     payload: CreateUserPayload,
     actorUserId: string,
     actorRole: string
-  ): Promise<UserProfile>;
+  ): Promise<WithTemporaryPassword<UserProfile>>;
+  resetPassword(
+    payload: { userId: string },
+    actorUserId: string,
+    actorRole: string
+  ): Promise<{ userId: string; temporaryPassword: string }>;
   removeUser(userId: string, actorUserId: string, actorRole: string): Promise<{ success: boolean }>;
   processUser(
     payload: ProcessUserPayload,
@@ -71,7 +79,7 @@ export interface IBoardUserService {
     payload: UpdateUserRolePayload,
     actorUserId: string,
     actorRole: string
-  ): Promise<UserProfile>;
+  ): Promise<WithTemporaryPassword<UserProfile>>;
   updateStatus(
     payload: UpdateUserStatusPayload,
     actorUserId: string,

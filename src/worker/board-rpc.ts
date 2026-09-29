@@ -1,3 +1,4 @@
+import { credentialStatements, generatePassword } from "./password";
 import type { AppUser, Env } from "./env";
 
 type RpcResult = { status: number; body: unknown };
@@ -118,12 +119,14 @@ const isFresh = (method: string) =>
     "updateRole",
     "updateStatus",
     "createUser",
+    "resetPassword",
     "removeUser",
     "exportCsv",
     "logEvent",
   ].includes(method);
 const superadminOnly = (service: string, method: string, args: any[]) =>
-  (service === "user" && ["updateClearance", "updateRole", "updateStatus"].includes(method)) ||
+  (service === "user" &&
+    ["updateClearance", "updateRole", "updateStatus", "resetPassword"].includes(method)) ||
   (service === "export" &&
     ["USERS", "AUDITS", "STRIKES", "INCIDENTS", "COMPENSATIONS", "AUDIT_LOG"].includes(args[0]));
 
@@ -152,7 +155,7 @@ export async function dispatchBoardRpc(
       .bind(actor.id)
       .first<{ fresh_until: number; revoked_at: number | null }>();
     if (!session || session.revoked_at || session.fresh_until <= stamp())
-      return fail(403, "FRESH_AUTH_REQUIRED", "Reverify with a new staff code");
+      return fail(403, "FRESH_AUTH_REQUIRED", "Confirm your password to continue");
   }
   if (superadminOnly(service, method, args) && actor.role !== "SUPERADMIN")
     return fail(403, "FORBIDDEN", "Superadmin access is required");
@@ -1668,6 +1671,7 @@ async function genericRecords(
     return ok(auditRecord);
   }
   if (service === "user" && method === "createUser") return createUser(env, actor, args[0]);
+  if (service === "user" && method === "resetPassword") return resetPassword(env, actor, args[0]);
   if (service === "user" && method === "removeUser") return removeUser(env, actor, args[0]);
   if (
     service === "user" &&
@@ -1752,6 +1756,26 @@ async function updateUser(
         .join(",")},updated_at=? WHERE id=?`
     ).bind(...Object.values(values), stamp(), targetId),
   ];
+  // Newly promoted staff get a generated password; demoted users lose theirs.
+  let temporaryPassword: string | undefined;
+  if (method === "updateRole" && values.role !== "MEMBER") {
+    const hasCredential = await env.DB.prepare(
+      "SELECT 1 AS present FROM account WHERE userId=? AND providerId='credential'"
+    )
+      .bind(targetId)
+      .first();
+    if (!hasCredential) {
+      temporaryPassword = generatePassword();
+      statements.push(...(await credentialStatements(env, targetId, temporaryPassword)));
+    }
+  }
+  if (method === "updateRole" && values.role === "MEMBER")
+    statements.push(
+      env.DB.prepare("DELETE FROM account WHERE userId=? AND providerId='credential'").bind(
+        targetId
+      ),
+      env.DB.prepare("DELETE FROM session WHERE userId=?").bind(targetId)
+    );
   if (
     (method === "updateRole" && values.role === "MEMBER") ||
     (method === "updateStatus" && values.status !== "ACTIVE")
@@ -1770,7 +1794,9 @@ async function updateUser(
   const updated = await env.DB.prepare("SELECT * FROM app_users WHERE id=?")
     .bind(targetId)
     .first<any>();
-  return ok(publicProfile(updated));
+  return ok(
+    temporaryPassword ? { ...publicProfile(updated), temporaryPassword } : publicProfile(updated)
+  );
 }
 
 async function createUser(env: Env, actor: AppUser, input: any): Promise<RpcResult> {
@@ -1809,11 +1835,14 @@ async function createUser(env: Env, actor: AppUser, input: any): Promise<RpcResu
   const newId = crypto.randomUUID();
   const timestamp = stamp();
   const userData = {};
+  // Only board staff sign in with a password; borrowers use the onboarding form.
+  const temporaryPassword = targetRole === "MEMBER" ? undefined : generatePassword();
 
   await env.DB.batch([
     env.DB.prepare(
       "INSERT INTO user(id, name, email, emailVerified, createdAt, updatedAt) VALUES(?,?,?,1,?,?)"
     ).bind(newId, input.name.trim(), email, timestamp, timestamp),
+    ...(temporaryPassword ? await credentialStatements(env, newId, temporaryPassword) : []),
     env.DB.prepare(
       `INSERT INTO app_users(id, email, name, phone, role, clearance, clearance_source, affiliation, claimed_affiliation, affiliation_verified, status, data, created_at, updated_at)
       VALUES(?,?,?,?,?,?,?,?,?,1,'ACTIVE',?,?,?)`
@@ -1841,7 +1870,31 @@ async function createUser(env: Env, actor: AppUser, input: any): Promise<RpcResu
   const createdRow = await env.DB.prepare("SELECT * FROM app_users WHERE id=?")
     .bind(newId)
     .first<any>();
-  return ok(createdRow ? publicProfile(createdRow) : null, 201);
+  // The password is returned once here and never stored in clear text, audit data or logs.
+  return ok(createdRow ? { ...publicProfile(createdRow), temporaryPassword } : null, 201);
+}
+
+async function resetPassword(env: Env, actor: AppUser, input: any): Promise<RpcResult> {
+  const targetId = typeof input === "string" ? input : String(input?.userId ?? "");
+  if (!targetId) return fail(400, "VALIDATION", "User ID is required");
+  const row = await env.DB.prepare("SELECT id,role FROM app_users WHERE id=?")
+    .bind(targetId)
+    .first<{ id: string; role: string }>();
+  if (!row) return fail(404, "NOT_FOUND", "User not found");
+  if (row.role === "MEMBER")
+    return fail(400, "VALIDATION", "Borrowers do not sign in with a password");
+  const temporaryPassword = generatePassword();
+  await env.DB.batch([
+    ...(await credentialStatements(env, targetId, temporaryPassword)),
+    // Force every existing device to sign in again with the new password.
+    env.DB.prepare("DELETE FROM session WHERE userId=?").bind(targetId),
+    env.DB.prepare("UPDATE staff_sessions SET revoked_at=? WHERE user_id=?").bind(
+      Date.now(),
+      targetId
+    ),
+    audit(env, actor, "USER", targetId, "USER_PASSWORD_RESET"),
+  ]);
+  return ok({ userId: targetId, temporaryPassword });
 }
 
 async function removeUser(env: Env, actor: AppUser, input: any): Promise<RpcResult> {
@@ -1888,6 +1941,7 @@ async function removeUser(env: Env, actor: AppUser, input: any): Promise<RpcResu
     env.DB.prepare("DELETE FROM app_users WHERE id=?").bind(targetId),
     env.DB.prepare("DELETE FROM user WHERE id=?").bind(targetId),
     env.DB.prepare("DELETE FROM session WHERE userId=?").bind(targetId),
+    env.DB.prepare("DELETE FROM account WHERE userId=?").bind(targetId),
     env.DB.prepare("DELETE FROM staff_sessions WHERE user_id=?").bind(targetId),
     env.DB.prepare("DELETE FROM record_store WHERE kind='notification' AND owner_id=?").bind(
       targetId

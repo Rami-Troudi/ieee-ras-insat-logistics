@@ -1,8 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { magicLink } from "better-auth/plugins";
 import type { Env } from "./env";
-import { escapeHtml, sendEmail } from "./email";
 import { authSchema } from "./database";
 
 export function trustedAuthOrigin(env: Env, requestUrl: string) {
@@ -53,21 +51,7 @@ export function createAuth(env: Env, origin = env.APP_ORIGIN ?? "http://localhos
       cookieCache: { enabled: false },
     },
     rateLimit: { enabled: true, window: 60, max: 10, storage: "database" },
-    emailAndPassword: { enabled: false },
-    plugins: [
-      magicLink({
-        expiresIn: 10 * 60,
-        storeToken: "hashed",
-        disableSignUp: true,
-        sendMagicLink: async ({ email, url }) => {
-          await sendEmail(
-            env,
-            email,
-            "Your IEEE RAS INSAT Logistics sign-in link",
-            `<p>Use this single-use link within 10 minutes to sign in:</p><p><a href="${escapeHtml(url)}">Sign in</a></p><p>If you did not request this email, you can ignore it.</p>`
-          );
-        },
-      }),
-    ],
+    // Passwords are generated and assigned by staff; public sign-up stays disabled.
+    emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 12 },
   });
 }
