@@ -7,7 +7,11 @@ const handler = getRequestListener((incomingRequest) => {
     incomingRequest.headers.get("x-forwarded-host") ||
     incomingRequest.headers.get("host") ||
     "localhost";
-  const proto = incomingRequest.headers.get("x-forwarded-proto") || "https";
+  // Public deployments are HTTPS-only; trust the forwarded protocol only for local development.
+  const isLocal = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
+  const proto = isLocal
+    ? incomingRequest.headers.get("x-forwarded-proto")?.split(",", 1)[0]?.trim() || "http"
+    : "https";
   const requestUrl = new URL(incomingRequest.url ?? "/", `${proto}://${host}`);
   const rewrittenPath = requestUrl.searchParams.get("__api_path");
   requestUrl.searchParams.delete("__api_path");

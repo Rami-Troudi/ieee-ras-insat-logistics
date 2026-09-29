@@ -2235,7 +2235,11 @@ app.use("/api/v1/board/inventory", async (c, next) => {
 });
 app.onError((error, c) => {
   const requestIdValue = c.get("requestId");
-  console.error("request_failed", { requestId: requestIdValue, type: error.name });
+  console.error("request_failed", {
+    requestId: requestIdValue,
+    type: error.name,
+    message: error.message.slice(0, 200)
+  });
   return jsonError(c, 500, "INTERNAL", "The request could not be completed");
 });
 app.get("/api/health", (c) => c.json({ status: "ok" }));
@@ -3244,7 +3248,8 @@ function createRuntimeEnv(source = process.env) {
 // src/worker/serverless.ts
 var handler = getRequestListener((incomingRequest) => {
   const host = incomingRequest.headers.get("x-forwarded-host") || incomingRequest.headers.get("host") || "localhost";
-  const proto = incomingRequest.headers.get("x-forwarded-proto") || "https";
+  const isLocal = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
+  const proto = isLocal ? incomingRequest.headers.get("x-forwarded-proto")?.split(",", 1)[0]?.trim() || "http" : "https";
   const requestUrl = new URL(incomingRequest.url ?? "/", `${proto}://${host}`);
   const rewrittenPath = requestUrl.searchParams.get("__api_path");
   requestUrl.searchParams.delete("__api_path");
