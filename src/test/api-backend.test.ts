@@ -271,11 +271,26 @@ describe("Vercel API backend on SQLite-compatible storage", () => {
     const created = await post("new.borrower@example.test");
     expect(created.status).toBe(200);
     expect(created.headers.getSetCookie().join(";")).toContain("better-auth.session_token=");
+    const post2 = (email: string, phone: string) =>
+      request("/api/v1/auth/borrower", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "New Borrower", email, phone, membership: "IEEE" }),
+      });
+    await client.execute(
+      "UPDATE app_users SET phone='+216 12 345 678' WHERE email='new.borrower@example.test'"
+    );
     const again = await post("new.borrower@example.test");
     expect(again.status).toBe(409);
     expect(again.headers.getSetCookie()).toHaveLength(0);
+    const wrongPhone = await post2("new.borrower@example.test", "99999999");
+    expect(wrongPhone.status).toBe(409);
+    const returning = await post2("new.borrower@example.test", "21612345678");
+    expect(returning.status).toBe(200);
+    expect(returning.headers.getSetCookie().join(";")).toContain("better-auth.session_token=");
     await seedUser({ id: "admin-x", email: "admin.x@example.test", role: "SUPERADMIN" });
-    const staff = await post("admin.x@example.test");
+    await client.execute("UPDATE app_users SET phone='+21611111111' WHERE id='admin-x'");
+    const staff = await post2("admin.x@example.test", "21611111111");
     expect(staff.status).toBe(409);
     expect(staff.headers.getSetCookie()).toHaveLength(0);
   });

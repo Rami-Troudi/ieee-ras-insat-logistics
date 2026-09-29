@@ -52,6 +52,7 @@ export const BorrowerAuthModal: React.FC<BorrowerAuthModalProps> = ({
   // Staff login state
   const [staffEmail, setStaffEmail] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
+  const [borrowerError, setBorrowerError] = useState("");
   const [staffError, setStaffError] = useState("");
   const [staffSubmitting, setStaffSubmitting] = useState(false);
 
@@ -137,6 +138,7 @@ export const BorrowerAuthModal: React.FC<BorrowerAuthModalProps> = ({
   const selectedMembership = watch("membership");
 
   const onSubmitBorrower = async (data: BorrowerFormData) => {
+    setBorrowerError("");
     const fullName = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
     try {
       await authService.registerMember({
@@ -167,7 +169,9 @@ export const BorrowerAuthModal: React.FC<BorrowerAuthModalProps> = ({
         onSuccess();
       }
     } catch (err) {
-      console.error("Failed to complete borrower login/registration:", err);
+      setBorrowerError(
+        err instanceof Error ? err.message : "Could not complete sign up. Please try again."
+      );
     }
   };
 
@@ -342,6 +346,15 @@ export const BorrowerAuthModal: React.FC<BorrowerAuthModalProps> = ({
                 )}
               </div>
 
+              {borrowerError && (
+                <div
+                  role="alert"
+                  className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs flex items-center gap-2"
+                >
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{borrowerError}</span>
+                </div>
+              )}
               <Button
                 type="submit"
                 disabled={isSubmitting}

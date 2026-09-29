@@ -233,45 +233,56 @@ app.post("/api/v1/auth/borrower", async (c) => {
     : "EXTERNAL";
   const timestamp = now();
 
-  const current = await c.env.DB.prepare("SELECT id FROM app_users WHERE email=? COLLATE NOCASE")
-    .bind(email)
-    .first();
-  // Email ownership is not verified, so an existing account can never be claimed through this form.
-  if (current)
-    return jsonError(
-      c,
-      409,
-      "ACCOUNT_EXISTS",
-      "An account already exists for this email. Ask a board member to help you regain access."
-    );
-
-  const userId = `borrower-${await digest(email)}`;
-  const existingUser = await c.env.DB.prepare(
-    "SELECT id FROM user WHERE email=? COLLATE NOCASE OR id=?"
+  const current = await c.env.DB.prepare(
+    "SELECT id,role,phone,status FROM app_users WHERE email=? COLLATE NOCASE"
   )
-    .bind(email, userId)
-    .first<{ id: string }>();
-  const finalUserId = existingUser?.id ?? userId;
-  await c.env.DB.batch([
-    existingUser
-      ? c.env.DB.prepare("UPDATE user SET name=?,updatedAt=? WHERE id=?").bind(
-          name,
-          timestamp,
-          finalUserId
-        )
-      : c.env.DB.prepare(
-          "INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,1,?,?)"
-        ).bind(finalUserId, name, email, timestamp, timestamp),
-    c.env.DB.prepare(
-      "INSERT INTO app_users(id,email,name,phone,role,clearance,affiliation,claimed_affiliation,affiliation_verified,status,data,created_at,updated_at) VALUES(?,?,?,?,'MEMBER','I','EXTERNAL',?,0,'ACTIVE','{}',?,?)"
-    ).bind(finalUserId, email, name, phone, membership, timestamp, timestamp),
-  ]);
+    .bind(email)
+    .first<{ id: string; role: string; phone: string | null; status: string }>();
+  if (current) {
+    // Email ownership is not verified, so a returning borrower must also give the phone number on
+    // file. Staff accounts and mismatches are refused, and attempts are rate limited per email.
+    const digits = (value: string | null | undefined) => (value ?? "").replace(/\D/g, "");
+    const allowed =
+      current.role === "MEMBER" &&
+      digits(phone).length >= 8 &&
+      digits(phone) === digits(current.phone) &&
+      (await rateLimit(c.env.DB, `borrower-return:${email}`, 5, 3600));
+    if (!allowed)
+      return jsonError(
+        c,
+        409,
+        "ACCOUNT_EXISTS",
+        "This email is already registered. Enter the phone number you registered with, or ask a board member for help."
+      );
+  } else {
+    const userId = `borrower-${await digest(email)}`;
+    const existingUser = await c.env.DB.prepare(
+      "SELECT id FROM user WHERE email=? COLLATE NOCASE OR id=?"
+    )
+      .bind(email, userId)
+      .first<{ id: string }>();
+    const finalUserId = existingUser?.id ?? userId;
+    await c.env.DB.batch([
+      existingUser
+        ? c.env.DB.prepare("UPDATE user SET name=?,updatedAt=? WHERE id=?").bind(
+            name,
+            timestamp,
+            finalUserId
+          )
+        : c.env.DB.prepare(
+            "INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,1,?,?)"
+          ).bind(finalUserId, name, email, timestamp, timestamp),
+      c.env.DB.prepare(
+        "INSERT INTO app_users(id,email,name,phone,role,clearance,affiliation,claimed_affiliation,affiliation_verified,status,data,created_at,updated_at) VALUES(?,?,?,?,'MEMBER','I','EXTERNAL',?,0,'ACTIVE','{}',?,?)"
+      ).bind(finalUserId, email, name, phone, membership, timestamp, timestamp),
+    ]);
+  }
 
   const user = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE")
     .bind(email)
     .first<AppUser>();
   if (!user) return jsonError(c, 500, "INTERNAL", "Member account could not be loaded");
-  await issueMemberSession(c, user.id, ip); // only reached for accounts created by this request
+  await issueMemberSession(c, user.id, ip);
 
   return c.json(
     {

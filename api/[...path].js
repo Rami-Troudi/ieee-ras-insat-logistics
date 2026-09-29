@@ -2348,31 +2348,38 @@ app.post("/api/v1/auth/borrower", async (c) => {
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
   const membership = ["IEEE", "AEROBOTIX", "EXTERNAL"].includes(body.membership ?? "") ? body.membership : "EXTERNAL";
   const timestamp = now();
-  const current = await c.env.DB.prepare("SELECT id FROM app_users WHERE email=? COLLATE NOCASE").bind(email).first();
-  if (current)
-    return jsonError(
-      c,
-      409,
-      "ACCOUNT_EXISTS",
-      "An account already exists for this email. Ask a board member to help you regain access."
-    );
-  const userId = `borrower-${await digest(email)}`;
-  const existingUser = await c.env.DB.prepare(
-    "SELECT id FROM user WHERE email=? COLLATE NOCASE OR id=?"
-  ).bind(email, userId).first();
-  const finalUserId = existingUser?.id ?? userId;
-  await c.env.DB.batch([
-    existingUser ? c.env.DB.prepare("UPDATE user SET name=?,updatedAt=? WHERE id=?").bind(
-      name,
-      timestamp,
-      finalUserId
-    ) : c.env.DB.prepare(
-      "INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,1,?,?)"
-    ).bind(finalUserId, name, email, timestamp, timestamp),
-    c.env.DB.prepare(
-      "INSERT INTO app_users(id,email,name,phone,role,clearance,affiliation,claimed_affiliation,affiliation_verified,status,data,created_at,updated_at) VALUES(?,?,?,?,'MEMBER','I','EXTERNAL',?,0,'ACTIVE','{}',?,?)"
-    ).bind(finalUserId, email, name, phone, membership, timestamp, timestamp)
-  ]);
+  const current = await c.env.DB.prepare(
+    "SELECT id,role,phone,status FROM app_users WHERE email=? COLLATE NOCASE"
+  ).bind(email).first();
+  if (current) {
+    const digits = (value) => (value ?? "").replace(/\D/g, "");
+    const allowed = current.role === "MEMBER" && digits(phone).length >= 8 && digits(phone) === digits(current.phone) && await rateLimit(c.env.DB, `borrower-return:${email}`, 5, 3600);
+    if (!allowed)
+      return jsonError(
+        c,
+        409,
+        "ACCOUNT_EXISTS",
+        "This email is already registered. Enter the phone number you registered with, or ask a board member for help."
+      );
+  } else {
+    const userId = `borrower-${await digest(email)}`;
+    const existingUser = await c.env.DB.prepare(
+      "SELECT id FROM user WHERE email=? COLLATE NOCASE OR id=?"
+    ).bind(email, userId).first();
+    const finalUserId = existingUser?.id ?? userId;
+    await c.env.DB.batch([
+      existingUser ? c.env.DB.prepare("UPDATE user SET name=?,updatedAt=? WHERE id=?").bind(
+        name,
+        timestamp,
+        finalUserId
+      ) : c.env.DB.prepare(
+        "INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,1,?,?)"
+      ).bind(finalUserId, name, email, timestamp, timestamp),
+      c.env.DB.prepare(
+        "INSERT INTO app_users(id,email,name,phone,role,clearance,affiliation,claimed_affiliation,affiliation_verified,status,data,created_at,updated_at) VALUES(?,?,?,?,'MEMBER','I','EXTERNAL',?,0,'ACTIVE','{}',?,?)"
+      ).bind(finalUserId, email, name, phone, membership, timestamp, timestamp)
+    ]);
+  }
   const user = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE").bind(email).first();
   if (!user) return jsonError(c, 500, "INTERNAL", "Member account could not be loaded");
   await issueMemberSession(c, user.id, ip);
@@ -3251,6 +3258,7 @@ var handler = getRequestListener((incomingRequest) => {
   const isLocal = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
   const proto = isLocal ? incomingRequest.headers.get("x-forwarded-proto")?.split(",", 1)[0]?.trim() || "http" : "https";
   const requestUrl = new URL(incomingRequest.url ?? "/", `${proto}://${host}`);
+  requestUrl.protocol = `${proto}:`;
   const rewrittenPath = requestUrl.searchParams.get("__api_path");
   requestUrl.searchParams.delete("__api_path");
   if (rewrittenPath !== null) requestUrl.pathname = `/api/${rewrittenPath}`;
