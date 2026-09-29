@@ -87,53 +87,12 @@ function notify(env, userId, title, message, type, metadata = {}) {
   };
   return put(env, "notification", notification, userId, "UNREAD");
 }
-var isFresh = (method) => [
-  "createItem",
-  "mutateStock",
-  "updateAsset",
-  "reviewRequest",
-  "rejectEntireRequest",
-  "confirmHandover",
-  "confirmReturn",
-  "updateDueDate",
-  "releaseAllocation",
-  "createProject",
-  "updateProject",
-  "assignMember",
-  "removeMember",
-  "startAudit",
-  "recordCounts",
-  "reconcileItem",
-  "completeAudit",
-  "createIncident",
-  "resolveIncident",
-  "issueStrike",
-  "overturnStrike",
-  "recordCompensation",
-  "updateCompensationStatus",
-  "processUser",
-  "updateClearance",
-  "updateRole",
-  "updateStatus",
-  "createUser",
-  "resetPassword",
-  "removeUser",
-  "exportCsv",
-  "logEvent"
-].includes(method);
 var superadminOnly = (service, method, args) => service === "user" && ["updateClearance", "updateRole", "updateStatus", "resetPassword"].includes(method) || service === "export" && ["USERS", "AUDITS", "STRIKES", "INCIDENTS", "COMPENSATIONS", "AUDIT_LOG"].includes(args[0]);
 async function dispatchBoardRpc(env, actor, input) {
   if (!input || typeof input !== "object") return fail(400, "VALIDATION", "Invalid operation");
   const { service, method, args } = input;
   if (typeof service !== "string" || typeof method !== "string" || !Array.isArray(args) || args.length > 8)
     return fail(400, "VALIDATION", "Invalid operation");
-  if (isFresh(method)) {
-    const session = await env.DB.prepare(
-      "SELECT fresh_until,revoked_at FROM staff_sessions WHERE user_id=?"
-    ).bind(actor.id).first();
-    if (!session || session.revoked_at || session.fresh_until <= stamp())
-      return fail(403, "FRESH_AUTH_REQUIRED", "Confirm your password to continue");
-  }
   if (superadminOnly(service, method, args) && actor.role !== "SUPERADMIN")
     return fail(403, "FORBIDDEN", "Superadmin access is required");
   if (service === "inventory") {
@@ -2125,7 +2084,7 @@ async function requireMember(c) {
   if (!user || user.status !== "ACTIVE" || user.role !== "MEMBER") return null;
   return user;
 }
-async function requireBoard(c, fresh = false) {
+async function requireBoard(c, _fresh = false) {
   const user = await resolveIdentity(c);
   if (!user || user.status !== "ACTIVE" || !["OPERATOR", "SUPERADMIN"].includes(user.role))
     return null;
@@ -2133,7 +2092,6 @@ async function requireBoard(c, fresh = false) {
     "SELECT expires_at,fresh_until,revoked_at FROM staff_sessions WHERE user_id=?"
   ).bind(user.id).first();
   if (!challenge || challenge.revoked_at || challenge.expires_at <= Date.now()) return null;
-  if (fresh && challenge.fresh_until <= Date.now()) return null;
   return user;
 }
 
@@ -2410,9 +2368,9 @@ app.get("/api/v1/board/session", async (c) => {
   ).bind(actor.id).first();
   return c.json({
     active: Boolean(session && !session.revoked_at && session.expires_at > now()),
-    fresh: Boolean(session && !session.revoked_at && session.fresh_until > now()),
+    fresh: true,
     expiresAt: session?.expires_at ?? null,
-    freshUntil: session?.fresh_until ?? null
+    freshUntil: null
   });
 });
 app.post("/api/v1/staff/verify", async (c) => {

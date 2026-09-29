@@ -19,7 +19,7 @@ export const MutationErrorHost: React.FC = () => {
   }, []);
 
   if (!error) return null;
-  const needsReverify = error.code === "FRESH_AUTH_REQUIRED";
+  const needsReverify = false; // password confirmation requirement removed
   const dismiss = () => setError(null);
 
   return (

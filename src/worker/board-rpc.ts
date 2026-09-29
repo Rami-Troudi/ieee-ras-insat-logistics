@@ -89,6 +89,7 @@ function notify(
   };
   return put(env, "notification", notification, userId, "UNREAD");
 }
+/*
 const isFresh = (method: string) =>
   [
     "createItem",
@@ -124,6 +125,7 @@ const isFresh = (method: string) =>
     "exportCsv",
     "logEvent",
   ].includes(method);
+*/
 const superadminOnly = (service: string, method: string, args: any[]) =>
   (service === "user" &&
     ["updateClearance", "updateRole", "updateStatus", "resetPassword"].includes(method)) ||
@@ -148,6 +150,8 @@ export async function dispatchBoardRpc(
     args.length > 8
   )
     return fail(400, "VALIDATION", "Invalid operation");
+  // Password re-confirmation requirement removed for admin/board changes
+  /*
   if (isFresh(method)) {
     const session = await env.DB.prepare(
       "SELECT fresh_until,revoked_at FROM staff_sessions WHERE user_id=?"
@@ -157,6 +161,7 @@ export async function dispatchBoardRpc(
     if (!session || session.revoked_at || session.fresh_until <= stamp())
       return fail(403, "FRESH_AUTH_REQUIRED", "Confirm your password to continue");
   }
+  */
   if (superadminOnly(service, method, args) && actor.role !== "SUPERADMIN")
     return fail(403, "FORBIDDEN", "Superadmin access is required");
 

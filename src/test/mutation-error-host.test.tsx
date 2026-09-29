@@ -15,10 +15,10 @@ describe("MutationErrorHost", () => {
     expect(screen.getByText("Inventory item or serial number already exists")).toBeTruthy();
   });
 
-  it("prompts for a staff code when the fresh session expired", () => {
+  it("does not prompt for password confirmation for admin changes", () => {
     render(<MutationErrorHost />);
     emit({ code: "FRESH_AUTH_REQUIRED", message: "Reverify with your staff password" });
-    expect(screen.getByText("Staff verification required")).toBeTruthy();
-    expect(screen.getByText("Confirm password")).toBeTruthy();
+    expect(screen.getByText("Action failed")).toBeTruthy();
+    expect(screen.queryByText("Confirm password")).toBeNull();
   });
 });

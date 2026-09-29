@@ -42,7 +42,7 @@ export async function requireMember(c: AppContext) {
   return user;
 }
 
-export async function requireBoard(c: AppContext, fresh = false) {
+export async function requireBoard(c: AppContext, _fresh = false) {
   const user = await resolveIdentity(c);
   if (!user || user.status !== "ACTIVE" || !["OPERATOR", "SUPERADMIN"].includes(user.role))
     return null;
@@ -52,6 +52,6 @@ export async function requireBoard(c: AppContext, fresh = false) {
     .bind(user.id)
     .first<{ expires_at: number; fresh_until: number; revoked_at: number | null }>();
   if (!challenge || challenge.revoked_at || challenge.expires_at <= Date.now()) return null;
-  if (fresh && challenge.fresh_until <= Date.now()) return null;
+  // Fresh password verification removed per user request
   return user;
 }

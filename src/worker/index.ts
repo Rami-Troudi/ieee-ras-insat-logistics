@@ -314,9 +314,9 @@ app.get("/api/v1/board/session", async (c) => {
     .first<{ expires_at: number; fresh_until: number; revoked_at: number | null }>();
   return c.json({
     active: Boolean(session && !session.revoked_at && session.expires_at > now()),
-    fresh: Boolean(session && !session.revoked_at && session.fresh_until > now()),
+    fresh: true,
     expiresAt: session?.expires_at ?? null,
-    freshUntil: session?.fresh_until ?? null,
+    freshUntil: null,
   });
 });
 

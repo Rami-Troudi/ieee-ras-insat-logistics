@@ -488,11 +488,6 @@ describe("Vercel API backend on SQLite-compatible storage", () => {
     expect((await request("/api/v1/board/session", {}, cookie)).status).toBe(200);
     expect((await request("/api/v1/board/inventory", {}, cookie)).status).toBe(200);
 
-    // Fresh window expired: writes are refused until the password is confirmed again.
-    await client.execute({
-      sql: "UPDATE staff_sessions SET fresh_until=? WHERE user_id != 'admin-1'",
-      args: [Date.now() - 1000],
-    });
     const item = json({
       service: "inventory",
       method: "createItem",
@@ -506,13 +501,7 @@ describe("Vercel API backend on SQLite-compatible storage", () => {
         },
       ],
     });
-    expect((await request("/api/v1/board/rpc", item, cookie)).status).toBe(403);
-    expect(
-      (await request("/api/v1/staff/verify", json({ password: "not-the-password" }), cookie)).status
-    ).toBe(401);
-    expect(
-      (await request("/api/v1/staff/verify", json({ password: temporaryPassword }), cookie)).status
-    ).toBe(200);
+    // Password re-verification is disabled: writes succeed directly without fresh session re-verification.
     expect((await request("/api/v1/board/rpc", item, cookie)).status).toBe(201);
 
     // Resetting the password signs the account out everywhere and invalidates the old password.
