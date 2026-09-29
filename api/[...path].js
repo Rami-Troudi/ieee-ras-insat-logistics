@@ -2377,6 +2377,64 @@ app.post("/api/v1/auth/bootstrap-admin", async (c) => {
   }
   return response;
 });
+app.post("/api/v1/auth/set-admin-password", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body.email !== "string" || !body.email.includes("@") || typeof body.password !== "string" || body.password.length < 8) {
+    return jsonError(
+      c,
+      400,
+      "VALIDATION",
+      "Valid email and password (at least 8 characters) are required"
+    );
+  }
+  const email = body.email.trim().toLowerCase();
+  const password = body.password;
+  const user = await c.env.DB.prepare(
+    "SELECT id, name, email, role, clearance, affiliation FROM app_users WHERE email = ? COLLATE NOCASE AND role = 'SUPERADMIN' AND status = 'ACTIVE'"
+  ).bind(email).first();
+  if (!user) {
+    return jsonError(c, 404, "NOT_FOUND", "No active superadmin found with that email address");
+  }
+  const timestamp = now();
+  const hashed = await hashPassword(password);
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM account WHERE userId=? AND providerId='credential'").bind(user.id),
+    c.env.DB.prepare(
+      "INSERT INTO account(id, accountId, providerId, userId, password, createdAt, updatedAt) VALUES(?, ?, 'credential', ?, ?, ?, ?)"
+    ).bind(crypto.randomUUID(), user.id, user.id, hashed, timestamp, timestamp),
+    c.env.DB.prepare(
+      `INSERT INTO staff_sessions(user_id, expires_at, fresh_until, revoked_at) VALUES(?, ?, ?, NULL)
+       ON CONFLICT(user_id) DO UPDATE SET expires_at=excluded.expires_at, fresh_until=excluded.fresh_until, revoked_at=NULL`
+    ).bind(user.id, timestamp + STAFF_SESSION_MS, timestamp + STAFF_FRESH_MS),
+    c.env.DB.prepare(
+      "INSERT INTO audit_events(id, actor_user_id, entity_type, entity_id, action, created_at, data) VALUES(?, ?, 'AUTH', ?, 'PASSWORD_RESET', ?, ?)"
+    ).bind(uuid("audit"), user.id, user.id, timestamp, JSON.stringify({ email: user.email }))
+  ]);
+  const auth = createAuth(c.env, trustedAuthOrigin(c.env, c.req.url));
+  const signIn = await auth.api.signInEmail({
+    body: { email: user.email, password },
+    headers: c.req.raw.headers,
+    asResponse: true
+  }).catch(() => null);
+  const response = c.json({
+    ok: true,
+    message: "Password set successfully.",
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      clearance: user.clearance,
+      affiliation: user.affiliation
+    }
+  });
+  if (signIn) {
+    for (const cookie of signIn.headers.getSetCookie()) {
+      response.headers.append("Set-Cookie", cookie);
+    }
+  }
+  return response;
+});
 app.post("/api/v1/auth/borrower", async (c) => {
   const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
   const rateDecision = await c.env.AUTH_RATE_LIMITER.limit({ key: `borrower-auth:${ip}` });

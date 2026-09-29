@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { AppBrand } from "@/components/shared/AppBrand";
-import { ShieldCheck, UserPlus, Sparkles } from "lucide-react";
+import { ShieldCheck, UserPlus, Sparkles, KeyRound } from "lucide-react";
 import { staffSignIn } from "@/features/auth/staffSignIn";
 import { authService } from "@/services";
 
@@ -17,23 +17,29 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export const BoardLoginPage: React.FC = () => {
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [canBootstrap, setCanBootstrap] = useState(false);
-  const [isBootstrapMode, setIsBootstrapMode] = useState(false);
+  const [defaultSuperadminEmail, setDefaultSuperadminEmail] = useState("");
+  const [mode, setMode] = useState<"login" | "bootstrap" | "reset">("login");
 
-  // Bootstrap form fields
-  const [setupName, setSetupName] = useState("");
-  const [setupEmail, setSetupEmail] = useState("");
-  const [setupPassword, setSetupPassword] = useState("");
-  const [setupConfirm, setSetupConfirm] = useState("");
-  const [isSettingUp, setIsSettingUp] = useState(false);
+  // Form states
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
 
   useEffect(() => {
     fetch("/api/v1/auth/bootstrap-status")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
+        if (data?.superadminEmail) {
+          setDefaultSuperadminEmail(data.superadminEmail);
+          setEmail(data.superadminEmail);
+        }
         if (data?.canBootstrap) {
           setCanBootstrap(true);
-          setIsBootstrapMode(true);
+          setMode("bootstrap");
         }
       })
       .catch(() => {});
@@ -48,10 +54,10 @@ export const BoardLoginPage: React.FC = () => {
     defaultValues: { email: "", password: "" },
   });
 
-  const onSubmitLogin = async ({ email, password }: LoginFormData) => {
+  const onSubmitLogin = async ({ email: loginEmail, password }: LoginFormData) => {
     setError("");
     try {
-      await staffSignIn(email, password);
+      await staffSignIn(loginEmail, password);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to sign in right now.");
     }
@@ -61,33 +67,33 @@ export const BoardLoginPage: React.FC = () => {
     e.preventDefault();
     setError("");
 
-    if (!setupName.trim() || setupName.trim().length < 2) {
+    if (!name.trim() || name.trim().length < 2) {
       setError("Please enter your full name (at least 2 characters).");
       return;
     }
-    if (!setupEmail.trim() || !setupEmail.includes("@")) {
+    if (!email.trim() || !email.includes("@")) {
       setError("Please enter a valid email address.");
       return;
     }
-    if (setupPassword.length < 8) {
+    if (newPassword.length < 8) {
       setError("Password must be at least 8 characters long.");
       return;
     }
-    if (setupPassword !== setupConfirm) {
+    if (newPassword !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
 
-    setIsSettingUp(true);
+    setIsBusy(true);
     try {
       const response = await fetch("/api/v1/auth/bootstrap-admin", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: setupName.trim(),
-          email: setupEmail.trim().toLowerCase(),
-          password: setupPassword,
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          password: newPassword,
         }),
       });
 
@@ -103,7 +109,54 @@ export const BoardLoginPage: React.FC = () => {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Setup failed. Please retry.");
     } finally {
-      setIsSettingUp(false);
+      setIsBusy(false);
+    }
+  };
+
+  const onResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (!email.trim() || !email.includes("@")) {
+      setError("Please enter your superadmin email address.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      const response = await fetch("/api/v1/auth/set-admin-password", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password: newPassword,
+        }),
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: { message?: string };
+        };
+        throw new Error(body.error?.message ?? "Failed to set password.");
+      }
+
+      setSuccess("Password set successfully! Signing you in...");
+      await authService.getCurrentSession();
+      window.location.assign("/board");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Failed to set password. Please retry.");
+    } finally {
+      setIsBusy(false);
     }
   };
 
@@ -115,22 +168,27 @@ export const BoardLoginPage: React.FC = () => {
             <AppBrand to="/" />
           </div>
           <h1 className="text-xl font-bold">
-            {isBootstrapMode ? "Initial Superadmin Setup" : "Board & Operator Access"}
+            {mode === "bootstrap"
+              ? "Initial Superadmin Setup"
+              : mode === "reset"
+                ? "Set Superadmin Password"
+                : "Board & Operator Access"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {isBootstrapMode
-              ? "No primary superadmin is configured with a password. Choose your administrator credentials to initialize the platform."
-              : "Sign in with your staff email and the password assigned to you by a superadmin."}
+            {mode === "bootstrap"
+              ? "No primary superadmin is configured with a password. Choose your credentials to initialize."
+              : mode === "reset"
+                ? "Set a personal password for your Superadmin account to access the platform."
+                : "Sign in with your staff email and password."}
           </p>
         </div>
 
-        {isBootstrapMode ? (
+        {mode === "bootstrap" && (
           <form onSubmit={onBootstrapSubmit} className="space-y-4">
             <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl text-xs text-primary flex items-start gap-2">
               <Sparkles className="w-4 h-4 shrink-0 mt-0.5" />
               <span>
-                You are setting up the <strong>Primary Superadmin</strong> with Level VI clearance
-                and full authority.
+                Setting up the <strong>Primary Superadmin</strong> with Level VI clearance.
               </span>
             </div>
 
@@ -145,8 +203,8 @@ export const BoardLoginPage: React.FC = () => {
                 id="setup-name"
                 type="text"
                 required
-                value={setupName}
-                onChange={(e) => setSetupName(e.target.value)}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 placeholder="Rami Troudi"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
               />
@@ -163,8 +221,8 @@ export const BoardLoginPage: React.FC = () => {
                 id="setup-email"
                 type="email"
                 required
-                value={setupEmail}
-                onChange={(e) => setSetupEmail(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@insat.u-carthage.tn"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
               />
@@ -182,8 +240,8 @@ export const BoardLoginPage: React.FC = () => {
                 type="password"
                 required
                 minLength={8}
-                value={setupPassword}
-                onChange={(e) => setSetupPassword(e.target.value)}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="At least 8 characters"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
               />
@@ -201,8 +259,8 @@ export const BoardLoginPage: React.FC = () => {
                 type="password"
                 required
                 minLength={8}
-                value={setupConfirm}
-                onChange={(e) => setSetupConfirm(e.target.value)}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter your password"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
               />
@@ -216,25 +274,126 @@ export const BoardLoginPage: React.FC = () => {
 
             <Button
               type="submit"
-              disabled={isSettingUp}
+              disabled={isBusy}
               className="w-full min-h-[44px] gap-2 font-bold"
             >
               <UserPlus className="w-4 h-4" />
-              {isSettingUp ? "Initializing…" : "Set Up Superadmin & Enter Board"}
+              {isBusy ? "Initializing…" : "Set Up Superadmin & Enter Board"}
             </Button>
 
             <button
               type="button"
               onClick={() => {
                 setError("");
-                setIsBootstrapMode(false);
+                setMode("login");
               }}
               className="w-full text-center text-xs text-muted-foreground hover:text-foreground pt-1"
             >
               Switch to Standard Sign In →
             </button>
           </form>
-        ) : (
+        )}
+
+        {mode === "reset" && (
+          <form onSubmit={onResetSubmit} className="space-y-4">
+            <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl text-xs text-primary flex items-start gap-2">
+              <KeyRound className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                Enter your Superadmin email and pick a new password to access the Board Console.
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="reset-email"
+                className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block"
+              >
+                Superadmin Email
+              </label>
+              <input
+                id="reset-email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@insat.u-carthage.tn"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="reset-password"
+                className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block"
+              >
+                New Password
+              </label>
+              <input
+                id="reset-password"
+                type="password"
+                required
+                minLength={8}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="reset-confirm"
+                className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block"
+              >
+                Confirm New Password
+              </label>
+              <input
+                id="reset-confirm"
+                type="password"
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter password"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[44px]"
+              />
+            </div>
+
+            {error && (
+              <p role="alert" className="text-sm text-destructive font-medium">
+                {error}
+              </p>
+            )}
+
+            {success && (
+              <p role="status" className="text-sm text-emerald-600 font-medium">
+                {success}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              disabled={isBusy}
+              className="w-full min-h-[44px] gap-2 font-bold"
+            >
+              <KeyRound className="w-4 h-4" />
+              {isBusy ? "Saving…" : "Set Password & Enter Board"}
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                setMode("login");
+              }}
+              className="w-full text-center text-xs text-muted-foreground hover:text-foreground pt-1"
+            >
+              Back to Standard Sign In →
+            </button>
+          </form>
+        )}
+
+        {mode === "login" && (
           <form onSubmit={handleSubmit(onSubmitLogin)} className="space-y-4">
             <div className="space-y-1.5">
               <label
@@ -261,7 +420,7 @@ export const BoardLoginPage: React.FC = () => {
                 htmlFor="board-password"
                 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block"
               >
-                Assigned password
+                Password
               </label>
               <input
                 id="board-password"
@@ -289,18 +448,32 @@ export const BoardLoginPage: React.FC = () => {
               {isSubmitting ? "Signing in…" : "Sign In to Board Console"}
             </Button>
 
-            {canBootstrap && (
+            <div className="flex flex-col gap-1.5 pt-1 text-center">
               <button
                 type="button"
                 onClick={() => {
                   setError("");
-                  setIsBootstrapMode(true);
+                  if (defaultSuperadminEmail) setEmail(defaultSuperadminEmail);
+                  setMode("reset");
                 }}
-                className="w-full text-center text-xs text-primary font-bold hover:underline pt-1"
+                className="text-xs text-primary font-semibold hover:underline"
               >
-                First time setup? Initialize Superadmin →
+                First time or need to set your superadmin password? →
               </button>
-            )}
+
+              {canBootstrap && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError("");
+                    setMode("bootstrap");
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Initialize new superadmin account →
+                </button>
+              )}
+            </div>
           </form>
         )}
 
