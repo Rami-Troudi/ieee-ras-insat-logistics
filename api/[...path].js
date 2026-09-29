@@ -2295,12 +2295,13 @@ app.post("/api/v1/auth/board-login", async (c) => {
 });
 app.get("/api/v1/auth/bootstrap-status", async (c) => {
   const superadminWithPassword = await c.env.DB.prepare(
-    `SELECT u.id FROM app_users u 
+    `SELECT u.id, u.email, u.name FROM app_users u 
      INNER JOIN account a ON a.userId = u.id AND a.providerId = 'credential' 
      WHERE u.role = 'SUPERADMIN' AND u.status = 'ACTIVE' LIMIT 1`
   ).first();
   return c.json({
-    canBootstrap: !superadminWithPassword
+    canBootstrap: !superadminWithPassword,
+    superadminEmail: superadminWithPassword?.email ?? null
   });
 });
 app.post("/api/v1/auth/bootstrap-admin", async (c) => {
