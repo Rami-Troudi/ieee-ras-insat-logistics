@@ -1,4 +1,5 @@
 import { hashPassword, verifyPassword } from "better-auth/crypto";
+export { hashPassword, verifyPassword };
 import type { Env } from "./env";
 
 // Unambiguous characters only (no 0/O, 1/l/I) so credentials can be read out or typed reliably.

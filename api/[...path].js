@@ -2293,6 +2293,89 @@ app.post("/api/v1/auth/board-login", async (c) => {
   for (const cookie of signIn.headers.getSetCookie()) response.headers.append("Set-Cookie", cookie);
   return response;
 });
+app.get("/api/v1/auth/bootstrap-status", async (c) => {
+  const superadminWithPassword = await c.env.DB.prepare(
+    `SELECT u.id FROM app_users u 
+     INNER JOIN account a ON a.userId = u.id AND a.providerId = 'credential' 
+     WHERE u.role = 'SUPERADMIN' AND u.status = 'ACTIVE' LIMIT 1`
+  ).first();
+  return c.json({
+    canBootstrap: !superadminWithPassword
+  });
+});
+app.post("/api/v1/auth/bootstrap-admin", async (c) => {
+  const superadminWithPassword = await c.env.DB.prepare(
+    `SELECT u.id FROM app_users u 
+     INNER JOIN account a ON a.userId = u.id AND a.providerId = 'credential' 
+     WHERE u.role = 'SUPERADMIN' AND u.status = 'ACTIVE' LIMIT 1`
+  ).first();
+  if (superadminWithPassword) {
+    return jsonError(c, 403, "FORBIDDEN", "Initial superadmin is already configured. Please sign in.");
+  }
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body.email !== "string" || !/^\S+@\S+\.\S+$/.test(body.email.trim()) || typeof body.name !== "string" || body.name.trim().length < 2 || typeof body.password !== "string" || body.password.length < 8) {
+    return jsonError(
+      c,
+      400,
+      "VALIDATION",
+      "Valid name, email, and password (at least 8 characters) are required"
+    );
+  }
+  const email = body.email.trim().toLowerCase();
+  const name = body.name.trim();
+  const password = body.password;
+  const timestamp = now();
+  const existing = await c.env.DB.prepare("SELECT id FROM user WHERE email = ? COLLATE NOCASE").bind(email).first();
+  const userId = existing?.id ?? crypto.randomUUID();
+  const hashed = await hashPassword(password);
+  const statements = [
+    c.env.DB.prepare(
+      `INSERT INTO user(id, name, email, emailVerified, createdAt, updatedAt)
+       VALUES(?, ?, ?, 1, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET name=excluded.name, emailVerified=1, updatedAt=excluded.updatedAt`
+    ).bind(userId, name, email, timestamp, timestamp),
+    c.env.DB.prepare(
+      `INSERT INTO app_users(id, email, name, role, clearance, clearance_source, affiliation, claimed_affiliation, affiliation_verified, status, data, created_at, updated_at)
+       VALUES(?, ?, ?, 'SUPERADMIN', 'VI', 'SUPERADMIN_ROLE', 'RAS_BOARD', 'RAS_BOARD', 1, 'ACTIVE', '{}', ?, ?)
+       ON CONFLICT(id) DO UPDATE SET role='SUPERADMIN', clearance='VI', status='ACTIVE', updated_at=excluded.updated_at`
+    ).bind(userId, email, name, timestamp, timestamp),
+    c.env.DB.prepare("DELETE FROM account WHERE userId=? AND providerId='credential'").bind(userId),
+    c.env.DB.prepare(
+      "INSERT INTO account(id, accountId, providerId, userId, password, createdAt, updatedAt) VALUES(?, ?, 'credential', ?, ?, ?, ?)"
+    ).bind(crypto.randomUUID(), userId, userId, hashed, timestamp, timestamp),
+    c.env.DB.prepare(
+      `INSERT INTO staff_sessions(user_id, expires_at, fresh_until, revoked_at) VALUES(?, ?, ?, NULL)
+       ON CONFLICT(user_id) DO UPDATE SET expires_at=excluded.expires_at, fresh_until=excluded.fresh_until, revoked_at=NULL`
+    ).bind(userId, timestamp + STAFF_SESSION_MS, timestamp + STAFF_FRESH_MS),
+    c.env.DB.prepare(
+      "INSERT INTO audit_events(id, actor_user_id, entity_type, entity_id, action, created_at, data) VALUES(?, ?, 'AUTH', ?, 'SUPERADMIN_BOOTSTRAP', ?, ?)"
+    ).bind(uuid("audit"), userId, userId, timestamp, JSON.stringify({ email, name }))
+  ];
+  await c.env.DB.batch(statements);
+  const auth = createAuth(c.env, trustedAuthOrigin(c.env, c.req.url));
+  const signIn = await auth.api.signInEmail({
+    body: { email, password },
+    headers: c.req.raw.headers,
+    asResponse: true
+  }).catch(() => null);
+  const response = c.json({
+    ok: true,
+    user: {
+      id: userId,
+      name,
+      email,
+      role: "SUPERADMIN",
+      clearance: "VI",
+      affiliation: "RAS_BOARD"
+    }
+  });
+  if (signIn) {
+    for (const cookie of signIn.headers.getSetCookie()) {
+      response.headers.append("Set-Cookie", cookie);
+    }
+  }
+  return response;
+});
 app.post("/api/v1/auth/borrower", async (c) => {
   const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
   const rateDecision = await c.env.AUTH_RATE_LIMITER.limit({ key: `borrower-auth:${ip}` });
