@@ -1,4 +1,3 @@
-import React from "react";
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { MutationErrorHost } from "@/features/auth/MutationErrorHost";
