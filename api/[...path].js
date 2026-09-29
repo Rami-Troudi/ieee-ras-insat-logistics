@@ -2344,45 +2344,32 @@ app.post("/api/v1/auth/borrower", async (c) => {
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
   const membership = ["IEEE", "AEROBOTIX", "EXTERNAL"].includes(body.membership ?? "") ? body.membership : "EXTERNAL";
   const timestamp = now();
-  let user = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE").bind(email).first();
-  if (user && user.role !== "MEMBER")
-    return jsonError(c, 403, "FORBIDDEN", "Staff accounts sign in from the board login");
-  const existing = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE").bind(email).first();
-  if (!existing) {
-    const userId = `borrower-${await digest(email)}`;
-    const existingUser = await c.env.DB.prepare(
-      "SELECT id FROM user WHERE email=? COLLATE NOCASE OR id=?"
-    ).bind(email, userId).first();
-    const finalUserId = existingUser?.id ?? userId;
-    await c.env.DB.batch([
-      existingUser ? c.env.DB.prepare("UPDATE user SET name=?,updatedAt=? WHERE id=?").bind(
-        name,
-        timestamp,
-        finalUserId
-      ) : c.env.DB.prepare(
-        "INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,1,?,?)"
-      ).bind(finalUserId, name, email, timestamp, timestamp),
-      c.env.DB.prepare(
-        "INSERT INTO app_users(id,email,name,phone,role,clearance,affiliation,claimed_affiliation,affiliation_verified,status,data,created_at,updated_at) VALUES(?,?,?,?,'MEMBER','I','EXTERNAL',?,0,'ACTIVE','{}',?,?)"
-      ).bind(finalUserId, email, name, phone, membership, timestamp, timestamp)
-    ]);
-  } else {
-    const authUser = await c.env.DB.prepare("SELECT id FROM user WHERE id=?").bind(existing.id).first();
-    const statements = [
-      c.env.DB.prepare(
-        "UPDATE app_users SET name=?,phone=?,claimed_affiliation=?,updated_at=? WHERE id=?"
-      ).bind(name, phone, membership, timestamp, existing.id)
-    ];
-    if (!authUser) {
-      statements.push(
-        c.env.DB.prepare(
-          "INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,1,?,?)"
-        ).bind(existing.id, name, email, timestamp, timestamp)
-      );
-    }
-    await c.env.DB.batch(statements);
-  }
-  user = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE").bind(email).first();
+  const current = await c.env.DB.prepare("SELECT id FROM app_users WHERE email=? COLLATE NOCASE").bind(email).first();
+  if (current)
+    return jsonError(
+      c,
+      409,
+      "ACCOUNT_EXISTS",
+      "An account already exists for this email. Ask a board member to help you regain access."
+    );
+  const userId = `borrower-${await digest(email)}`;
+  const existingUser = await c.env.DB.prepare(
+    "SELECT id FROM user WHERE email=? COLLATE NOCASE OR id=?"
+  ).bind(email, userId).first();
+  const finalUserId = existingUser?.id ?? userId;
+  await c.env.DB.batch([
+    existingUser ? c.env.DB.prepare("UPDATE user SET name=?,updatedAt=? WHERE id=?").bind(
+      name,
+      timestamp,
+      finalUserId
+    ) : c.env.DB.prepare(
+      "INSERT INTO user(id,name,email,emailVerified,createdAt,updatedAt) VALUES(?,?,?,1,?,?)"
+    ).bind(finalUserId, name, email, timestamp, timestamp),
+    c.env.DB.prepare(
+      "INSERT INTO app_users(id,email,name,phone,role,clearance,affiliation,claimed_affiliation,affiliation_verified,status,data,created_at,updated_at) VALUES(?,?,?,?,'MEMBER','I','EXTERNAL',?,0,'ACTIVE','{}',?,?)"
+    ).bind(finalUserId, email, name, phone, membership, timestamp, timestamp)
+  ]);
+  const user = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE").bind(email).first();
   if (!user) return jsonError(c, 500, "INTERNAL", "Member account could not be loaded");
   await issueMemberSession(c, user.id, ip);
   return c.json(

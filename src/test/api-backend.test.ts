@@ -261,6 +261,25 @@ describe("Vercel API backend on SQLite-compatible storage", () => {
     expect(sentEmails).toHaveLength(0);
   });
 
+  it("issues a borrower session only for a newly created account, never an existing email", async () => {
+    const post = (email: string) =>
+      request("/api/v1/auth/borrower", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "New Borrower", email, membership: "IEEE" }),
+      });
+    const created = await post("new.borrower@example.test");
+    expect(created.status).toBe(200);
+    expect(created.headers.getSetCookie().join(";")).toContain("better-auth.session_token=");
+    const again = await post("new.borrower@example.test");
+    expect(again.status).toBe(409);
+    expect(again.headers.getSetCookie()).toHaveLength(0);
+    await seedUser({ id: "admin-x", email: "admin.x@example.test", role: "SUPERADMIN" });
+    const staff = await post("admin.x@example.test");
+    expect(staff.status).toBe(409);
+    expect(staff.headers.getSetCookie()).toHaveLength(0);
+  });
+
   it("enforces member ownership, C/E request policy, and idempotent transactional request writes", async () => {
     const member = await seedUser({ id: "member-1", email: "member@example.test" });
     await addInventory("item-c", "C");
