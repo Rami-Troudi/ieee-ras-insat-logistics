@@ -71,7 +71,11 @@ app.use("/api/v1/board/inventory", async (c, next) => {
 app.onError((error, c) => {
   const requestIdValue = c.get("requestId");
   // Do not log request bodies, identities, tokens, or provider responses.
-  console.error("request_failed", { requestId: requestIdValue, type: error.name });
+  console.error("request_failed", {
+    requestId: requestIdValue,
+    type: error.name,
+    message: error.message.slice(0, 200),
+  });
   return jsonError(c, 500, "INTERNAL", "The request could not be completed");
 });
 
