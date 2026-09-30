@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { AppBrand } from "@/components/shared/AppBrand";
 import { cn } from "@/lib/utils";
 import { BOARD_NAV_ITEMS } from "@/constants/navigation";
-import { Bell, User, FlaskConical } from "lucide-react";
+import { Bell, User, FlaskConical, ShoppingBag } from "lucide-react";
 
 export { BOARD_NAV_ITEMS };
 
@@ -94,7 +94,17 @@ export const DesktopBoardSidebar: React.FC = () => {
           <User className="w-4 h-4 shrink-0" />
           <span>Profile</span>
         </Link>
+        <div className="pt-1.5 mt-1 border-t border-border/50">
+          <Link
+            to="/app"
+            className="flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground/75 hover:bg-accent hover:text-foreground transition-colors min-h-[36px]"
+          >
+            <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+            <span>Public Catalogue</span>
+          </Link>
+        </div>
       </div>
     </aside>
+
   );
 };

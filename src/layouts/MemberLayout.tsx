@@ -3,13 +3,12 @@ import { DesktopSidebar } from "@/components/shared/DesktopSidebar";
 import { MobileBottomNav } from "@/components/shared/MobileBottomNav";
 import { TopBar } from "@/components/shared/TopBar";
 import { BorrowerAuthModal } from "@/components/auth/BorrowerAuthModal";
-import { Navigate, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
 
 export const MemberLayout: React.FC = () => {
-  const { currentPersona, isLoading } = useSession();
+  const { isLoading } = useSession();
   if (isLoading) return <div className="min-h-screen" aria-busy="true" />;
-  if (currentPersona.role !== "MEMBER") return <Navigate to="/board" replace />;
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">

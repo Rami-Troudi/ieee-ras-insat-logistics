@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { AppBrand } from "@/components/shared/AppBrand";
 import { cn } from "@/lib/utils";
 import { MEMBER_NAV_ITEMS } from "@/constants/navigation";
-import { Bell, User, FlaskConical } from "lucide-react";
+import { Bell, User, FlaskConical, ShieldCheck } from "lucide-react";
 
 export { MEMBER_NAV_ITEMS };
 
@@ -81,7 +81,17 @@ export const DesktopSidebar: React.FC<{ isBoard?: boolean }> = ({ isBoard = fals
           <User className="w-4 h-4 shrink-0" />
           <span>Profile</span>
         </Link>
+        <div className="pt-1.5 mt-1 border-t border-border/50">
+          <Link
+            to="/auth/board-login"
+            className="flex items-center gap-3 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground/70 hover:bg-accent hover:text-foreground transition-colors min-h-[36px]"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+            <span>Connect as Board</span>
+          </Link>
+        </div>
       </div>
     </aside>
+
   );
 };

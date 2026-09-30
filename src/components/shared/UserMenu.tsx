@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/hooks/useSession";
 import { authService } from "@/services";
-import { User, Bell, LogOut, ChevronDown } from "lucide-react";
+import { User, Bell, LogOut, ChevronDown, ShieldCheck, ShoppingBag } from "lucide-react";
 
 export interface UserMenuProps {
   isBoard?: boolean;
@@ -19,7 +19,7 @@ export interface UserMenuProps {
 
 export const UserMenu: React.FC<UserMenuProps> = ({ isBoard = false }) => {
   const navigate = useNavigate();
-  const { currentPersona, openBorrowerAuthModal } = useSession();
+  const { currentPersona } = useSession();
   const isBoardRole =
     isBoard || currentPersona.role === "OPERATOR" || currentPersona.role === "SUPERADMIN";
   const isGuest = currentPersona.id === "anonymous" || !currentPersona.email;
@@ -91,13 +91,34 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isBoard = false }) => {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link
+            to={isBoardRole ? "/board" : "/auth/board-login"}
+            className="flex items-center gap-2 cursor-pointer min-h-[44px] sm:min-h-[36px]"
+          >
+            <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+            <span>{isBoardRole ? "Open Board Console" : "Connect as Board"}</span>
+          </Link>
+        </DropdownMenuItem>
+        {isBoardRole && (
+          <DropdownMenuItem asChild>
+            <Link
+              to="/app"
+              className="flex items-center gap-2 cursor-pointer min-h-[44px] sm:min-h-[36px]"
+            >
+              <ShoppingBag className="w-4 h-4 text-muted-foreground" />
+              <span>Equipment Catalogue</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {
             authService.clearSession();
             if (isBoardRole) {
               navigate("/auth/board-login");
             } else {
-              openBorrowerAuthModal();
+              navigate("/app");
             }
           }}
           className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer min-h-[44px] sm:min-h-[36px]"
@@ -105,6 +126,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isBoard = false }) => {
           <LogOut className="w-4 h-4" />
           <span>Sign Out</span>
         </DropdownMenuItem>
+
       </DropdownMenuContent>
     </DropdownMenu>
   );

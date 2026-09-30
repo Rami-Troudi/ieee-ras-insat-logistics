@@ -478,10 +478,11 @@ export const BoardLoginPage: React.FC = () => {
         )}
 
         <p className="text-center text-xs">
-          <Link to="/auth/login" className="text-primary font-bold hover:underline">
-            ← Switch to Borrower access
+          <Link to="/app" className="text-primary font-bold hover:underline">
+            ← Back to Equipment Catalogue
           </Link>
         </p>
+
       </div>
     </div>
   );

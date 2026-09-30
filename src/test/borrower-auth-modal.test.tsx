@@ -34,7 +34,6 @@ describe("BorrowerAuthModal Component", () => {
 
     // Affiliation selector buttons
     expect(screen.getByRole("button", { name: "IEEE" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Aerobotix" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "External" })).toBeInTheDocument();
 
     // Submit action
@@ -116,8 +115,8 @@ describe("BorrowerAuthModal Component", () => {
       target: { value: "+216 98 123 456" },
     });
 
-    // Select Aerobotix
-    fireEvent.click(screen.getByRole("button", { name: "Aerobotix" }));
+    // Select IEEE
+    fireEvent.click(screen.getByRole("button", { name: "IEEE" }));
 
     // Submit
     fireEvent.click(screen.getByRole("button", { name: /Get Started & Save Info/i }));
@@ -135,14 +134,14 @@ describe("BorrowerAuthModal Component", () => {
     expect(profileRaw).toBeTruthy();
     const profile = JSON.parse(profileRaw!);
     expect(profile.name).toBe("Yassine Ben Ali");
-    expect(profile.membership).toBe("AEROBOTIX");
+    expect(profile.membership).toBe("IEEE");
     expect(profile.phone).toBe("+216 98 123 456");
 
     // Check session
     const current = authService.getCurrentUser();
     expect(current.name).toBe("Yassine Ben Ali");
     expect(current.email).toBe("yassine.ba@insat.u-carthage.tn");
-    expect(current.affiliation).toBe("AEROBOTIX");
     expect(current.status).toBe("ACTIVE");
   });
 });
+

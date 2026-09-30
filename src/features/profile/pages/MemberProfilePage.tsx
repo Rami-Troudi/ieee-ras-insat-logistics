@@ -1,6 +1,8 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { useUserProfile, useUpdateContactInfo, useResetDemoData } from "../hooks/useProfile";
 import { useSession } from "@/hooks/useSession";
+import { authService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { Mail, Phone, RotateCcw, AlertTriangle } from "lucide-react";
@@ -86,11 +88,7 @@ export const MemberProfilePage: React.FC = () => {
               ) : (
                 <>
                   Membership:{" "}
-                  {p.affiliation === "AEROBOTIX"
-                    ? "Aerobotix"
-                    : p.affiliation === "EXTERNAL"
-                      ? "External"
-                      : "IEEE"}
+                  {p.affiliation === "EXTERNAL" ? "External" : "IEEE"}
                 </>
               )}
             </span>
@@ -146,6 +144,44 @@ export const MemberProfilePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Sign out or Sign in action */}
+      <div className="space-y-2 pt-1">
+        {!isEmailOnly && p.email ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              authService.clearSession();
+              window.location.reload();
+            }}
+            className="w-full text-xs h-9 gap-1.5 text-muted-foreground hover:text-destructive"
+          >
+            <span>Sign Out / Forget Device</span>
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("ras:open-borrower-auth"));
+            }}
+            className="w-full text-xs h-9 gap-1.5"
+          >
+            <span>Sign In with Student Details</span>
+          </Button>
+        )}
+      </div>
+
+      {/* Discreet Board link for staff members */}
+      <div className="pt-2 text-center text-xs text-muted-foreground">
+        <span>Board staff member? </span>
+        <Link to="/auth/board-login" className="text-primary font-medium hover:underline">
+          Connect as Board →
+        </Link>
+      </div>
+
       {/* Development Reset */}
       {import.meta.env.DEV && (
         <div className="pt-4 border-t border-border">
@@ -165,3 +201,4 @@ export const MemberProfilePage: React.FC = () => {
     </div>
   );
 };
+

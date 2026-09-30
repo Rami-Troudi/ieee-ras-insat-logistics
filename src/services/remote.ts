@@ -70,13 +70,18 @@ export const remoteRequestService = {
   listUserRequests: () => get<any[]>("/api/v1/requests"),
   getRequest: (id: string) => get<any>(`/api/v1/requests/${encodeURIComponent(id)}`),
   async createRequest(_userId: string, payload: any) {
-    const email = cachedPersona.email.trim().toLowerCase();
+    const email =
+      cachedPersona.email?.trim().toLowerCase() ||
+      (typeof window !== "undefined"
+        ? localStorage.getItem("ras_borrower_email")?.trim().toLowerCase()
+        : "") ||
+      "";
     if (!email) throw new ApiError(401, "UNAUTHENTICATED", "Sign in to submit a request");
     const requestPayload = {
       ...payload,
       contactEmail: email,
-      borrowerName: cachedPersona.name,
-      borrowerAffiliation: cachedPersona.affiliation,
+      borrowerName: cachedPersona.name || "Student Borrower",
+      borrowerAffiliation: cachedPersona.affiliation || "EXTERNAL",
     };
     const key = await digestKey({ type: "borrow-request", email, payload });
     return post<any>("/api/v1/requests", requestPayload, { "Idempotency-Key": key });
@@ -121,25 +126,56 @@ export const remoteProjectService = {
   listMine: () => get<any[]>("/api/v1/projects/mine"),
 };
 
-let cachedPersona: UserPersona = PROD_DEFAULT_PERSONA;
+function getStoredBorrowerPersona(): UserPersona | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("ras_borrower_persona");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.email) return parsed;
+    }
+    const profileRaw = localStorage.getItem("ras_borrower_profile");
+    if (profileRaw) {
+      const p = JSON.parse(profileRaw);
+      if (p && p.email) {
+        return {
+          id: p.id || `borrower-${p.email.toLowerCase()}`,
+          name: p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Member",
+          email: p.email.toLowerCase(),
+          role: "MEMBER",
+          clearance: "I",
+          affiliation: p.membership || p.affiliation || "IEEE",
+          isProcessed: true,
+          status: "ACTIVE",
+          strikesCount: 0,
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
+
+let cachedPersona: UserPersona = getStoredBorrowerPersona() ?? PROD_DEFAULT_PERSONA;
 const listeners = new Set<(persona: UserPersona) => void>();
 
 async function refreshSession() {
   try {
     const persona = await get<UserPersona>("/api/v1/me");
-    if (!persona || !persona.id || !persona.role) {
-      cachedPersona = PROD_DEFAULT_PERSONA;
-      listeners.forEach((listener) => listener(cachedPersona));
-      return PROD_DEFAULT_PERSONA;
+    if (persona && persona.id && persona.role) {
+      cachedPersona = persona;
+      try {
+        localStorage.setItem("ras_borrower_persona", JSON.stringify(persona));
+      } catch {}
+      listeners.forEach((listener) => listener(persona));
+      return persona;
     }
-    cachedPersona = persona;
-    listeners.forEach((listener) => listener(persona));
-    return persona;
   } catch (_error) {
-    cachedPersona = PROD_DEFAULT_PERSONA;
-    listeners.forEach((listener) => listener(cachedPersona));
-    return PROD_DEFAULT_PERSONA;
+    // If server session is not found or expired, keep stored borrower session from localStorage
   }
+  const fallback = getStoredBorrowerPersona() ?? PROD_DEFAULT_PERSONA;
+  cachedPersona = fallback;
+  listeners.forEach((listener) => listener(cachedPersona));
+  return fallback;
 }
 
 export const remoteAuthService = {
@@ -166,6 +202,23 @@ export const remoteAuthService = {
 
     const persona = response.user;
     cachedPersona = persona;
+    try {
+      localStorage.setItem("ras_borrower_persona", JSON.stringify(persona));
+      localStorage.setItem("ras_borrower_email", normalizedEmail);
+      localStorage.setItem("ras_onboarding_completed", "true");
+      localStorage.setItem(
+        "ras_borrower_profile",
+        JSON.stringify({
+          id: persona.id,
+          name: input.name.trim(),
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: normalizedEmail,
+          membership: input.membership,
+          phone: input.phone.trim(),
+        })
+      );
+    } catch {}
     listeners.forEach((listener) => listener(cachedPersona));
 
     return {
@@ -184,6 +237,12 @@ export const remoteAuthService = {
   getCurrentUser: () => cachedPersona,
   getCurrentSession: () => refreshSession(),
   clearSession: () => {
+    try {
+      localStorage.removeItem("ras_borrower_persona");
+      localStorage.removeItem("ras_borrower_profile");
+      localStorage.removeItem("ras_borrower_email");
+      localStorage.removeItem("ras_onboarding_completed");
+    } catch {}
     void api("/api/auth/sign-out", { method: "POST" })
       .catch(() => undefined)
       .finally(() => {
@@ -191,6 +250,7 @@ export const remoteAuthService = {
         listeners.forEach((listener) => listener(cachedPersona));
       });
   },
+
   subscribeSession(callback: (persona: UserPersona) => void) {
     listeners.add(callback);
     const onFocus = () => {

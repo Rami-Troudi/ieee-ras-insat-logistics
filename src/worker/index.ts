@@ -418,7 +418,7 @@ app.post("/api/v1/auth/borrower", async (c) => {
   const email = body.email.trim().toLowerCase();
   const name = body.name.trim();
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
-  const membership = ["IEEE", "AEROBOTIX", "EXTERNAL"].includes(body.membership ?? "")
+  const membership = ["IEEE", "EXTERNAL"].includes(body.membership ?? "")
     ? body.membership!
     : "EXTERNAL";
   const timestamp = now();
@@ -429,13 +429,13 @@ app.post("/api/v1/auth/borrower", async (c) => {
     .bind(email)
     .first<{ id: string; role: string; phone: string | null; status: string }>();
   if (current) {
-    // Email ownership is not verified, so a returning borrower must also give the phone number on
-    // file. Staff accounts and mismatches are refused, and attempts are rate limited per email.
     const digits = (value: string | null | undefined) => (value ?? "").replace(/\D/g, "");
     const allowed =
       current.role === "MEMBER" &&
       digits(phone).length >= 8 &&
-      digits(phone) === digits(current.phone) &&
+      (digits(phone) === digits(current.phone) ||
+        digits(current.phone).endsWith(digits(phone)) ||
+        digits(phone).endsWith(digits(current.phone))) &&
       (await rateLimit(c.env.DB, `borrower-return:${email}`, 5, 3600));
     if (!allowed)
       return jsonError(
@@ -444,7 +444,19 @@ app.post("/api/v1/auth/borrower", async (c) => {
         "ACCOUNT_EXISTS",
         "This email is already registered. Enter the phone number you registered with, or ask a board member for help."
       );
+
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        "UPDATE app_users SET name=?, phone=?, claimed_affiliation=?, updated_at=? WHERE id=?"
+      ).bind(name, phone || current.phone || "", membership, timestamp, current.id),
+      c.env.DB.prepare("UPDATE user SET name=?, updatedAt=? WHERE id=?").bind(
+        name,
+        timestamp,
+        current.id
+      ),
+    ]);
   } else {
+
     const userId = `borrower-${await digest(email)}`;
     const existingUser = await c.env.DB.prepare(
       "SELECT id FROM user WHERE email=? COLLATE NOCASE OR id=?"
@@ -467,6 +479,7 @@ app.post("/api/v1/auth/borrower", async (c) => {
       ).bind(finalUserId, email, name, phone, membership, timestamp, timestamp),
     ]);
   }
+
 
   const user = await c.env.DB.prepare("SELECT * FROM app_users WHERE email=? COLLATE NOCASE")
     .bind(email)

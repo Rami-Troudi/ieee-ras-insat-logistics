@@ -50,8 +50,12 @@ const BoardChallengeGate: React.FC<{ children: React.ReactNode }> = ({ children 
 export const BoardLayout: React.FC = () => {
   const { currentPersona, isLoading } = useSession();
   if (isLoading) return <div className="min-h-screen" aria-busy="true" />;
-  if (currentPersona.status !== "ACTIVE") return <Navigate to="/auth/board-login" replace />;
-  if (currentPersona.role === "MEMBER") return <Navigate to="/app" replace />;
+  if (
+    currentPersona.status !== "ACTIVE" ||
+    (currentPersona.role !== "OPERATOR" && currentPersona.role !== "SUPERADMIN")
+  ) {
+    return <Navigate to="/auth/board-login" replace />;
+  }
 
   return (
     <BoardChallengeGate>
