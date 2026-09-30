@@ -16,6 +16,7 @@ import {
 import { Package, Search, Plus, Eye, EyeOff, Trash2 } from "lucide-react";
 import { EquipmentClass, InventoryItemSummary } from "@/types";
 import { DEFAULT_EQUIPMENT_IMAGE } from "@/assets/equipmentImages";
+import { ItemImagePicker } from "../../components/ItemImagePicker";
 
 const isBorrowerCatalogVisible = (item: { borrowerVisible?: boolean; equipmentClass: string }) =>
   item.borrowerVisible ?? (item.equipmentClass === "C" || item.equipmentClass === "E");
@@ -47,6 +48,7 @@ export const BoardInventoryPage: React.FC = () => {
   const [newItemQty, setNewItemQty] = useState(1);
   const [newItemLocation, setNewItemLocation] = useState("Cabinet A-1");
   const [newItemDescription, setNewItemDescription] = useState("");
+  const [newItemImageUrl, setNewItemImageUrl] = useState("");
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -84,6 +86,7 @@ export const BoardInventoryPage: React.FC = () => {
           totalQuantity: newItemQty,
           location: newItemLocation.trim(),
           description: newItemDescription.trim(),
+          imageUrl: newItemImageUrl.trim() || undefined,
         },
         actorUserId: currentPersona.id,
         actorRole: currentPersona.role,
@@ -92,12 +95,14 @@ export const BoardInventoryPage: React.FC = () => {
       setShowAddModal(false);
       setNewItemName("");
       setNewItemDescription("");
+      setNewItemImageUrl("");
       setNewItemQty(1);
       setPageNotice(`Added "${name}" to inventory.`);
     } catch {
       // Keep the modal open so input is preserved; the global MutationErrorHost reports the error.
     }
   };
+
 
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
@@ -457,6 +462,12 @@ export const BoardInventoryPage: React.FC = () => {
                   className="h-8 text-xs"
                 />
               </div>
+
+              <ItemImagePicker
+                value={newItemImageUrl}
+                onChange={setNewItemImageUrl}
+                label="Item Picture (Catalogue & Cart View):"
+              />
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
                 <Button

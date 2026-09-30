@@ -12,8 +12,11 @@ import {
   useBoardItemEvents,
   useMutateStock,
   useDeleteInventoryItem,
+  useUpdateInventoryItem,
 } from "../hooks/useBoardInventory";
-import { ArrowLeft, Package, History, Plus, Minus, Trash2 } from "lucide-react";
+import { ArrowLeft, Package, History, Plus, Minus, Trash2, Edit, ImageIcon } from "lucide-react";
+import { DEFAULT_EQUIPMENT_IMAGE } from "@/assets/equipmentImages";
+import { ItemImagePicker } from "../../components/ItemImagePicker";
 
 export const BoardItemDetailPage: React.FC = () => {
   const { itemId } = useParams<{ itemId: string }>();
@@ -25,17 +28,27 @@ export const BoardItemDetailPage: React.FC = () => {
 
   const mutateStockMutation = useMutateStock();
   const deleteItemMutation = useDeleteInventoryItem();
+  const updateItemMutation = useUpdateInventoryItem();
 
-  // Action states: 1) Add number, 2) Remove number, 3) Delete as whole
+  // Action states: 1) Add number, 2) Remove number, 3) Delete as whole, 4) Manage & Picture
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  // Edit item form state
+  const [editName, setEditName] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
 
   const [quantityInput, setQuantityInput] = useState<number>(1);
   const [reasonInput, setReasonInput] = useState("");
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
 
   if (isLoading || !item) {
     return (
@@ -45,9 +58,46 @@ export const BoardItemDetailPage: React.FC = () => {
     );
   }
 
+  const openEditModal = () => {
+    if (!item) return;
+    setEditName(item.name || "");
+    setEditCategory(item.category || "");
+    setEditLocation(item.location || "");
+    setEditDescription(item.description || "");
+    setEditImageUrl(item.imageUrl || "");
+    setErrorMessage(null);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!item) return;
+    try {
+      setErrorMessage(null);
+      await updateItemMutation.mutateAsync({
+        payload: {
+          itemId: item.id,
+          name: editName.trim() || item.name,
+          category: editCategory.trim() || item.category,
+          location: editLocation.trim(),
+          description: editDescription.trim(),
+          imageUrl: editImageUrl.trim(),
+        },
+        actorUserId: currentPersona.id,
+        actorRole: currentPersona.role,
+      });
+      setShowEditModal(false);
+      setSuccessMessage("Item details and cart picture updated successfully.");
+    } catch (err: unknown) {
+      const e = err as Error;
+      setErrorMessage(e.message || "Failed to update item");
+    }
+  };
+
   const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (quantityInput < 1) return;
+
     try {
       setErrorMessage(null);
       await mutateStockMutation.mutateAsync({
@@ -147,6 +197,16 @@ export const BoardItemDetailPage: React.FC = () => {
         description={`ID: ${item.id} · ${item.category} · Cabinet ${item.location || "General"}`}
         action={
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openEditModal}
+              className="gap-1.5 font-semibold text-xs border-primary/40 hover:bg-primary/10 text-primary"
+            >
+              <Edit className="w-4 h-4" />
+              <span>Manage & Picture</span>
+            </Button>
+
             <Button
               variant="default"
               size="sm"
@@ -252,10 +312,41 @@ export const BoardItemDetailPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Item Specifications */}
         <div className="p-4 rounded-xl border border-border bg-card space-y-3 shadow-sm h-fit">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 border-b border-border pb-2">
-            <Package className="w-4 h-4 text-primary" />
-            <span>Specifications & Policy</span>
-          </h3>
+          <div className="flex items-center justify-between border-b border-border pb-2">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Package className="w-4 h-4 text-primary" />
+              <span>Specifications & Policy</span>
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={openEditModal}
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+            >
+              <Edit className="w-3.5 h-3.5" />
+              <span>Edit</span>
+            </Button>
+          </div>
+
+          {/* Item Cart Picture */}
+          <div className="relative rounded-lg overflow-hidden border border-border bg-muted/20 aspect-video flex items-center justify-center group">
+            <img
+              src={item.imageUrl || DEFAULT_EQUIPMENT_IMAGE}
+              alt={item.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = DEFAULT_EQUIPMENT_IMAGE;
+              }}
+            />
+            <button
+              type="button"
+              onClick={openEditModal}
+              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-medium cursor-pointer"
+            >
+              <ImageIcon className="w-4 h-4" />
+              <span>Change Cart Picture</span>
+            </button>
+          </div>
 
           <div className="space-y-2 text-xs">
             <div className="flex justify-between py-1 border-b border-border/50">
@@ -488,6 +579,110 @@ export const BoardItemDetailPage: React.FC = () => {
                   <span>
                     {mutateStockMutation.isPending ? "Removing..." : `Remove ${quantityInput} Unit(s)`}
                   </span>
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Action 4: Edit Item & Cart Picture Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-xl space-y-4 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <Edit className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Manage Item & Picture</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Update item details and catalogue cart picture
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowEditModal(false)}
+                className="h-8 w-8 p-0"
+              >
+                ✕
+              </Button>
+            </div>
+
+            <form onSubmit={handleUpdateSubmit} className="space-y-4 text-xs">
+              <ItemImagePicker
+                value={editImageUrl}
+                onChange={setEditImageUrl}
+                itemName={editName || item.name}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-foreground block mb-1">Item Name</label>
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    required
+                    className="h-8 text-xs font-medium"
+                    placeholder="e.g. STM32 Nucleo-F401RE"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-foreground block mb-1">Category</label>
+                  <Input
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    required
+                    className="h-8 text-xs"
+                    placeholder="e.g. Microcontrollers"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-semibold text-foreground block mb-1">Storage Location</label>
+                <Input
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                  className="h-8 text-xs font-mono"
+                  placeholder="e.g. Cabinet A - Shelf 2"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-foreground block mb-1">Description</label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Technical specs, pinouts, contents, or borrowing warnings..."
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEditModal(false)}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="default"
+                  size="sm"
+                  disabled={updateItemMutation.isPending}
+                  className="text-xs font-semibold gap-1.5"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  <span>{updateItemMutation.isPending ? "Saving Changes..." : "Save Changes"}</span>
                 </Button>
               </div>
             </form>

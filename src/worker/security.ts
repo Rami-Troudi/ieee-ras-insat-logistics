@@ -71,3 +71,24 @@ export async function rateLimit(db: D1Database, key: string, max: number, window
     .first<{ count: number }>();
   return row !== null && row.count <= max;
 }
+
+export function safeImage(value: string | undefined | null) {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("data:image/")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("<svg") && trimmed.includes("</svg>")) {
+    return `data:image/svg+xml;utf8,${encodeURIComponent(trimmed)}`;
+  }
+  try {
+    const url = new URL(trimmed);
+    return ["https:", "http:"].includes(url.protocol) ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+

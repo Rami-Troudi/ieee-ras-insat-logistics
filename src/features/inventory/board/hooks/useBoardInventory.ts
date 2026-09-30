@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/app/query-client";
-import { boardInventoryService, CreateInventoryItemPayload, MutateStockPayload } from "@/services";
+import {
+  boardInventoryService,
+  CreateInventoryItemPayload,
+  UpdateInventoryItemPayload,
+  MutateStockPayload,
+} from "@/services";
 
 export function useBoardInventory(filters?: {
   search?: string;
@@ -97,3 +102,23 @@ export function useDeleteInventoryItem() {
     },
   });
 }
+
+export function useUpdateInventoryItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (params: {
+      payload: UpdateInventoryItemPayload;
+      actorUserId: string;
+      actorRole: string;
+    }) => boardInventoryService.updateItem(params.payload, params.actorUserId, params.actorRole),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardInventory.all });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.inventory.all });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.boardInventory.detail(variables.payload.itemId),
+      });
+    },
+  });
+}
+

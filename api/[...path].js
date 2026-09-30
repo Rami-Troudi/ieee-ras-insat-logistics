@@ -37,6 +37,66 @@ async function checkPassword(env, userId, password) {
   return Boolean(row?.password) && verifyPassword({ hash: row.password, password });
 }
 
+// src/worker/security.ts
+function jsonError(c, status, code, message) {
+  return c.json({ error: { code, message } }, status);
+}
+var sameOrigin = async (c, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(c.req.method)) return next();
+  const origin = c.req.header("Origin");
+  if (!origin) return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
+  try {
+    const originUrl = new URL(origin);
+    const host = c.req.header("x-forwarded-host") || c.req.header("host") || new URL(c.req.url).host;
+    const hostWithoutPort = host.split(":")[0];
+    if (originUrl.hostname !== hostWithoutPort && origin !== new URL(c.req.url).origin) {
+      return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
+    }
+  } catch {
+    return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
+  }
+  return next();
+};
+async function digest(value) {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+function randomToken(bytes = 32) {
+  const data = crypto.getRandomValues(new Uint8Array(bytes));
+  return btoa(String.fromCharCode(...data)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+async function rateLimit(db, key, max, windowSeconds) {
+  const now2 = Math.floor(Date.now() / 1e3);
+  const keyHash = await digest(key);
+  const windowStart = Math.floor(now2 / windowSeconds) * windowSeconds;
+  const row = await db.prepare(
+    `INSERT INTO rate_limit_buckets(key_hash,window_start,count)
+    VALUES(?,?,1) ON CONFLICT(key_hash) DO UPDATE SET
+    count=CASE WHEN window_start=? THEN count+1 ELSE 1 END,
+    window_start=? WHERE window_start<>? OR count<? RETURNING count`
+  ).bind(keyHash, windowStart, windowStart, windowStart, windowStart, max).first();
+  return row !== null && row.count <= max;
+}
+function safeImage(value) {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("data:image/")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("<svg") && trimmed.includes("</svg>")) {
+    return `data:image/svg+xml;utf8,${encodeURIComponent(trimmed)}`;
+  }
+  try {
+    const url = new URL(trimmed);
+    return ["https:", "http:"].includes(url.protocol) ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
 // src/worker/board-rpc.ts
 var stamp = () => Date.now();
 var iso = (n = stamp()) => new Date(n).toISOString();
@@ -126,6 +186,7 @@ async function dispatchBoardRpc(env, actor, input) {
       const item = {
         ...data,
         id: id("item"),
+        imageUrl: safeImage(data.imageUrl),
         availableQuantity: data.totalQuantity,
         allocatedQuantity: 0,
         borrowedQuantity: 0,
@@ -175,6 +236,49 @@ async function dispatchBoardRpc(env, actor, input) {
         return fail(409, "CONFLICT", "Inventory item or serial number already exists");
       }
       return ok(item, 201);
+    }
+    if (method === "updateItem") {
+      const payload = args[0];
+      if (!payload || typeof payload.itemId !== "string") {
+        return fail(400, "VALIDATION", "Item identifier is required");
+      }
+      const row = await env.DB.prepare("SELECT * FROM inventory WHERE id=?").bind(payload.itemId).first();
+      if (!row) return fail(404, "NOT_FOUND", "Inventory item not found");
+      const item = decode(row.data);
+      if (typeof payload.name === "string" && payload.name.trim()) {
+        item.name = payload.name.trim().slice(0, 160);
+      }
+      if (typeof payload.category === "string" && payload.category.trim()) {
+        item.category = payload.category.trim().slice(0, 80);
+      }
+      if (typeof payload.equipmentClass === "string" && ["A", "B", "C", "D", "E", "F", "G"].includes(payload.equipmentClass)) {
+        item.equipmentClass = payload.equipmentClass;
+      }
+      if (typeof payload.location === "string") {
+        item.location = payload.location.trim().slice(0, 120);
+      }
+      if (typeof payload.description === "string") {
+        item.description = payload.description.trim().slice(0, 2e3);
+      }
+      if (payload.imageUrl !== void 0) {
+        item.imageUrl = safeImage(payload.imageUrl);
+      }
+      const updatedAt = Math.max(stamp(), row.updated_at + 1);
+      await env.DB.prepare(
+        "UPDATE inventory SET name=?, category=?, equipment_class=?, data=?, updated_at=? WHERE id=?"
+      ).bind(
+        item.name,
+        item.category,
+        item.equipmentClass,
+        JSON.stringify(item),
+        updatedAt,
+        row.id
+      ).run();
+      audit(env, actor, "INVENTORY", item.id, "ITEM_UPDATED", {
+        imageUrl: item.imageUrl,
+        name: item.name
+      });
+      return ok(item);
     }
     if (method === "setBorrowerVisibility") {
       const [itemId, visible] = args;
@@ -2128,47 +2232,6 @@ async function requireBoard(c, _fresh = false) {
   return user;
 }
 
-// src/worker/security.ts
-function jsonError(c, status, code, message) {
-  return c.json({ error: { code, message } }, status);
-}
-var sameOrigin = async (c, next) => {
-  if (["GET", "HEAD", "OPTIONS"].includes(c.req.method)) return next();
-  const origin = c.req.header("Origin");
-  if (!origin) return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
-  try {
-    const originUrl = new URL(origin);
-    const host = c.req.header("x-forwarded-host") || c.req.header("host") || new URL(c.req.url).host;
-    const hostWithoutPort = host.split(":")[0];
-    if (originUrl.hostname !== hostWithoutPort && origin !== new URL(c.req.url).origin) {
-      return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
-    }
-  } catch {
-    return jsonError(c, 403, "ORIGIN_REJECTED", "Request origin is not allowed");
-  }
-  return next();
-};
-async function digest(value) {
-  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-function randomToken(bytes = 32) {
-  const data = crypto.getRandomValues(new Uint8Array(bytes));
-  return btoa(String.fromCharCode(...data)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-async function rateLimit(db, key, max, windowSeconds) {
-  const now2 = Math.floor(Date.now() / 1e3);
-  const keyHash = await digest(key);
-  const windowStart = Math.floor(now2 / windowSeconds) * windowSeconds;
-  const row = await db.prepare(
-    `INSERT INTO rate_limit_buckets(key_hash,window_start,count)
-    VALUES(?,?,1) ON CONFLICT(key_hash) DO UPDATE SET
-    count=CASE WHEN window_start=? THEN count+1 ELSE 1 END,
-    window_start=? WHERE window_start<>? OR count<? RETURNING count`
-  ).bind(keyHash, windowStart, windowStart, windowStart, windowStart, max).first();
-  return row !== null && row.count <= max;
-}
-
 // src/worker/index.ts
 var app = new Hono();
 var now = () => Date.now();
@@ -3236,25 +3299,6 @@ function timingSafeEqual(left, right) {
   let value = 0;
   for (let i = 0; i < left.length; i++) value |= left.charCodeAt(i) ^ right.charCodeAt(i);
   return value === 0;
-}
-function safeImage(value) {
-  if (!value) return "";
-  const trimmed = value.trim();
-  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
-    return trimmed;
-  }
-  if (trimmed.startsWith("data:image/")) {
-    return trimmed;
-  }
-  if (trimmed.startsWith("<svg") && trimmed.includes("</svg>")) {
-    return `data:image/svg+xml;utf8,${encodeURIComponent(trimmed)}`;
-  }
-  try {
-    const url = new URL(trimmed);
-    return ["https:", "http:"].includes(url.protocol) ? url.toString() : "";
-  } catch {
-    return "";
-  }
 }
 async function cleanExpiredSecurityData(env) {
   const nowMs = now();

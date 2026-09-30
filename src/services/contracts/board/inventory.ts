@@ -25,9 +25,20 @@ export interface CreateInventoryItemPayload {
   trackingMode: "QUANTITY" | "INDIVIDUAL_ASSET";
   totalQuantity: number;
   description: string;
+  imageUrl?: string;
   location?: string;
   specifications?: Record<string, string>;
   initialAssets?: { serialNumber: string; condition: AssetCondition }[];
+}
+
+export interface UpdateInventoryItemPayload {
+  itemId: string;
+  name?: string;
+  category?: string;
+  equipmentClass?: "A" | "B" | "C" | "D" | "E" | "F" | "G";
+  location?: string;
+  description?: string;
+  imageUrl?: string;
 }
 
 export interface UpdateAssetPayload {
@@ -49,6 +60,11 @@ export interface IBoardInventoryService {
   getItemById(itemId: string): Promise<InventoryItemSummary | null>;
   createItem(
     payload: CreateInventoryItemPayload,
+    actorUserId: string,
+    actorRole: string
+  ): Promise<InventoryItemSummary>;
+  updateItem(
+    payload: UpdateInventoryItemPayload,
     actorUserId: string,
     actorRole: string
   ): Promise<InventoryItemSummary>;

@@ -1,4 +1,5 @@
 import { credentialStatements, generatePassword } from "./password";
+import { safeImage } from "./security";
 import type { AppUser, Env } from "./env";
 
 type RpcResult = { status: number; body: unknown };
@@ -229,6 +230,7 @@ export async function dispatchBoardRpc(
       const item = {
         ...data,
         id: id("item"),
+        imageUrl: safeImage(data.imageUrl),
         availableQuantity: data.totalQuantity,
         allocatedQuantity: 0,
         borrowedQuantity: 0,
@@ -279,7 +281,60 @@ export async function dispatchBoardRpc(
       }
       return ok(item, 201);
     }
+    if (method === "updateItem") {
+      const payload = args[0] as any;
+      if (!payload || typeof payload.itemId !== "string") {
+        return fail(400, "VALIDATION", "Item identifier is required");
+      }
+      const row = await env.DB.prepare("SELECT * FROM inventory WHERE id=?")
+        .bind(payload.itemId)
+        .first<{ id: string; name: string; category: string; equipment_class: string; data: string; updated_at: number }>();
+      if (!row) return fail(404, "NOT_FOUND", "Inventory item not found");
+
+      const item = decode<any>(row.data);
+      if (typeof payload.name === "string" && payload.name.trim()) {
+        item.name = payload.name.trim().slice(0, 160);
+      }
+      if (typeof payload.category === "string" && payload.category.trim()) {
+        item.category = payload.category.trim().slice(0, 80);
+      }
+      if (
+        typeof payload.equipmentClass === "string" &&
+        ["A", "B", "C", "D", "E", "F", "G"].includes(payload.equipmentClass)
+      ) {
+        item.equipmentClass = payload.equipmentClass;
+      }
+      if (typeof payload.location === "string") {
+        item.location = payload.location.trim().slice(0, 120);
+      }
+      if (typeof payload.description === "string") {
+        item.description = payload.description.trim().slice(0, 2000);
+      }
+      if (payload.imageUrl !== undefined) {
+        item.imageUrl = safeImage(payload.imageUrl);
+      }
+
+      const updatedAt = Math.max(stamp(), row.updated_at + 1);
+      await env.DB.prepare(
+        "UPDATE inventory SET name=?, category=?, equipment_class=?, data=?, updated_at=? WHERE id=?"
+      ).bind(
+        item.name,
+        item.category,
+        item.equipmentClass,
+        JSON.stringify(item),
+        updatedAt,
+        row.id
+      ).run();
+
+      audit(env, actor, "INVENTORY", item.id, "ITEM_UPDATED", {
+        imageUrl: item.imageUrl,
+        name: item.name,
+      });
+
+      return ok(item);
+    }
     if (method === "setBorrowerVisibility") {
+
       const [itemId, visible] = args as [string, boolean];
       if (typeof visible !== "boolean")
         return fail(400, "VALIDATION", "Visibility must be true or false");

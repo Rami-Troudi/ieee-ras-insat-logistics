@@ -6,7 +6,7 @@ import type { AppUser, D1PreparedStatement, Env } from "./env";
 import { dispatchBoardRpc } from "./board-rpc";
 import { createAuth, trustedAuthOrigin } from "./auth";
 import { requireBoard, requireMember, resolveIdentity } from "./identity";
-import { digest, jsonError, randomToken, rateLimit, sameOrigin } from "./security";
+import { digest, jsonError, randomToken, rateLimit, safeImage, sameOrigin } from "./security";
 import { checkPassword, credentialStatements, generatePassword, hashPassword } from "./password";
 
 type Vars = { actor: AppUser };
@@ -1408,25 +1408,6 @@ function timingSafeEqual(left: string, right: string) {
   let value = 0;
   for (let i = 0; i < left.length; i++) value |= left.charCodeAt(i) ^ right.charCodeAt(i);
   return value === 0;
-}
-function safeImage(value: string | undefined) {
-  if (!value) return "";
-  const trimmed = value.trim();
-  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
-    return trimmed;
-  }
-  if (trimmed.startsWith("data:image/")) {
-    return trimmed;
-  }
-  if (trimmed.startsWith("<svg") && trimmed.includes("</svg>")) {
-    return `data:image/svg+xml;utf8,${encodeURIComponent(trimmed)}`;
-  }
-  try {
-    const url = new URL(trimmed);
-    return ["https:", "http:"].includes(url.protocol) ? url.toString() : "";
-  } catch {
-    return "";
-  }
 }
 
 async function cleanExpiredSecurityData(env: Env) {
