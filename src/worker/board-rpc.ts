@@ -2033,15 +2033,30 @@ async function removeUser(env: Env, actor: AppUser, input: any): Promise<RpcResu
     );
   }
 
+  const email = (row.email || "").toLowerCase();
+
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM app_users WHERE id=?").bind(targetId),
-    env.DB.prepare("DELETE FROM user WHERE id=?").bind(targetId),
+    // 1. Delete request lines for any past requests by this user
+    env.DB.prepare(
+      "DELETE FROM request_lines WHERE request_id IN (SELECT id FROM requests WHERE user_id=?)"
+    ).bind(targetId),
+    // 2. Delete past requests
+    env.DB.prepare("DELETE FROM requests WHERE user_id=?").bind(targetId),
+    // 3. Delete staff challenges & staff sessions
+    env.DB.prepare("DELETE FROM staff_challenges WHERE user_id=?").bind(targetId),
+    env.DB.prepare("DELETE FROM staff_sessions WHERE user_id=?").bind(targetId),
+    // 4. Delete user's records from record_store (notifications, closed loans, etc.)
+    env.DB.prepare("DELETE FROM record_store WHERE owner_id=?").bind(targetId),
+    // 5. Delete registration intents if any
+    env.DB.prepare("DELETE FROM registration_intents WHERE email=?").bind(email),
+    // 6. Delete Better Auth sessions and accounts
     env.DB.prepare("DELETE FROM session WHERE userId=?").bind(targetId),
     env.DB.prepare("DELETE FROM account WHERE userId=?").bind(targetId),
-    env.DB.prepare("DELETE FROM staff_sessions WHERE user_id=?").bind(targetId),
-    env.DB.prepare("DELETE FROM record_store WHERE kind='notification' AND owner_id=?").bind(
-      targetId
-    ),
+    // 7. Delete from user table
+    env.DB.prepare("DELETE FROM user WHERE id=?").bind(targetId),
+    // 8. Delete from app_users table
+    env.DB.prepare("DELETE FROM app_users WHERE id=?").bind(targetId),
+    // 9. Audit event
     audit(env, actor, "USER", targetId, "USER_REMOVED", {
       email: row.email,
       name: row.name,

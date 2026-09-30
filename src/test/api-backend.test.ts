@@ -946,3 +946,68 @@ it("supports the 3 core inventory actions: add number, remove number, and delete
   });
   expect(checkRow2.rows.length).toBe(0);
 });
+
+it("removes a user account and cleanly cascades child records without foreign key errors", async () => {
+  const superadmin = await seedUser({
+    id: "superadmin-remover",
+    email: "superadmin-remover@example.test",
+    role: "SUPERADMIN",
+  });
+  await seedFreshBoardSession(superadmin.id);
+
+  const member = await seedUser({
+    id: "member-to-remove",
+    email: "member-to-remove@example.test",
+    role: "MEMBER",
+  });
+
+  const now = Date.now();
+  // User has past staff challenge and rejected/closed requests
+  await client.execute({
+    sql: "INSERT INTO staff_challenges(id,user_id,code_hash,expires_at,attempts,created_at) VALUES('sc-rem',?,'hash',?,?,?)",
+    args: [member.id, now + 3600000, 0, now],
+  });
+  await client.execute({
+    sql: `INSERT INTO inventory(id,name,category,equipment_class,tracking_mode,total_quantity,available_quantity,allocated_quantity,borrowed_quantity,damaged_quantity,maintenance_quantity,lost_quantity,borrower_visible,data,updated_at)
+      VALUES('item-for-req','Test Item','Cat','A','QUANTITY',1,1,0,0,0,0,0,1,'{}',?)`,
+    args: [now],
+  });
+  await client.execute({
+    sql: "INSERT INTO requests(id,user_id,status,created_at,data) VALUES('req-rem',?,'REJECTED',?,'{}')",
+    args: [member.id, now],
+  });
+  await client.execute({
+    sql: "INSERT INTO request_lines(id,request_id,item_id,equipment_class,quantity,data) VALUES('rl-rem','req-rem','item-for-req','A',1,'{}')",
+  });
+
+  const res = await request(
+    "/api/v1/board/rpc",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        service: "user",
+        method: "removeUser",
+        args: [member.id, superadmin.id, "SUPERADMIN"],
+      }),
+      headers: { "Content-Type": "application/json" },
+    },
+    superadmin.cookie
+  );
+
+  expect(res.status).toBe(200);
+  const data = await res.json();
+  expect(data).toMatchObject({ success: true });
+
+  // Verify user is deleted from both app_users and auth user
+  const checkAppUser = await client.execute({
+    sql: "SELECT id FROM app_users WHERE id=?",
+    args: [member.id],
+  });
+  expect(checkAppUser.rows.length).toBe(0);
+
+  const checkUser = await client.execute({
+    sql: "SELECT id FROM user WHERE id=?",
+    args: [member.id],
+  });
+  expect(checkUser.rows.length).toBe(0);
+});
