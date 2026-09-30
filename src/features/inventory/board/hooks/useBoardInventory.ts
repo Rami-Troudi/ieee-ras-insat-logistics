@@ -84,3 +84,16 @@ export function useSetBorrowerVisibility() {
     },
   });
 }
+
+export function useDeleteInventoryItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (params: { itemId: string; actorUserId: string; actorRole: string }) =>
+      boardInventoryService.deleteItem(params.itemId, params.actorUserId, params.actorRole),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.boardInventory.all });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.inventory.all });
+    },
+  });
+}

@@ -1331,6 +1331,42 @@ app.patch("/api/v1/board/inventory/:id/visibility", async (c) => {
   return c.json(record);
 });
 
+app.delete("/api/v1/board/inventory/:id", async (c) => {
+  const actor = await requireBoard(c);
+  if (!actor) return jsonError(c, 403, "FORBIDDEN", "Verified board access is required");
+  const itemId = c.req.param("id");
+  const row = await c.env.DB.prepare(
+    "SELECT data, borrowed_quantity, allocated_quantity FROM inventory WHERE id=?"
+  )
+    .bind(itemId)
+    .first<{ data: string; borrowed_quantity: number; allocated_quantity: number }>();
+  if (!row) return jsonError(c, 404, "NOT_FOUND", "Inventory item not found");
+  if (row.borrowed_quantity > 0)
+    return jsonError(c, 409, "CONFLICT", "Cannot delete item while units are borrowed on active loans");
+  if (row.allocated_quantity > 0)
+    return jsonError(c, 409, "CONFLICT", "Cannot delete item with active pending allocations");
+
+  const item = parseJson<any>(row.data);
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM request_lines WHERE item_id=?").bind(itemId),
+    c.env.DB.prepare("DELETE FROM inventory_assets WHERE item_id=?").bind(itemId),
+    c.env.DB.prepare("DELETE FROM record_store WHERE kind='inventory_event' AND owner_id=?").bind(itemId),
+    c.env.DB.prepare("DELETE FROM inventory WHERE id=?").bind(itemId),
+    c.env.DB.prepare(
+      "INSERT INTO audit_events(id,actor_user_id,entity_type,entity_id,action,created_at,data) VALUES(?,?,?,?,?,?,?)"
+    ).bind(
+      uuid("audit"),
+      actor.id,
+      "INVENTORY",
+      itemId,
+      "INVENTORY_DELETED",
+      now(),
+      JSON.stringify({ name: item.name })
+    ),
+  ]);
+  return c.json({ success: true, id: itemId });
+});
+
 app.get("/api/v1/board/loans", async (c) => {
   const actor = await requireBoard(c);
   if (!actor) return jsonError(c, 403, "FORBIDDEN", "Verified board access is required");

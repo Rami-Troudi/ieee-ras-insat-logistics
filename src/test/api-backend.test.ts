@@ -782,3 +782,167 @@ it("maps verified Eurobot and RAS Board affiliations to Level V during human pro
   expect(processed.clearance).toBe("V");
   expect(processed.affiliation).toBe("EUROBOT");
 });
+
+it("supports the 3 core inventory actions: add number, remove number, and delete as whole", async () => {
+  const board = await seedUser({
+    id: "board-inv-tester",
+    email: "board-inv@example.test",
+    role: "OPERATOR",
+    clearance: "V",
+  });
+  await seedFreshBoardSession(board.id);
+
+  const itemId = "item-test-3actions";
+  const itemData = {
+    id: itemId,
+    name: "Oscilloscope 100MHz",
+    category: "Measurement",
+    equipmentClass: "B",
+    trackingMode: "QUANTITY",
+    totalQuantity: 5,
+    availableQuantity: 5,
+    allocatedQuantity: 0,
+    borrowedQuantity: 0,
+    damagedQuantity: 0,
+    maintenanceQuantity: 0,
+    lostQuantity: 0,
+    borrowerVisible: true,
+  };
+
+  await client.execute({
+    sql: `INSERT INTO inventory(id,name,category,equipment_class,tracking_mode,total_quantity,available_quantity,allocated_quantity,borrowed_quantity,damaged_quantity,maintenance_quantity,lost_quantity,borrower_visible,data,updated_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    args: [
+      itemId,
+      itemData.name,
+      itemData.category,
+      itemData.equipmentClass,
+      itemData.trackingMode,
+      itemData.totalQuantity,
+      itemData.availableQuantity,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      JSON.stringify(itemData),
+      Date.now(),
+    ],
+  });
+
+  // Action 1: Add Number
+  const addRes = await request(
+    "/api/v1/board/rpc",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service: "inventory",
+        method: "mutateStock",
+        args: [
+          {
+            itemId,
+            type: "ADD",
+            quantity: 3,
+            reason: "Received new units",
+          },
+        ],
+      }),
+    },
+    board.cookie
+  );
+  expect(addRes.status).toBe(200);
+  const addData = (await addRes.json()) as any;
+  expect(addData.item.totalQuantity).toBe(8);
+  expect(addData.item.availableQuantity).toBe(8);
+
+  // Action 2: Remove Number (as regular board member, not requiring superadmin)
+  const removeRes = await request(
+    "/api/v1/board/rpc",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service: "inventory",
+        method: "mutateStock",
+        args: [
+          {
+            itemId,
+            type: "REMOVE",
+            quantity: 2,
+            reason: "Decommissioned 2 worn units",
+          },
+        ],
+      }),
+    },
+    board.cookie
+  );
+  expect(removeRes.status).toBe(200);
+  const removeData = (await removeRes.json()) as any;
+  expect(removeData.item.totalQuantity).toBe(6);
+  expect(removeData.item.availableQuantity).toBe(6);
+
+  // Action 3: Delete as Whole via RPC deleteItem
+  const deleteRes = await request(
+    "/api/v1/board/rpc",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service: "inventory",
+        method: "deleteItem",
+        args: [itemId],
+      }),
+    },
+    board.cookie
+  );
+  expect(deleteRes.status).toBe(200);
+  const deleteData = (await deleteRes.json()) as any;
+  expect(deleteData.success).toBe(true);
+
+  // Verify item is completely gone from database
+  const checkRow = await client.execute({
+    sql: "SELECT id FROM inventory WHERE id=?",
+    args: [itemId],
+  });
+  expect(checkRow.rows.length).toBe(0);
+
+  // Also test REST DELETE endpoint /api/v1/board/inventory/:id
+  const itemId2 = "item-test-rest-delete";
+  const itemData2 = { ...itemData, id: itemId2, name: "Soldering Iron" };
+  await client.execute({
+    sql: `INSERT INTO inventory(id,name,category,equipment_class,tracking_mode,total_quantity,available_quantity,allocated_quantity,borrowed_quantity,damaged_quantity,maintenance_quantity,lost_quantity,borrower_visible,data,updated_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    args: [
+      itemId2,
+      itemData2.name,
+      itemData2.category,
+      itemData2.equipmentClass,
+      itemData2.trackingMode,
+      itemData2.totalQuantity,
+      itemData2.availableQuantity,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      JSON.stringify(itemData2),
+      Date.now(),
+    ],
+  });
+
+  const restDeleteRes = await request(
+    `/api/v1/board/inventory/${itemId2}`,
+    { method: "DELETE" },
+    board.cookie
+  );
+  expect(restDeleteRes.status).toBe(200);
+
+  const checkRow2 = await client.execute({
+    sql: "SELECT id FROM inventory WHERE id=?",
+    args: [itemId2],
+  });
+  expect(checkRow2.rows.length).toBe(0);
+});

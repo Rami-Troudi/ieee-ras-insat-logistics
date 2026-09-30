@@ -323,6 +323,29 @@ export async function dispatchBoardRpc(
         .all<{ data: string }>();
       return ok((rows.results ?? []).map((r) => decode(r.data)));
     }
+    if (method === "deleteItem") {
+      const itemId = String(args[0]);
+      const row = await env.DB.prepare(
+        "SELECT data, borrowed_quantity, allocated_quantity FROM inventory WHERE id=?"
+      )
+        .bind(itemId)
+        .first<{ data: string; borrowed_quantity: number; allocated_quantity: number }>();
+      if (!row) return fail(404, "NOT_FOUND", "Inventory item not found");
+      if (row.borrowed_quantity > 0)
+        return fail(409, "CONFLICT", "Cannot delete item while units are borrowed on active loans");
+      if (row.allocated_quantity > 0)
+        return fail(409, "CONFLICT", "Cannot delete item with active pending allocations");
+
+      const item = decode<any>(row.data);
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM request_lines WHERE item_id=?").bind(itemId),
+        env.DB.prepare("DELETE FROM inventory_assets WHERE item_id=?").bind(itemId),
+        env.DB.prepare("DELETE FROM record_store WHERE kind='inventory_event' AND owner_id=?").bind(itemId),
+        env.DB.prepare("DELETE FROM inventory WHERE id=?").bind(itemId),
+        audit(env, actor, "INVENTORY", itemId, "INVENTORY_DELETED", { name: item.name }),
+      ]);
+      return ok({ success: true, id: itemId });
+    }
   }
 
   if (service === "request") {
@@ -420,7 +443,7 @@ async function mutateStock(env: Env, actor: AppUser, payload: any): Promise<RpcR
     payload.reason.length > 1000
   )
     return fail(400, "VALIDATION", "Stock movement details are invalid");
-  const sensitive = ["CORRECT", "REMOVE", "RETIRE", "CONSUME"].includes(payload.type);
+  const sensitive = ["CORRECT", "RETIRE", "CONSUME"].includes(payload.type);
   if (sensitive && actor.role !== "SUPERADMIN")
     return fail(403, "FORBIDDEN", "Superadmin access is required for this stock correction");
   if (payload.type !== "CORRECT" && payload.quantity < 1)
@@ -451,9 +474,16 @@ async function mutateStock(env: Env, actor: AppUser, payload: any): Promise<RpcR
         throw new Error("Quantity-tracked inventory does not accept asset identifiers");
       return [] as any[];
     }
-    if (selected.length !== count || new Set(selected).size !== count)
+    let toSelect = selected;
+    if (toSelect.length === 0 && count > 0) {
+      const avail = (item.assets ?? []).filter((a: any) => a.state === state);
+      if (avail.length < count)
+        throw new Error(`Only ${avail.length} units available in ${state} state`);
+      toSelect = avail.slice(0, count).map((a: any) => a.id);
+    }
+    if (toSelect.length !== count || new Set(toSelect).size !== count)
       throw new Error(`Select exactly ${count} individual assets`);
-    const assets = selected.map((assetId: string) =>
+    const assets = toSelect.map((assetId: string) =>
       item.assets?.find((asset: any) => asset.id === assetId)
     );
     if (assets.some((asset: any) => !asset || asset.state !== state))
@@ -468,8 +498,13 @@ async function mutateStock(env: Env, actor: AppUser, payload: any): Promise<RpcR
         throw new Error("Quantity-tracked inventory does not accept asset serial numbers");
       return [] as any[];
     }
-    if (!Array.isArray(payload.newAssets) || payload.newAssets.length !== count)
-      throw new Error(`Enter serial numbers for all ${count} added units`);
+    if (!Array.isArray(payload.newAssets) || payload.newAssets.length !== count) {
+      const prefix = item.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 6).toUpperCase() || "UNIT";
+      payload.newAssets = Array.from({ length: count }, (_, i) => ({
+        serialNumber: `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}-${i + 1}`,
+        condition: "GOOD",
+      }));
+    }
     const existing = new Set((item.assets ?? []).map((asset: any) => asset.serialNumber));
     const serials = payload.newAssets.map((asset: any) =>
       typeof asset.serialNumber === "string" ? asset.serialNumber.trim() : ""
@@ -506,10 +541,11 @@ async function mutateStock(env: Env, actor: AppUser, payload: any): Promise<RpcR
       if (item.availableQuantity < q)
         return fail(409, "CONFLICT", "Only available units can be removed");
       const assets = requireAssets(q, "AVAILABLE");
+      const removedIds = assets.map((a: any) => a.id);
       if (assets.length) {
-        item.assets = item.assets.filter((asset: any) => !selected.includes(asset.id));
-        assetDeletes.push(...selected);
-        touched.push(...selected);
+        item.assets = item.assets.filter((asset: any) => !removedIds.includes(asset.id));
+        assetDeletes.push(...removedIds);
+        touched.push(...removedIds);
       }
       item.totalQuantity -= q;
       item.availableQuantity -= q;

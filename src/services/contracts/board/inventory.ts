@@ -68,4 +68,9 @@ export interface IBoardInventoryService {
     actorRole: string
   ): Promise<IndividualAsset>;
   getMovementHistory(itemId?: string): Promise<InventoryEvent[]>;
+  deleteItem(
+    itemId: string,
+    actorUserId: string,
+    actorRole: string
+  ): Promise<{ success: boolean; id: string }>;
 }

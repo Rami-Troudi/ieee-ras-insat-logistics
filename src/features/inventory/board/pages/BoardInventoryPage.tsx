@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { PageContainer, PageHeader } from "@/components/shared/PageContainer";
+import { AlertBanner } from "@/components/shared/AlertBanner";
+import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/shared/LoadingState";
@@ -9,9 +11,10 @@ import {
   useBoardInventory,
   useCreateInventoryItem,
   useSetBorrowerVisibility,
+  useDeleteInventoryItem,
 } from "../hooks/useBoardInventory";
-import { Package, Search, Plus, Eye, EyeOff } from "lucide-react";
-import { EquipmentClass } from "@/types";
+import { Package, Search, Plus, Eye, EyeOff, Trash2 } from "lucide-react";
+import { EquipmentClass, InventoryItemSummary } from "@/types";
 import { DEFAULT_EQUIPMENT_IMAGE } from "@/assets/equipmentImages";
 
 const isBorrowerCatalogVisible = (item: { borrowerVisible?: boolean; equipmentClass: string }) =>
@@ -19,14 +22,23 @@ const isBorrowerCatalogVisible = (item: { borrowerVisible?: boolean; equipmentCl
 
 export const BoardInventoryPage: React.FC = () => {
   const { currentPersona } = useSession();
+  const location = useLocation();
   const { data: items = [], isLoading } = useBoardInventory();
   const createItemMutation = useCreateInventoryItem();
   const visibilityMutation = useSetBorrowerVisibility();
+  const deleteItemMutation = useDeleteInventoryItem();
 
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
   const [classFilter, setClassFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Delete modal state
+  const [itemToDelete, setItemToDelete] = useState<InventoryItemSummary | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [pageNotice, setPageNotice] = useState<string | null>(
+    (location.state as { notice?: string } | null)?.notice || null
+  );
 
   // Form state for creating a new item
   const [newItemName, setNewItemName] = useState("");
@@ -44,9 +56,6 @@ export const BoardInventoryPage: React.FC = () => {
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      if (classFilter === "NEEDS_ATTENTION") {
-        return (item.damagedQuantity || 0) > 0 || (item.maintenanceQuantity || 0) > 0;
-      }
       if (categoryFilter !== "ALL" && item.category !== categoryFilter) return false;
       if (classFilter !== "ALL" && item.equipmentClass !== classFilter) return false;
       if (searchQuery.trim()) {
@@ -84,8 +93,36 @@ export const BoardInventoryPage: React.FC = () => {
       setNewItemName("");
       setNewItemDescription("");
       setNewItemQty(1);
+      setPageNotice(`Added "${name}" to inventory.`);
     } catch {
       // Keep the modal open so input is preserved; the global MutationErrorHost reports the error.
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    if ((itemToDelete.borrowedQuantity || 0) > 0) {
+      setDeleteError("Cannot delete item while units are borrowed on active loans.");
+      return;
+    }
+    if ((itemToDelete.allocatedQuantity || 0) > 0) {
+      setDeleteError("Cannot delete item with active pending allocations.");
+      return;
+    }
+
+    try {
+      setDeleteError(null);
+      await deleteItemMutation.mutateAsync({
+        itemId: itemToDelete.id,
+        actorUserId: currentPersona.id,
+        actorRole: currentPersona.role,
+      });
+      const deletedName = itemToDelete.name;
+      setItemToDelete(null);
+      setPageNotice(`Item "${deletedName}" was permanently deleted from inventory.`);
+    } catch (err: unknown) {
+      const e = err as Error;
+      setDeleteError(e.message || "Failed to delete item");
     }
   };
 
@@ -101,7 +138,7 @@ export const BoardInventoryPage: React.FC = () => {
     <PageContainer maxWidth="wide">
       <PageHeader
         title="Board Inventory Operations"
-        description="Master catalog ledger, real-time stock allocation balances, condition management, and manual stock mutations."
+        description="Master catalog ledger, real-time stock balances, add/remove unit controls, and item deletions."
         action={
           <Button
             variant="default"
@@ -115,13 +152,27 @@ export const BoardInventoryPage: React.FC = () => {
         }
       />
 
+      {pageNotice && (
+        <div className="mb-4">
+          <AlertBanner variant="info" title="Inventory Updated" description={pageNotice} />
+        </div>
+      )}
+
+      {deleteError && (
+        <div className="mb-4">
+          <AlertBanner variant="warning" title="Action Blocked" description={deleteError} />
+        </div>
+      )}
+
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             type="button"
-            variant={classFilter === "NEEDS_ATTENTION" ? "destructive" : "outline"}
+            variant={categoryFilter === "ALL" ? "default" : "outline"}
             size="sm"
+            onClick={() => setCategoryFilter("ALL")}
+            className="h-8 text-xs"
           >
             All Categories
           </Button>
@@ -190,9 +241,7 @@ export const BoardInventoryPage: React.FC = () => {
                     <th className="py-3 px-4">Class</th>
                     <th className="py-3 px-4">Total</th>
                     <th className="py-3 px-4">Available</th>
-                    <th className="py-3 px-4">Allocated (48h)</th>
                     <th className="py-3 px-4">Borrowed</th>
-                    <th className="py-3 px-4">Damaged</th>
                     <th className="py-3 px-4">Location</th>
                     <th className="py-3 px-4">Borrower access</th>
                     <th className="py-3 px-4 text-right">Actions</th>
@@ -245,14 +294,8 @@ export const BoardInventoryPage: React.FC = () => {
                             {item.availableQuantity}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-amber-600 font-medium">
-                          {item.allocatedQuantity || 0}
-                        </td>
                         <td className="py-3 px-4 text-foreground font-medium">
                           {item.borrowedQuantity || 0}
-                        </td>
-                        <td className="py-3 px-4 text-muted-foreground">
-                          {item.damagedQuantity || 0}
                         </td>
                         <td className="py-3 px-4 font-mono text-muted-foreground">
                           {item.location || "Cabinet"}
@@ -281,12 +324,27 @@ export const BoardInventoryPage: React.FC = () => {
                           </Button>
                         </td>
                         <td className="py-3 px-4 text-right whitespace-nowrap">
-                          <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1">
-                            <Link to={`/board/inventory/${item.id}`}>
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>Manage</span>
-                            </Link>
-                          </Button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1">
+                              <Link to={`/board/inventory/${item.id}`}>
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Manage</span>
+                              </Link>
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setDeleteError(null);
+                                setItemToDelete(item);
+                              }}
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              title={`Delete ${item.name} as whole`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -424,6 +482,24 @@ export const BoardInventoryPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Item as Whole Confirmation Dialog */}
+      <ConfirmationDialog
+        open={Boolean(itemToDelete)}
+        onClose={() => {
+          setItemToDelete(null);
+          setDeleteError(null);
+        }}
+        title="Delete Item as Whole?"
+        description={
+          itemToDelete
+            ? `Are you sure you want to permanently delete "${itemToDelete.name}"? This removes the item and all its units from the inventory master.`
+            : ""
+        }
+        variant="destructive"
+        confirmLabel={deleteItemMutation.isPending ? "Deleting..." : "Delete Item Permanently"}
+        onConfirm={handleConfirmDelete}
+      />
     </PageContainer>
   );
 };

@@ -216,6 +216,26 @@ async function dispatchBoardRpc(env, actor, input) {
       ).bind(...args[0] ? [args[0]] : []).all();
       return ok((rows.results ?? []).map((r) => decode(r.data)));
     }
+    if (method === "deleteItem") {
+      const itemId = String(args[0]);
+      const row = await env.DB.prepare(
+        "SELECT data, borrowed_quantity, allocated_quantity FROM inventory WHERE id=?"
+      ).bind(itemId).first();
+      if (!row) return fail(404, "NOT_FOUND", "Inventory item not found");
+      if (row.borrowed_quantity > 0)
+        return fail(409, "CONFLICT", "Cannot delete item while units are borrowed on active loans");
+      if (row.allocated_quantity > 0)
+        return fail(409, "CONFLICT", "Cannot delete item with active pending allocations");
+      const item = decode(row.data);
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM request_lines WHERE item_id=?").bind(itemId),
+        env.DB.prepare("DELETE FROM inventory_assets WHERE item_id=?").bind(itemId),
+        env.DB.prepare("DELETE FROM record_store WHERE kind='inventory_event' AND owner_id=?").bind(itemId),
+        env.DB.prepare("DELETE FROM inventory WHERE id=?").bind(itemId),
+        audit(env, actor, "INVENTORY", itemId, "INVENTORY_DELETED", { name: item.name })
+      ]);
+      return ok({ success: true, id: itemId });
+    }
   }
   if (service === "request") {
     if (method === "getRequests") {
@@ -282,7 +302,7 @@ async function dispatchBoardRpc(env, actor, input) {
 async function mutateStock(env, actor, payload) {
   if (!payload || typeof payload.itemId !== "string" || !Number.isInteger(payload.quantity) || payload.quantity === 0 || Math.abs(payload.quantity) > 1e5 || typeof payload.reason !== "string" || !payload.reason.trim() || payload.reason.length > 1e3)
     return fail(400, "VALIDATION", "Stock movement details are invalid");
-  const sensitive = ["CORRECT", "REMOVE", "RETIRE", "CONSUME"].includes(payload.type);
+  const sensitive = ["CORRECT", "RETIRE", "CONSUME"].includes(payload.type);
   if (sensitive && actor.role !== "SUPERADMIN")
     return fail(403, "FORBIDDEN", "Superadmin access is required for this stock correction");
   if (payload.type !== "CORRECT" && payload.quantity < 1)
@@ -311,9 +331,16 @@ async function mutateStock(env, actor, payload) {
         throw new Error("Quantity-tracked inventory does not accept asset identifiers");
       return [];
     }
-    if (selected.length !== count || new Set(selected).size !== count)
+    let toSelect = selected;
+    if (toSelect.length === 0 && count > 0) {
+      const avail = (item.assets ?? []).filter((a) => a.state === state);
+      if (avail.length < count)
+        throw new Error(`Only ${avail.length} units available in ${state} state`);
+      toSelect = avail.slice(0, count).map((a) => a.id);
+    }
+    if (toSelect.length !== count || new Set(toSelect).size !== count)
       throw new Error(`Select exactly ${count} individual assets`);
-    const assets = selected.map(
+    const assets = toSelect.map(
       (assetId) => item.assets?.find((asset) => asset.id === assetId)
     );
     if (assets.some((asset) => !asset || asset.state !== state))
@@ -328,8 +355,13 @@ async function mutateStock(env, actor, payload) {
         throw new Error("Quantity-tracked inventory does not accept asset serial numbers");
       return [];
     }
-    if (!Array.isArray(payload.newAssets) || payload.newAssets.length !== count)
-      throw new Error(`Enter serial numbers for all ${count} added units`);
+    if (!Array.isArray(payload.newAssets) || payload.newAssets.length !== count) {
+      const prefix = item.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 6).toUpperCase() || "UNIT";
+      payload.newAssets = Array.from({ length: count }, (_, i) => ({
+        serialNumber: `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}-${i + 1}`,
+        condition: "GOOD"
+      }));
+    }
     const existing = new Set((item.assets ?? []).map((asset) => asset.serialNumber));
     const serials = payload.newAssets.map(
       (asset) => typeof asset.serialNumber === "string" ? asset.serialNumber.trim() : ""
@@ -357,10 +389,11 @@ async function mutateStock(env, actor, payload) {
       if (item.availableQuantity < q)
         return fail(409, "CONFLICT", "Only available units can be removed");
       const assets = requireAssets(q, "AVAILABLE");
+      const removedIds = assets.map((a) => a.id);
       if (assets.length) {
-        item.assets = item.assets.filter((asset) => !selected.includes(asset.id));
-        assetDeletes.push(...selected);
-        touched.push(...selected);
+        item.assets = item.assets.filter((asset) => !removedIds.includes(asset.id));
+        assetDeletes.push(...removedIds);
+        touched.push(...removedIds);
       }
       item.totalQuantity -= q;
       item.availableQuantity -= q;
@@ -3137,6 +3170,38 @@ app.patch("/api/v1/board/inventory/:id/visibility", async (c) => {
     return jsonError(c, 409, "CONFLICT", "Inventory changed; reload and retry");
   }
   return c.json(record);
+});
+app.delete("/api/v1/board/inventory/:id", async (c) => {
+  const actor = await requireBoard(c);
+  if (!actor) return jsonError(c, 403, "FORBIDDEN", "Verified board access is required");
+  const itemId = c.req.param("id");
+  const row = await c.env.DB.prepare(
+    "SELECT data, borrowed_quantity, allocated_quantity FROM inventory WHERE id=?"
+  ).bind(itemId).first();
+  if (!row) return jsonError(c, 404, "NOT_FOUND", "Inventory item not found");
+  if (row.borrowed_quantity > 0)
+    return jsonError(c, 409, "CONFLICT", "Cannot delete item while units are borrowed on active loans");
+  if (row.allocated_quantity > 0)
+    return jsonError(c, 409, "CONFLICT", "Cannot delete item with active pending allocations");
+  const item = parseJson(row.data);
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM request_lines WHERE item_id=?").bind(itemId),
+    c.env.DB.prepare("DELETE FROM inventory_assets WHERE item_id=?").bind(itemId),
+    c.env.DB.prepare("DELETE FROM record_store WHERE kind='inventory_event' AND owner_id=?").bind(itemId),
+    c.env.DB.prepare("DELETE FROM inventory WHERE id=?").bind(itemId),
+    c.env.DB.prepare(
+      "INSERT INTO audit_events(id,actor_user_id,entity_type,entity_id,action,created_at,data) VALUES(?,?,?,?,?,?,?)"
+    ).bind(
+      uuid("audit"),
+      actor.id,
+      "INVENTORY",
+      itemId,
+      "INVENTORY_DELETED",
+      now(),
+      JSON.stringify({ name: item.name })
+    )
+  ]);
+  return c.json({ success: true, id: itemId });
 });
 app.get("/api/v1/board/loans", async (c) => {
   const actor = await requireBoard(c);

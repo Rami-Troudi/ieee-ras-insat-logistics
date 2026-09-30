@@ -1,29 +1,38 @@
 import React, { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { PageContainer, PageHeader } from "@/components/shared/PageContainer";
 import { AlertBanner } from "@/components/shared/AlertBanner";
+import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { useSession } from "@/hooks/useSession";
-import { useBoardItemDetail, useBoardItemEvents, useMutateStock } from "../hooks/useBoardInventory";
-import { ArrowLeft, Package, SlidersHorizontal, History } from "lucide-react";
-import { InventoryEventType } from "@/types";
+import {
+  useBoardItemDetail,
+  useBoardItemEvents,
+  useMutateStock,
+  useDeleteInventoryItem,
+} from "../hooks/useBoardInventory";
+import { ArrowLeft, Package, History, Plus, Minus, Trash2 } from "lucide-react";
 
 export const BoardItemDetailPage: React.FC = () => {
   const { itemId } = useParams<{ itemId: string }>();
+  const navigate = useNavigate();
   const { currentPersona } = useSession();
 
   const { data: item, isLoading } = useBoardItemDetail(itemId || "");
   const { data: events = [] } = useBoardItemEvents(itemId || "");
 
   const mutateStockMutation = useMutateStock();
+  const deleteItemMutation = useDeleteInventoryItem();
 
-  // Stock mutation modal state
-  const [showMutationModal, setShowMutationModal] = useState(false);
-  const [mutationType, setMutationType] = useState<InventoryEventType>("ADD");
-  const [mutationQty, setMutationQty] = useState<number>(1);
-  const [mutationReason, setMutationReason] = useState("");
+  // Action states: 1) Add number, 2) Remove number, 3) Delete as whole
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const [quantityInput, setQuantityInput] = useState<number>(1);
+  const [reasonInput, setReasonInput] = useState("");
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -36,28 +45,89 @@ export const BoardItemDetailPage: React.FC = () => {
     );
   }
 
-  const handleStockMutation = async (e: React.FormEvent) => {
+  const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (quantityInput < 1) return;
     try {
       setErrorMessage(null);
       await mutateStockMutation.mutateAsync({
         payload: {
           itemId: item.id,
-          type: mutationType,
-          quantity: mutationQty,
-          reason: mutationReason || `Stock adjustment: ${mutationType}`,
+          type: "ADD",
+          quantity: quantityInput,
+          reason: reasonInput.trim() || `Added ${quantityInput} units to stock`,
         },
         actorUserId: currentPersona.id,
         actorRole: currentPersona.role,
       });
 
-      setShowMutationModal(false);
-      setSuccessMessage(`Stock mutation (${mutationType}) executed successfully.`);
-      setMutationQty(1);
-      setMutationReason("");
+      setShowAddModal(false);
+      setSuccessMessage(`Successfully added ${quantityInput} unit(s) to stock.`);
+      setQuantityInput(1);
+      setReasonInput("");
     } catch (err: unknown) {
       const e = err as Error;
-      setErrorMessage(e.message || "Failed to mutate stock");
+      setErrorMessage(e.message || "Failed to add stock units");
+    }
+  };
+
+  const handleRemoveStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (quantityInput < 1) return;
+    if (quantityInput > item.availableQuantity) {
+      setErrorMessage(`Cannot remove ${quantityInput} units. Only ${item.availableQuantity} units are available.`);
+      return;
+    }
+    try {
+      setErrorMessage(null);
+      await mutateStockMutation.mutateAsync({
+        payload: {
+          itemId: item.id,
+          type: "REMOVE",
+          quantity: quantityInput,
+          reason: reasonInput.trim() || `Removed ${quantityInput} units from stock`,
+        },
+        actorUserId: currentPersona.id,
+        actorRole: currentPersona.role,
+      });
+
+      setShowRemoveModal(false);
+      setSuccessMessage(`Successfully removed ${quantityInput} unit(s) from stock.`);
+      setQuantityInput(1);
+      setReasonInput("");
+    } catch (err: unknown) {
+      const e = err as Error;
+      setErrorMessage(e.message || "Failed to remove stock units");
+    }
+  };
+
+  const handleDeleteItem = async () => {
+    if ((item.borrowedQuantity || 0) > 0) {
+      setErrorMessage("Cannot delete item while units are borrowed on active loans.");
+      setShowDeleteConfirm(false);
+      return;
+    }
+    if ((item.allocatedQuantity || 0) > 0) {
+      setErrorMessage("Cannot delete item with active pending allocations.");
+      setShowDeleteConfirm(false);
+      return;
+    }
+    try {
+      setErrorMessage(null);
+      await deleteItemMutation.mutateAsync({
+        itemId: item.id,
+        actorUserId: currentPersona.id,
+        actorRole: currentPersona.role,
+      });
+      setShowDeleteConfirm(false);
+      navigate("/board/inventory", {
+        replace: true,
+        state: { notice: `Item "${item.name}" was permanently deleted from inventory.` },
+      });
+    } catch (err: unknown) {
+      const e = err as Error;
+      setErrorMessage(e.message || "Failed to delete item");
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -79,12 +149,46 @@ export const BoardItemDetailPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <Button
               variant="default"
-              size="default"
-              onClick={() => setShowMutationModal(true)}
+              size="sm"
+              onClick={() => {
+                setQuantityInput(1);
+                setReasonInput("");
+                setErrorMessage(null);
+                setShowAddModal(true);
+              }}
+              className="gap-1.5 font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Number</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setQuantityInput(1);
+                setReasonInput("");
+                setErrorMessage(null);
+                setShowRemoveModal(true);
+              }}
+              disabled={item.availableQuantity <= 0}
+              className="gap-1.5 font-semibold text-xs border-amber-500/50 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+            >
+              <Minus className="w-4 h-4" />
+              <span>Remove Number</span>
+            </Button>
+
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                setErrorMessage(null);
+                setShowDeleteConfirm(true);
+              }}
               className="gap-1.5 font-semibold text-xs"
             >
-              <SlidersHorizontal className="w-4 h-4" />
-              <span>Mutate Stock</span>
+              <Trash2 className="w-4 h-4" />
+              <span>Delete as Whole</span>
             </Button>
           </div>
         }
@@ -92,7 +196,7 @@ export const BoardItemDetailPage: React.FC = () => {
 
       {errorMessage && (
         <div className="mb-4">
-          <AlertBanner variant="warning" title="Operation Failed" description={errorMessage} />
+          <AlertBanner variant="warning" title="Action Blocked" description={errorMessage} />
         </div>
       )}
 
@@ -102,66 +206,46 @@ export const BoardItemDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Live Stock Breakdown Metric Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      {/* Simplified Live Stock Metrics */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <div className="p-4 rounded-xl border border-border bg-card">
           <span className="text-[11px] font-semibold uppercase text-muted-foreground block">
-            Total In System
+            Total in Stock
           </span>
           <span className="text-2xl font-bold text-foreground mt-1 block">
             {item.totalQuantity}
           </span>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Physical assets</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">All units on record</p>
         </div>
 
         <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
-          <span className="text-[11px] font-semibold uppercase text-emerald-600 block">
+          <span className="text-[11px] font-semibold uppercase text-emerald-600 dark:text-emerald-400 block">
             Available Now
           </span>
-          <span className="text-2xl font-bold text-emerald-600 mt-1 block">
+          <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 block">
             {item.availableQuantity}
           </span>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Ready for loan</p>
-        </div>
-
-        <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5">
-          <span className="text-[11px] font-semibold uppercase text-amber-600 block">
-            Allocated (48h)
-          </span>
-          <span className="text-2xl font-bold text-amber-600 mt-1 block">
-            {item.allocatedQuantity || 0}
-          </span>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Pending pickup</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Ready for borrow</p>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-card">
           <span className="text-[11px] font-semibold uppercase text-muted-foreground block">
-            Active Loans
+            Borrowed / Out
           </span>
           <span className="text-2xl font-bold text-foreground mt-1 block">
             {item.borrowedQuantity || 0}
           </span>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Checked out</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Currently checked out</p>
         </div>
 
-        <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/5">
-          <span className="text-[11px] font-semibold uppercase text-destructive block">
-            Damaged
+        <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5">
+          <span className="text-[11px] font-semibold uppercase text-amber-600 dark:text-amber-400 block">
+            Allocated (Pending)
           </span>
-          <span className="text-2xl font-bold text-destructive mt-1 block">
-            {item.damagedQuantity || 0}
+          <span className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1 block">
+            {item.allocatedQuantity || 0}
           </span>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Broken hardware</p>
-        </div>
-
-        <div className="p-4 rounded-xl border border-border bg-card">
-          <span className="text-[11px] font-semibold uppercase text-muted-foreground block">
-            Tracking Mode
-          </span>
-          <span className="text-sm font-bold font-mono text-foreground mt-2 block">
-            {item.trackingMode}
-          </span>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Inventory model</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Awaiting pickup</p>
         </div>
       </div>
 
@@ -212,7 +296,7 @@ export const BoardItemDetailPage: React.FC = () => {
               <thead>
                 <tr className="border-b border-border bg-muted/30 text-muted-foreground text-[11px] uppercase font-semibold">
                   <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">Type</th>
+                  <th className="py-2.5 px-3">Action</th>
                   <th className="py-2.5 px-3">Qty</th>
                   <th className="py-2.5 px-3">Actor</th>
                   <th className="py-2.5 px-3">Reason / Details</th>
@@ -232,9 +316,11 @@ export const BoardItemDetailPage: React.FC = () => {
                         {new Date(evt.timestamp).toLocaleString()}
                       </td>
                       <td className="py-2.5 px-3 font-medium text-foreground">
-                        <span className="font-mono text-[11px]">{evt.type}</span>
+                        <span className="font-mono text-[11px] font-semibold">{evt.type}</span>
                       </td>
-                      <td className="py-2.5 px-3 font-bold whitespace-nowrap">{evt.quantity}</td>
+                      <td className="py-2.5 px-3 font-bold whitespace-nowrap">
+                        {evt.type === "REMOVE" ? `-${evt.quantity}` : `+${evt.quantity}`}
+                      </td>
                       <td className="py-2.5 px-3 font-mono text-muted-foreground">
                         {evt.actorName || evt.actorUserId}
                       </td>
@@ -248,61 +334,53 @@ export const BoardItemDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Stock Mutation Modal */}
-      {showMutationModal && (
+      {/* Action 1: Add Number Modal */}
+      {showAddModal && (
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-xl max-w-md w-full p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                <SlidersHorizontal className="w-5 h-5 text-primary" />
-                <span>Execute Stock Mutation</span>
+                <Plus className="w-5 h-5 text-emerald-600" />
+                <span>Add Units to Stock</span>
               </h3>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowMutationModal(false)}
+                onClick={() => setShowAddModal(false)}
                 className="h-7 w-7 p-0"
               >
                 ✕
               </Button>
             </div>
 
-            <form onSubmit={handleStockMutation} className="space-y-3 text-xs">
+            <form onSubmit={handleAddStock} className="space-y-4 text-xs">
               <div>
-                <label className="font-semibold text-foreground block mb-1">Mutation Type:</label>
-                <select
-                  value={mutationType}
-                  onChange={(e) => setMutationType(e.target.value as InventoryEventType)}
-                  className="w-full h-8 px-2 rounded-md border border-input bg-background text-xs"
-                >
-                  <option value="ADD">ADD (+ Total & Available)</option>
-                  <option value="DAMAGE">DAMAGE (- Available, + Damaged)</option>
-                  <option value="REPAIR">REPAIR (- Damaged, + Available)</option>
-                  <option value="RETIRE">RETIRE (- Total & Available)</option>
-                  <option value="CORRECT">CORRECT (Manual Count Adjustment)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="font-semibold text-foreground block mb-1">Quantity:</label>
+                <label className="font-semibold text-foreground block mb-1">
+                  How many units would you like to add?
+                </label>
                 <Input
                   type="number"
                   min={1}
-                  value={mutationQty}
-                  onChange={(e) => setMutationQty(parseInt(e.target.value) || 1)}
-                  className="h-8 text-xs font-semibold"
+                  max={10000}
+                  value={quantityInput}
+                  onChange={(e) => setQuantityInput(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="h-9 text-sm font-semibold"
+                  autoFocus
                 />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Current total: {item.totalQuantity} · New total will be:{" "}
+                  <strong className="text-foreground">{item.totalQuantity + (quantityInput || 0)}</strong>
+                </p>
               </div>
 
               <div>
                 <label className="font-semibold text-foreground block mb-1">
-                  Reason / Rationale Note:
+                  Reason / Note (optional):
                 </label>
                 <Input
-                  required
-                  placeholder="e.g. Received new shipment from DigiKey, found damaged pin..."
-                  value={mutationReason}
-                  onChange={(e) => setMutationReason(e.target.value)}
+                  placeholder="e.g. New shipment received, bought spare units..."
+                  value={reasonInput}
+                  onChange={(e) => setReasonInput(e.target.value)}
                   className="h-8 text-xs"
                 />
               </div>
@@ -312,7 +390,7 @@ export const BoardItemDetailPage: React.FC = () => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowMutationModal(false)}
+                  onClick={() => setShowAddModal(false)}
                   className="text-xs"
                 >
                   Cancel
@@ -322,15 +400,111 @@ export const BoardItemDetailPage: React.FC = () => {
                   variant="default"
                   size="sm"
                   disabled={mutateStockMutation.isPending}
-                  className="text-xs font-semibold"
+                  className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
                 >
-                  {mutateStockMutation.isPending ? "Executing..." : "Apply Mutation"}
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{mutateStockMutation.isPending ? "Adding..." : `Add ${quantityInput} Unit(s)`}</span>
                 </Button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Action 2: Remove Number Modal */}
+      {showRemoveModal && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl max-w-md w-full p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Minus className="w-5 h-5 text-amber-600" />
+                <span>Remove Units from Stock</span>
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowRemoveModal(false)}
+                className="h-7 w-7 p-0"
+              >
+                ✕
+              </Button>
+            </div>
+
+            <form onSubmit={handleRemoveStock} className="space-y-4 text-xs">
+              <div>
+                <label className="font-semibold text-foreground block mb-1">
+                  How many units would you like to remove?
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={item.availableQuantity}
+                  value={quantityInput}
+                  onChange={(e) =>
+                    setQuantityInput(Math.max(1, Math.min(item.availableQuantity, parseInt(e.target.value) || 1)))
+                  }
+                  className="h-9 text-sm font-semibold"
+                  autoFocus
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Available to remove: <strong className="text-foreground">{item.availableQuantity}</strong> · New
+                  available will be:{" "}
+                  <strong className="text-foreground">
+                    {Math.max(0, item.availableQuantity - (quantityInput || 0))}
+                  </strong>
+                </p>
+              </div>
+
+              <div>
+                <label className="font-semibold text-foreground block mb-1">
+                  Reason / Note (optional):
+                </label>
+                <Input
+                  placeholder="e.g. Discarded worn units, written off, consumable used..."
+                  value={reasonInput}
+                  onChange={(e) => setReasonInput(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRemoveModal(false)}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="default"
+                  size="sm"
+                  disabled={mutateStockMutation.isPending || item.availableQuantity <= 0}
+                  className="text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                  <span>
+                    {mutateStockMutation.isPending ? "Removing..." : `Remove ${quantityInput} Unit(s)`}
+                  </span>
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Action 3: Delete as Whole Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Delete Item as Whole?"
+        description={`Are you sure you want to permanently delete "${item.name}" from inventory? This action removes all ${item.totalQuantity} recorded unit(s) and cannot be undone.`}
+        variant="destructive"
+        confirmLabel={deleteItemMutation.isPending ? "Deleting..." : "Delete Item Permanently"}
+        onConfirm={handleDeleteItem}
+      />
     </PageContainer>
   );
 };
